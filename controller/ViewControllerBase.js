@@ -1,7 +1,7 @@
 var inflector = require("inflected");
 var _ = require("lodash");
 var moment = require("moment-timezone");
-var helpers = require("../view/index");
+var helpers = require("../helper/view/index");
 
 module.exports = class ViewControllerBase {
 	constructor() {

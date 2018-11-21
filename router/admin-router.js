@@ -6,7 +6,6 @@ let c = new Controller()
 router.use(authentication);
 
 router.use(async function(req, res, next){
-	console.log("Admin!!");
 	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
 	return next();
 });

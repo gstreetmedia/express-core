@@ -3,6 +3,7 @@ const ControllerBase = require("./ControllerBase");
 const _ = require('lodash');
 const fs = require('fs');
 const inflector = require("inflected");
+let helpers = require("../helper/view/index");
 let schemaList;
 
 module.exports = class AdminController extends ViewControllerBase {
@@ -174,8 +175,14 @@ module.exports = class AdminController extends ViewControllerBase {
 		}
 		let files = fs.readdirSync(global.appRoot + '/src/schema');
 		let list = [];
+
+
+
 		files.forEach(
 			function(file) {
+				if (file.indexOf(".js") === -1) {
+					return;
+				}
 				file = file.split("-schema.js").join("");
 				list.push(
 					{
@@ -186,6 +193,10 @@ module.exports = class AdminController extends ViewControllerBase {
 				)
 			}
 		);
+
+
+
+
 		schemaList = list;
 		return schemaList;
 	}
@@ -201,5 +212,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		const Controller = require(c);
 		return new Controller();
 	}
+
+
 
 }

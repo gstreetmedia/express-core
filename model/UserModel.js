@@ -1,15 +1,23 @@
-const ModelBase = require('../core/ModelBase');
+const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/config-schema');
+const schema = require('../schema/users-schema');
+const validation = require('../schema/validation/users-validation');
+const fields = require('../schema/fields/users-fields');
 
-module.exports = class ConfigModel extends ModelBase {
+module.exports = class UserModel extends ModelBase {
 
 	constructor(req) {
-		super(schema,'id',req);
+		super(schema, validation, fields, req);
 	}
 
-	async index(query){
-		return await super.index(query);
+	static get schema() { return schema; }
+
+	static get validation() { return validation; }
+
+	static get fields() { return fields; }
+
+	async index(key, value){
+		return await super.index(key, value);
 	}
 
 	async create(data){
@@ -30,6 +38,10 @@ module.exports = class ConfigModel extends ModelBase {
 
 	async destroy(id){
 		return await super.destroy(id);
+	}
+
+	async login(username, password) {
+
 	}
 
 }

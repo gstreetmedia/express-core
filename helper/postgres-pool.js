@@ -8,4 +8,4 @@ pool.query('SELECT NOW()', (err, res) => {
 	//console.log(err, res)
 });
 
-return pool;
+module.exports = pool;

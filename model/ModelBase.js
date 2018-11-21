@@ -1,4 +1,3 @@
-
 let moment = require("moment-timezone");
 let now = require("../helper/now");
 let uuid = require("node-uuid");
@@ -48,43 +47,6 @@ module.exports = class ModelBase {
 	}
 
 	/**
-	 * create a new record
-	 * @param data
-	 * @returns {Promise<*>}
-	 */
-	async create(data) {
-
-		this.checkPrimaryKey(data);
-
-		if (this.properties.createdAt) {
-			data.createdAt = now();
-		}
-
-		let params = this.convertDataTypes(data);
-		let missing = this.checkRequiredProperties(params);
-		if (missing.length > 0) {
-			throw new Error({message: "Missing => " + missing.join(", ")});
-		}
-
-		let command = sqlBuilder.insert(
-			this.tableName,
-			this.primaryKey,
-			params,
-			this.schema
-		);
-
-		try {
-			let result = await this.execute(command);
-			return {
-				id: params.id
-			}
-		} catch (e) {
-			//console.log(e);
-			return e;
-		}
-	}
-
-	/**
 	 *
 	 * @param id
 	 * @param query - used to pass in select & join
@@ -117,6 +79,67 @@ module.exports = class ModelBase {
 	}
 
 	/**
+	 * create a new record
+	 * @param data
+	 * @returns {Promise<*>}
+	 */
+	async create(data) {
+
+		this.checkPrimaryKey(data);
+
+		if (this.properties.createdAt) {
+			data.createdAt = now();
+		}
+
+		let params = this.convertDataTypes(data);
+
+		let invalid = this.validate(params);
+
+		if (invalid !== true) {
+			return {
+				error : {
+					invalid : invalid,
+					data : data,
+					action : "create"
+				}
+			};
+		}
+
+		let required = this.checkRequiredProperties(params, "create");
+
+		if (required !== true) {
+			return {
+				error : {
+					missing : required,
+					data : data,
+					action : "create"
+				}
+			};
+		}
+
+		let command = sqlBuilder.insert(
+			this.tableName,
+			this.primaryKey,
+			params,
+			this.schema
+		);
+
+		try {
+			let result = await this.execute(command);
+			return {
+				id : data[this.primaryKey],
+				body : data
+			};
+		} catch (e) {
+			return {
+				error : e
+			};
+		}
+	}
+
+
+
+	/**
 	 * Update one record
 	 * @param id
 	 * @param data
@@ -131,10 +154,30 @@ module.exports = class ModelBase {
 			data.updatedAt = now();
 
 			let params = this.convertDataTypes(data);
-			let missing = this.checkRequiredProperties(params);
+			let required = this.checkRequiredProperties(params, "update");
 
-			if (missing.length > 0) {
-				throw new Error({message: "Missing => " + missing.join(", ")});
+
+			if (required !== true) {
+				return {
+					error : {
+						missing : required,
+						data : data,
+						action : "update"
+
+					}
+				};
+			}
+
+			let invalid = this.validate(params);
+
+			if (invalid !== true) {
+				return {
+					error : {
+						invalid : invalid,
+						data : data,
+						action : "update"
+					}
+				};
 			}
 
 			let query = {};
@@ -148,21 +191,54 @@ module.exports = class ModelBase {
 
 			try {
 				let result = await this.execute(command);
-				return result;
+				return {
+					id : id,
+					body : params
+				};
 			} catch (e) {
-				console.log(e);
-				return null;
+				return {
+					error : e
+				};
 			}
 		} else {
-			throw new Error("Does not exist");
+			return {
+				error : {
+					id : id,
+					message : "Does not exist"
+				}
+			};
 		}
 	}
 
 	async updateWhere(query, data) {
+
+		data.updatedAt = now();
+
 		let params = this.convertDataTypes(data);
-		let missing = this.checkRequiredProperties(params);
-		if (missing.length > 0) {
-			throw new Error({message: "Missing => " + missing.join(", ")});
+		let required = this.checkRequiredProperties(params, "update");
+
+		console.log("required " + required);
+
+		if (required !== true) {
+			return {
+				error : {
+					missing : required,
+					data : data,
+					action : "updateWhere"
+				}
+			};
+		}
+
+		let invalid = this.validate(params);
+
+		if (invalid !== true) {
+			return {
+				error : {
+					invalid : invalid,
+					data : data,
+					action : "updateWhere"
+				}
+			};
 		}
 
 		let command = sqlBuilder.update(this.tableName, query, params, this.properties);
@@ -171,7 +247,9 @@ module.exports = class ModelBase {
 			let result = await this.execute(command);
 			return result;
 		} catch (e) {
-			return e;
+			return {
+				error : e
+			};
 		}
 	}
 
@@ -550,7 +628,6 @@ module.exports = class ModelBase {
 
 						break;
 				}
-
 			}
 		}
 
@@ -582,26 +659,47 @@ module.exports = class ModelBase {
 	 * @param action
 	 * @returns {Promise<*>}
 	 */
-	async checkRequiredProperties(data, action) {
-		let params = {};
-		let keys = [];
+	checkRequiredProperties(data, action) {
+		if (action === "create") {
+			let keys = [];
 
-		for (var key in data) {
-			params[key] = data[key];
-			if (data[key] !== null) {
-				keys.push(key);
+			for (var key in data) {
+				if (!data[key] && _.indexOf(this.schema.required,key) !== -1) {
+					if (this.validation[key].default) {
+						data[key] = this.validation[key];
+						keys.push(key);
+					}
+				} else if (data[key]) {
+					keys.push(key);
+				}
+			}
+
+			let intersection = _.intersection(this.schema.required, keys); //keys found in input and required
+
+			if (intersection.length < this.schema.required.length) {  //if the intersection is less than required, something is missing
+				//these will be the values that are missing.
+				let missing = _.difference(intersection, this.schema.required);
+				return missing;
+			}
+
+			return true;
+		} else {
+			let missing = [];
+
+			for (var key in data) {
+				if (!data[key] && _.indexOf(this.schema.required, key) !== -1) {
+					missing.push(key);
+				}
+			}
+			if (missing.length) {
+				return missing
+			} else {
+				console.log("Nothing Missing");
+				return true;
 			}
 		}
 
-		let intersection = _.intersection(this.schema.required, keys); //keys found in input and required
 
-		if (intersection.length < this.schema.required.length) {  //if the intersection is less than required, something is missing
-			//these will be the values that are missing.
-			let missing = _.difference(intersection, this.schema.required);
-			return missing;
-		}
-
-		return true;
 	}
 
 	convertToColumnNames(data) {
@@ -616,12 +714,15 @@ module.exports = class ModelBase {
 		return params;
 	}
 
-	async beforeCreate(id, data) {
+	validate(data) {
+		let invalid = [];
 		for(let key in data) {
-			if (this.fields[key](data[key], data) === false) {
-
+			if (this.validation[key].validate(key, data, this.schema) === false) {
+				invalid.push(key);
+				console.log("Invalid => " + key);
 			}
 		}
+		return invalid.length > 0 ? invalid : true;
 	}
 
 	async afterCreate(id, data) {
@@ -644,7 +745,7 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
-		console.log(sql.toString());
+		//console.log(sql.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
@@ -666,24 +767,17 @@ module.exports = class ModelBase {
 				//return results.rows;
 			} catch (e) {
 				this.lastError = e;
-				console.log(e);
+				console.log(e.detail);
 				return false;
 			}
 		} else {
-			try {
-				let results = await this.getPool().query(sql);
-				if (results.rows) {
-					return results;
-				} else {
-					return {
-						rows : results
-					};
-				}
-			} catch (e) {
-				this.lastError = e;
-				console.log(e);
-				console.log(sql.toString());
-				return false;
+			let results = await this.getPool().query(sql);
+			if (results.rows) {
+				return results;
+			} else {
+				return {
+					rows : results
+				};
 			}
 		}
 	}

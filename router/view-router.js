@@ -1,7 +1,5 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-const ViewController = require('../controller/ViewController');
-let vc = new ViewController();
 
 router.use(
 	async (req, res, next) => {

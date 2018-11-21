@@ -108,7 +108,7 @@ function createElement(attr) {
 	}
 }
 
-module.exports = function(model, key, value) {
+module.exports = function (model, key, value) {
 	let attribute = model.properties[key];
 
 	if (!attribute) {
@@ -117,24 +117,26 @@ module.exports = function(model, key, value) {
 	}
 
 	let attr = {
-		type : "text",
-		class : "",
-		required : "",
-		value : value,
-		dataType : "",
-		maxlength : attribute.maxLength || null,
-		minlength : attribute.minLength || null,
-		max : attribute.maxLength || null,
-		min : attribute.minLength || null,
-		name : key,
-		id : key + "Field",
-		options : null,
-		disabled : false
+		type: "text",
+		class: "",
+		required: "",
+		value: value,
+		dataType: "",
+		maxlength: attribute.maxLength || null,
+		minlength: attribute.minLength || null,
+		max: attribute.maxLength || null,
+		min: attribute.minLength || null,
+		name: key,
+		id: key + "Field",
+		options: null,
+		disabled: false
 	};
 
-	if (_.indexOf(model.schema.require, attr) !== -1) {
+	if (_.indexOf(model.schema.required, key) !== -1) {
 		attr.required = "required";
 	}
+
+	console.log(model.schema.required);
 
 	switch (attribute.type) {
 		case "string" :
@@ -150,7 +152,7 @@ module.exports = function(model, key, value) {
 			break;
 		case "boolean" :
 			attr.type = "radio";
-			attr.options = ['true','false'];
+			attr.options = ['true', 'false'];
 			break;
 
 	}

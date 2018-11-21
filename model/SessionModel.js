@@ -1,10 +1,10 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/tokens-schema');
-const validation = require('../schema/validation/tokens-validation');
-const fields = require('../schema/fields/tokens-fields');
+const schema = require('../schema/sessions-schema');
+const validation = require('../schema/validation/sessions-validation');
+const fields = require('../schema/fields/sessions-fields');
 
-module.exports = class TokenModel extends ModelBase {
+module.exports = class SessionModel extends ModelBase {
 
 	constructor(req) {
 		super(schema, validation, fields, req);

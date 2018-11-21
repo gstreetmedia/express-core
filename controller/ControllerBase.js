@@ -50,6 +50,9 @@ module.exports = class ControllerBase {
 		try {
 			let result = await new this.Model(req).create(req.body);
 			if (res) {
+				if (result.error) {
+					return res.invalid(result);
+				}
 				return res.success(result);
 			} else {
 				return result;
@@ -105,6 +108,9 @@ module.exports = class ControllerBase {
 				result = await new this.Model(req).update(req.params.id, req.body);
 			}
 			if (res) {
+				if (result.error) {
+					return res.invalid(result);
+				}
 				return res.success(result);
 			} else {
 				return result;
