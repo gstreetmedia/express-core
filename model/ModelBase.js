@@ -99,10 +99,10 @@ module.exports = class ModelBase {
 
 		if (invalid !== true) {
 			return {
-				error : {
-					invalid : invalid,
-					data : data,
-					action : "create"
+				error: {
+					invalid: invalid,
+					data: data,
+					action: "create"
 				}
 			};
 		}
@@ -111,10 +111,10 @@ module.exports = class ModelBase {
 
 		if (required !== true) {
 			return {
-				error : {
-					missing : required,
-					data : data,
-					action : "create"
+				error: {
+					missing: required,
+					data: data,
+					action: "create"
 				}
 			};
 		}
@@ -129,16 +129,15 @@ module.exports = class ModelBase {
 		try {
 			let result = await this.execute(command);
 			return {
-				id : data[this.primaryKey],
-				body : data
+				id: data[this.primaryKey],
+				body: data
 			};
 		} catch (e) {
 			return {
-				error : e
+				error: e
 			};
 		}
 	}
-
 
 
 	/**
@@ -161,10 +160,10 @@ module.exports = class ModelBase {
 
 			if (required !== true) {
 				return {
-					error : {
-						missing : required,
-						data : data,
-						action : "update"
+					error: {
+						missing: required,
+						data: data,
+						action: "update"
 
 					}
 				};
@@ -174,10 +173,10 @@ module.exports = class ModelBase {
 
 			if (invalid !== true) {
 				return {
-					error : {
-						invalid : invalid,
-						data : data,
-						action : "update"
+					error: {
+						invalid: invalid,
+						data: data,
+						action: "update"
 					}
 				};
 			}
@@ -194,19 +193,19 @@ module.exports = class ModelBase {
 			try {
 				let result = await this.execute(command);
 				return {
-					id : id,
-					body : params
+					id: id,
+					body: params
 				};
 			} catch (e) {
 				return {
-					error : e
+					error: e
 				};
 			}
 		} else {
 			return {
-				error : {
-					id : id,
-					message : "Does not exist"
+				error: {
+					id: id,
+					message: "Does not exist"
 				}
 			};
 		}
@@ -221,10 +220,10 @@ module.exports = class ModelBase {
 
 		if (required !== true) {
 			return {
-				error : {
-					missing : required,
-					data : data,
-					action : "updateWhere"
+				error: {
+					missing: required,
+					data: data,
+					action: "updateWhere"
 				}
 			};
 		}
@@ -233,10 +232,10 @@ module.exports = class ModelBase {
 
 		if (invalid !== true) {
 			return {
-				error : {
-					invalid : invalid,
-					data : data,
-					action : "updateWhere"
+				error: {
+					invalid: invalid,
+					data: data,
+					action: "updateWhere"
 				}
 			};
 		}
@@ -248,7 +247,7 @@ module.exports = class ModelBase {
 			return result;
 		} catch (e) {
 			return {
-				error : e
+				error: e
 			};
 		}
 	}
@@ -319,8 +318,8 @@ module.exports = class ModelBase {
 		let command = sqlBuilder.delete(
 			this.tableName,
 			{
-				where : {
-					[this.primaryKey] : id
+				where: {
+					[this.primaryKey]: id
 				}
 			}
 		);
@@ -363,11 +362,11 @@ module.exports = class ModelBase {
 		let command = sqlBuilder.select(
 			this.tableName,
 			{
-				where : {
-					[this.primaryKey] : id,
+				where: {
+					[this.primaryKey]: id,
 				},
-				select : [this.primaryKey],
-				limit : 1
+				select: [this.primaryKey],
+				limit: 1
 			},
 			this.properties
 		)
@@ -398,12 +397,12 @@ module.exports = class ModelBase {
 		let command = sqlBuilder.update(
 			this.tableName,
 			{
-				where : {
-					[this.primaryKey] : id
+				where: {
+					[this.primaryKey]: id
 				}
 			},
 			{
-				[key] : value
+				[key]: value
 			},
 			this.properties
 		);
@@ -427,10 +426,10 @@ module.exports = class ModelBase {
 		let command = sqlBuilder.select(
 			this.tableName,
 			{
-				where : {
-					[this.primaryKey] : id
+				where: {
+					[this.primaryKey]: id
 				},
-				select : [key]
+				select: [key]
 			}
 		);
 
@@ -641,6 +640,12 @@ module.exports = class ModelBase {
 		return params;
 	}
 
+	/**
+	 * Convert string to number and numbers to string etc.
+	 * @param value
+	 * @param property
+	 * @returns {*}
+	 */
 	processType(value, property) {
 		switch (property.type) {
 			case "object" :
@@ -694,6 +699,7 @@ module.exports = class ModelBase {
 		}
 		return value;
 	}
+
 	/**
 	 *
 	 * @param data
@@ -705,7 +711,7 @@ module.exports = class ModelBase {
 			let keys = [];
 
 			for (let key in data) {
-				if (!data[key] && _.indexOf(this.schema.required,key) !== -1) {
+				if (!data[key] && _.indexOf(this.schema.required, key) !== -1) {
 					if (this.validation[key] && this.validation[key].default) {
 						data[key] = this.validation[key];
 						keys.push(key);
@@ -742,24 +748,11 @@ module.exports = class ModelBase {
 				return true;
 			}
 		}
-
-
-	}
-
-	convertToColumnNames(data) {
-		let params = {};
-		for (var key in data) {
-			if (this.properties[key]) {
-				params[this.properties[key].columnName] = data[key];
-			}
-		}
-
-		return params;
 	}
 
 	validate(data) {
 		let invalid = [];
-		for(let key in data) {
+		for (let key in data) {
 			if (!this.properties[key]) {
 				delete data[key];
 				continue;
@@ -775,7 +768,7 @@ module.exports = class ModelBase {
 
 					console.log("Invalid => " + key);
 				}
-			} else if (validateAgainstSchema(key, data, this.schema)=== false) {
+			} else if (validateAgainstSchema(key, data, this.schema) === false) {
 				if (_.indexOf(this.schema.required, key) !== -1) {
 					invalid.push(key);
 				} else {
@@ -787,20 +780,15 @@ module.exports = class ModelBase {
 		return invalid.length > 0 ? invalid : true;
 	}
 
-	async afterCreate(id, data) {
+	convertToColumnNames(data) {
+		let params = {};
+		for (var key in data) {
+			if (this.properties[key]) {
+				params[this.properties[key].columnName] = data[key];
+			}
+		}
 
-	}
-
-	async beforeUpdate(id, data) {
-
-	}
-
-	async afterUpdate(id, data) {
-
-	}
-
-	async afterDestroy(id) {
-
+		return params;
 	}
 
 	async execute(command, postProcess) {
@@ -837,7 +825,7 @@ module.exports = class ModelBase {
 				return results;
 			} else {
 				return {
-					rows : results
+					rows: results
 				};
 			}
 		}
@@ -892,6 +880,22 @@ module.exports = class ModelBase {
 	 */
 	selectAs(property) {
 		return this.property[property].columnName + " as " + property;
+	}
+
+	async afterCreate(id, data) {
+
+	}
+
+	async beforeUpdate(id, data) {
+
+	}
+
+	async afterUpdate(id, data) {
+
+	}
+
+	async afterDestroy(id) {
+
 	}
 
 
