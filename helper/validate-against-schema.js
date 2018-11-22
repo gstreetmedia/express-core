@@ -4,6 +4,7 @@ let validator = require("validator");
 module.exports = (key, data, schema) => {
 
 	let keyProxy = key.toLowerCase();
+	//console.log("key => " + key);
 
 	switch (schema.properties[key].type) {
 		case "string" :

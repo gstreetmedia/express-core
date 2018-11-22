@@ -194,8 +194,6 @@ module.exports = class QueryToSql {
 		var properties = schema.properties;
 		var required = _.clone(schema.required);
 
-		console.log("required => " + required);
-
 		if (primaryKey) {
 			if (!data[primaryKey]) {
 				if (properties[primaryKey].type === "string" && properties[primaryKey].format === "uuid") {

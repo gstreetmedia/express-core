@@ -95,7 +95,7 @@ module.exports = class ModelBase {
 
 		let params = this.convertDataTypes(data);
 
-		let invalid = this.validate(data);
+		let invalid = this.validate(params);
 
 		if (invalid !== true) {
 			return {
@@ -704,7 +704,7 @@ module.exports = class ModelBase {
 		if (action === "create") {
 			let keys = [];
 
-			for (var key in data) {
+			for (let key in data) {
 				if (!data[key] && _.indexOf(this.schema.required,key) !== -1) {
 					if (this.validation[key] && this.validation[key].default) {
 						data[key] = this.validation[key];
@@ -720,7 +720,11 @@ module.exports = class ModelBase {
 			if (intersection.length < this.schema.required.length) {  //if the intersection is less than required, something is missing
 				//these will be the values that are missing.
 				let missing = _.difference(intersection, this.schema.required);
-				return missing;
+				if (missing.length > 0) {
+					return missing
+				} else {
+					return true;
+				}
 			}
 
 			return true;
@@ -732,7 +736,7 @@ module.exports = class ModelBase {
 					missing.push(key);
 				}
 			}
-			if (missing.length) {
+			if (missing.length > 0) {
 				return missing
 			} else {
 				return true;
@@ -744,7 +748,6 @@ module.exports = class ModelBase {
 
 	convertToColumnNames(data) {
 		let params = {};
-
 		for (var key in data) {
 			if (this.properties[key]) {
 				params[this.properties[key].columnName] = data[key];
@@ -757,6 +760,11 @@ module.exports = class ModelBase {
 	validate(data) {
 		let invalid = [];
 		for(let key in data) {
+			if (!this.properties[key]) {
+				delete data[key];
+				continue;
+			}
+
 			if (this.validation[key] && this.validation[key].validate) {
 				if (this.validation[key].validate(key, data, this.schema) === false) {
 					if (_.indexOf(this.schema.required, key) !== -1) {
