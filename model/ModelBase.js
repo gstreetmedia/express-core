@@ -2,6 +2,8 @@ let moment = require("moment-timezone");
 let now = require("../helper/now");
 let uuid = require("node-uuid");
 let _ = require("lodash");
+let inflector = require("inflected");
+let validateAgainstSchema = require("../helper/validate-against-schema");
 let pool;
 let sqlBuilder;
 let db;
@@ -93,7 +95,7 @@ module.exports = class ModelBase {
 
 		let params = this.convertDataTypes(data);
 
-		let invalid = this.validate(params);
+		let invalid = this.validate(data);
 
 		if (invalid !== true) {
 			return {
@@ -154,8 +156,8 @@ module.exports = class ModelBase {
 			data.updatedAt = now();
 
 			let params = this.convertDataTypes(data);
-			let required = this.checkRequiredProperties(params, "update");
 
+			let required = this.checkRequiredProperties(params, "update");
 
 			if (required !== true) {
 				return {
@@ -217,8 +219,6 @@ module.exports = class ModelBase {
 		let params = this.convertDataTypes(data);
 		let required = this.checkRequiredProperties(params, "update");
 
-		console.log("required " + required);
-
 		if (required !== true) {
 			return {
 				error : {
@@ -270,8 +270,6 @@ module.exports = class ModelBase {
 				return result;
 			}
 		} catch (e) {
-			console.log(query);
-			console.log(e);
 			return [];
 		}
 	}
@@ -282,9 +280,7 @@ module.exports = class ModelBase {
 		if (db === "pg" && results[0].count) {
 			return results[0].count;
 		} else {
-			console.log(results);
 			let key = Object.keys(results[0]);
-			console.log("COUNT => " + results[0][key])
 			return results[0][key];
 		}
 
@@ -340,26 +336,20 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async index(query) {
+
+		let keys = Object.keys(this.properties);
+
 		if (query.select && _.isString(query.select)) {
 			query.select = query.select.split(",");
 		}
 
 		if (query.select) {
-			let temp = [];
-			for (var props in query.select) {
-				if (this.properties[props]) {
-					temp.push(props)
-				}
-			}
-			query.select = temp;
+			query.select = _.intersection(query.select, keys);
 		}
-
-		delete query.where;
 
 		if (!query.select || query.select.length === 0) {
-			query.select = ['id', 'updatedAt'];
+			query.select = _.intersection(['id', 'updatedAt', 'status'], keys);
 		}
-
 
 		return await this.query(query);
 	}
@@ -382,8 +372,6 @@ module.exports = class ModelBase {
 			this.properties
 		)
 		this.lastCommand = command;
-
-		console.log(this.lastCommand.toString());
 
 		var result = await this.execute(command);
 		if (result.length === 1) {
@@ -503,7 +491,7 @@ module.exports = class ModelBase {
 
 
 		if (_.isString(join)) {
-			//console.log("condition 1");
+
 			let items = join.split(",");
 			join = {};
 			items.forEach(
@@ -585,7 +573,7 @@ module.exports = class ModelBase {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									console.log(row);
+									;
 									var obj = {};
 									obj[joinThroughTo] = row[joinTo];
 									let throughItem = _.find(throughList, obj);
@@ -647,12 +635,65 @@ module.exports = class ModelBase {
 		let params = {};
 		for (var key in data) {
 			if (this.properties[key]) {
-				params[key] = sqlBuilder.processType(data[key], this.properties[key]);
+				params[key] = this.processType(data[key], this.properties[key]);
 			}
 		}
 		return params;
 	}
 
+	processType(value, property) {
+		switch (property.type) {
+			case "object" :
+				if (_.isObject(value) || _.isArray(value)) {
+					return value;
+				}
+				let parsed;
+				try {
+					parsed = JSON.stringify(value);
+					return parsed;
+				} catch (e) {
+					return null;
+				}
+				break;
+			case "number" :
+				if (!_.isNumber(value)) {
+					if (property.type && property.type === "integer") {
+						value = parseInt(value);
+						if (!isNaN(value)) {
+							return value;
+						}
+					} else {
+						value = parseFloat(value);
+						if (!isNaN(value)) {
+							return value;
+						}
+					}
+					return null;
+				}
+				return value;
+				break;
+			case "boolean" :
+				return value === "1" || value === "true";
+				break;
+			case "string" :
+				if (property.format) {
+					switch (property.format) {
+						case "date-time" :
+							var m = moment(value);
+							if (m) {
+								return m.format("YYYY-MM-DD HH:mm:ss")
+							}
+							return null;
+						default :
+							return sqlBuilder.decodeQuery(value).trim();
+					}
+				} else {
+					return _.isString(value) ? value.trim() : value;
+				}
+				break;
+		}
+		return value;
+	}
 	/**
 	 *
 	 * @param data
@@ -665,7 +706,7 @@ module.exports = class ModelBase {
 
 			for (var key in data) {
 				if (!data[key] && _.indexOf(this.schema.required,key) !== -1) {
-					if (this.validation[key].default) {
+					if (this.validation[key] && this.validation[key].default) {
 						data[key] = this.validation[key];
 						keys.push(key);
 					}
@@ -694,7 +735,6 @@ module.exports = class ModelBase {
 			if (missing.length) {
 				return missing
 			} else {
-				console.log("Nothing Missing");
 				return true;
 			}
 		}
@@ -717,11 +757,25 @@ module.exports = class ModelBase {
 	validate(data) {
 		let invalid = [];
 		for(let key in data) {
-			if (this.validation[key].validate(key, data, this.schema) === false) {
-				invalid.push(key);
-				console.log("Invalid => " + key);
+			if (this.validation[key] && this.validation[key].validate) {
+				if (this.validation[key].validate(key, data, this.schema) === false) {
+					if (_.indexOf(this.schema.required, key) !== -1) {
+						invalid.push(key);
+					} else {
+						delete data[key];
+					}
+
+					console.log("Invalid => " + key);
+				}
+			} else if (validateAgainstSchema(key, data, this.schema)=== false) {
+				if (_.indexOf(this.schema.required, key) !== -1) {
+					invalid.push(key);
+				} else {
+					delete data[key];
+				}
 			}
 		}
+
 		return invalid.length > 0 ? invalid : true;
 	}
 
@@ -745,7 +799,6 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
-		//console.log(sql.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {

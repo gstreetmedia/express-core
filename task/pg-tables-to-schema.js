@@ -1,7 +1,7 @@
 var _ = require( 'lodash' );
 var inflector = require("inflected");
 var fs = require("fs");
-const Client = require('pg').Client;
+
 var emptySchema = {
 	$schema:     'http://json-schema.org/draft-06/schema#',
 	id:          '',
@@ -11,18 +11,11 @@ var emptySchema = {
 	type:        'object'
 };
 
+let pool = require("../helper/postgres-pool");
 
+module.exports = async function( options ) {
 
-module.exports = async function( options )
-{
-	console.log("Getting Postgres Tables");
-
-	const client = new Client({
-		connectionString : process.env.DEFAULT_DB
-	});
-
-	client.connect();
-	let data =  await client.query("Select * From INFORMATION_SCHEMA.COLUMNS where table_schema='public'");
+	let data =  await pool.query("Select * From INFORMATION_SCHEMA.COLUMNS where table_schema='public'");
 	let schema = {};
 
 	data.rows.forEach(

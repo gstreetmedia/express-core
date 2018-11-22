@@ -5,20 +5,6 @@ const connctionStringParser = require("connection-string");
 let connectionString = connctionStringParser(process.env.DEFAULT_DB);
 const promisify = (fn) => new Promise((resolve, reject) => fn(resolve));
 
-console.log(connectionString);
-
-const knex = require('knex')(
-	{
-		client: 'mysql',
-		connection: {
-			host : connectionString.hosts[0].name,
-			port : connectionString.hosts[0].port,
-			user : connectionString.user,
-			password : connectionString.password,
-			database : connectionString.path[0]
-		}
-	}
-);
 
 var emptySchema = {
 	$schema:     'http://json-schema.org/draft-06/schema#',
@@ -29,11 +15,13 @@ var emptySchema = {
 	type:        'object'
 };
 
+let pool = require("../helper/mysql-pool");
+
 
 module.exports = async function( options )
 {
 
-	let data =  await knex('information_schema.COLUMNS').select("*").where("TABLE_SCHEMA", connectionString.path[0]);
+	let data =  pool.query("select * from information_schema.COLUMNS where TABLE_SCHEMA = '" + connectionString.path[0] + "'");
 
 	let rows = [];
 	data.forEach(

@@ -15,7 +15,6 @@ module.exports = class ControllerBase {
 			let m = new this.Model(req);
 			let count = await m.count(req.query);
 
-
 			if (count > 500) {
 				req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 				req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
@@ -47,6 +46,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async create(req, res) {
+		console.log("ControllerBase::create");
 		try {
 			let result = await new this.Model(req).create(req.body);
 			if (res) {

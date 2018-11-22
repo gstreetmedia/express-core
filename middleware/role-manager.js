@@ -63,6 +63,8 @@ module.exports = function (req, res, next) {
 	 */
 	req.checkRole = function () {
 		req.roleFailure = true;
+		console.log(req.currentRoles);
+
 		req.currentRoles.forEach(
 			function(role) {
 				if (_.indexOf(req.allowedRoles, role) !== -1) {

@@ -72,7 +72,6 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				return true;
 			}
 
-
 			let token = await Token.findOne(
 				{
 					where: {
@@ -82,7 +81,6 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 					join: ['config']
 				}
 			);
-
 
 			if (!token) {
 				return 'Invalid Application Key';
@@ -100,7 +98,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				}
 			)
 
-			//console.log("good token / secret");
+			//console.log("good app key & secret");
 
 			return true;
 
@@ -220,8 +218,13 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			}
 
 			if (this.req.headers['application-key']) {
-				let result = await this.applicationKey(this.req, this.res);
+				await this.applicationKey(this.req, this.res);
 			}
+
+			if (this.req.header['authorization']) {
+				await this.bearerToken(this.req, this.res);
+			}
+
 
 			this.next();
 		}
