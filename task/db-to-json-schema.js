@@ -13,9 +13,12 @@ if (process.env.DEFAULT_DB.indexOf("postgresql") === 0) {
 
 let fs = require('fs');
 let path = require("path");
-let stt = require('spaces-to-tabs');
+
 let inflector = require("inflected");
 let _ = require("underscore");
+
+//used to format output
+let stt = require('spaces-to-tabs');
 let stringify = require("stringify-object");
 
 let sourceBase = path.resolve(__dirname  + "/../../");

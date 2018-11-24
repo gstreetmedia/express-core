@@ -94,6 +94,12 @@ module.exports = class AdminController extends ViewControllerBase {
 		let controller = AdminController.getController(req);
 		let data = await controller.read(req);
 
+		if (!data) {
+			return res.notFound(req.params.id);
+		}
+
+		console.log(data);
+
 		return this.render(
 			'page-admin-view',
 			{

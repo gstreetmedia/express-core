@@ -1,8 +1,8 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/config-schema');
-const validation = require('../schema/validation/config-validation');
-const fields = require('../schema/fields/config-fields');
+const schema = require('../../schema/config-schema');
+const validation = require('../../schema/validation/config-validation');
+const fields = require('../../schema/fields/config-fields');
 
 module.exports = class ConfigModel extends ModelBase {
 
@@ -16,8 +16,8 @@ module.exports = class ConfigModel extends ModelBase {
 
 	static get fields() { return fields; }
 
-	async index(key, value){
-		return await super.index(key, value);
+	async index(query){
+		return await super.index(query);
 	}
 
 	async create(data){

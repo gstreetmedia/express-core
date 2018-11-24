@@ -1,11 +1,21 @@
-Pool = require("pg").Pool;
-Client = require("pg").Client;
-pool = new Pool({
-	connectionString: process.env.DEFAULT_DB
-});
+let md5 = require("md5");
+let pools = {};
+const Pool = require("pg").Pool;
+const Client = require("pg").Client;
 
-pool.query('SELECT NOW()', (err, res) => {
-	//console.log(err, res)
-});
+module.exports = (connectionString) => {
+	if (pools[md5(connectionString)]) {
+		return pools[md5(connectionString)];
+	}
 
-module.exports = pool;
+	let pool = new Pool({
+		connectionString: connectionString
+	});
+
+	pools[md5(connectionString)] = pool;
+
+	return pool
+}
+
+
+

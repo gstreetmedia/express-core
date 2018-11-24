@@ -205,9 +205,8 @@ module.exports = class QueryToSql {
 		//TODO should data have been validated before this? Seems like it
 		for (var key in data) {
 			if (properties[key]) {
+				//does final json conversion as needed
 				translation[properties[key].columnName] = QueryToSql.processType(data[key], properties[key]);
-			} else {
-				console.error("Unknown insert key " + key);
 			}
 			let index = _.indexOf(required, key);
 			if (index !== -1) {

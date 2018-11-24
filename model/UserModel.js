@@ -1,8 +1,10 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/users-schema');
-const validation = require('../schema/validation/users-validation');
-const fields = require('../schema/fields/users-fields');
+const schema = require('../../schema/users-schema');
+const validation = require('../../schema/validation/users-validation');
+const fields = require('../../schema/fields/users-fields');
+
+const hashPassword = require("../helper/hash-password");
 
 module.exports = class UserModel extends ModelBase {
 
@@ -16,11 +18,15 @@ module.exports = class UserModel extends ModelBase {
 
 	static get fields() { return fields; }
 
-	async index(key, value){
-		return await super.index(key, value);
+	async index(query){
+		return await super.index(query);
 	}
 
 	async create(data){
+		data.password = hashPassword(data.password);
+		if (!data.name) {
+			data.name = data.firstName + " " + data.lastName;
+		}
 		return await super.create(data);
 	}
 
@@ -29,6 +35,9 @@ module.exports = class UserModel extends ModelBase {
 	}
 
 	async update(id, data, query){
+		if (data.password) {
+			data.password = hashPassword(data.password);
+		}
 		return await super.update(id, data, query);
 	}
 

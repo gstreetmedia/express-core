@@ -15,7 +15,7 @@ var emptySchema = {
 	type:        'object'
 };
 
-let pool = require("../helper/mysql-pool");
+let pool = require("../helper/mysql-pool")(process.env.DEFAULT_DB);
 
 
 module.exports = async function( options )

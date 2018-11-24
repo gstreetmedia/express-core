@@ -1,13 +1,15 @@
 const fs = require("fs");
 const path = require("path");
 
-if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js"))) {
 
+if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js"))) {
 
 	const jwt = require('jsonwebtoken');
 	const moment = require('moment');
 	const md5 = require('md5');
 	const cache = require('../helper/cache-manager');
+	const hashPassword = require("../helper/hash-password");
+	const now = require("../helper/now");
 
 	let ConfigModel = require("../../model/ConfigModel");
 	let TokenModel = require("../../model/TokenModel");
@@ -19,20 +21,17 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 	const User = new UserModel();
 	const Config = new ConfigModel();
 
-
 	class Authentication {
 
-		constructor(req, res, next) {
-			this.req = req;
-			this.res = res;
-			this.next = next;
+		constructor(req) {
 
 		}
 
-		isLocalRequest(req, res) {
-
-			if (req.headers['referer'] && req.headers['referer'].indexOf(req.headers['host']) !== -1) {
-				console.log("local request");
+		static checkLocalRequest(req) {
+			if (req.headers['referer'] &&
+				req.headers['referer'].indexOf(req.headers['host']) !== -1
+			) {
+				req.isLocal = true;
 				return true;
 			}
 			return false;
@@ -45,12 +44,12 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 		 * application-org
 		 * authorization bearer is present if !application-secret
 		 * @param req
-		 * @param res
 		 * @returns {Promise<*>}
 		 */
-		async applicationKey(req, res) {
+		static async applicationKey(req) {
 			console.log("middlware/authentication::applicationKey");
 			//Check header for application-key
+
 			let key = req.headers['application-key'];
 			if (!key) {
 				return 'Missing Application Key';
@@ -96,22 +95,18 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 					token: req.token,
 					config: req.config
 				}
-			)
-
-			//console.log("good app key & secret");
+			);
 
 			return true;
-
 		}
 
 
 		/**
 		 * If a Bearer Token was sent, make sure this is the correct user / member
 		 * @param req
-		 * @param res
 		 * @returns {Promise<*>}
 		 */
-		async bearerToken(req, res) {
+		static async bearerToken(req) {
 			let token;
 
 			if (req.cookies.token) {
@@ -138,31 +133,30 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				}
 
 				if (!decoded) {
-					return next(); //Not a valid token
+					return;
 				}
+
+				//console.log(decoded);
 
 				let cacheKey = "session" + decoded.id;
 
 				//Check the memory cache for this Session. Go to the DB if not found
 				let session = await cache.get(cacheKey); //Try Cache first
 
-				//console.log(decoded);
-
 				if (!session) {
-					console.log("no cache");
-					session = await this.sessionModel.findOne(
+					session = await Session.findOne(
 						{
 							where: {
 								userId: decoded.id,
 								token: token,
-								expiresAt: {">": moment().format("YYYY-MM-DD HH:mm:ss.SSS")}
+								expiresAt: {">": now()}
 							},
-							select: ['id'],
 							join: ['user']
 						}
 					);
 				} else {
 					req.user = session.user;
+					req.addRole(session.user.role);
 					return true;
 				}
 
@@ -170,8 +164,8 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 					return "Invalid Session";
 				}
 
-				req.addRole("session");
 
+				req.addRole(session.user.role);
 				req.jwt = token;
 				req.user = session.user;
 
@@ -185,58 +179,57 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			return true;
 		}
 
-		/**
-		 * Shoot out an error
-		 * @param message
-		 * @param code
-		 */
-		error(message, code) {
-			this.res.status(code || 500).send(
-				{
-					error: true,
-					message: message
-				}
-			)
+		static hasValidCookie(req) {
+			if (!req.cookies) {
+				return false;
+			}
+			if (!req.cookies.token || ! req.cookies['application-key']) {
+				return false;
+			}
+			if (!req.cookies.token || ! req.cookies['application-key']) {
+				return false;
+			}
+			if (hashPassword(req.cookies.token) === req.cookies['application-key']) {
+				return true;
+			}
+			return false;
+
 		}
 
 		/**
 		 * Pretty much just an init
 		 * @returns {Promise<void>}
 		 */
-		async verify() {
+		static async verify(req) {
 
 			let context = this;
 			let localRequest = false;
 
-			this.req.isLocal = this.isLocalRequest(this.req, this.res);
+			Authentication.checkLocalRequest(req);
 
-			if (this.req.isLocal &&
-				!this.req.headers['application-key'] &&
-				(this.req.cookies && this.req.cookies.token)
+			if (Authentication.hasValidCookie(req)
 			) {
-				return this.next();
+				await Authentication.bearerToken(req);
 			}
 
-			if (this.req.headers['application-key']) {
-				await this.applicationKey(this.req, this.res);
+			if (req.headers['application-key']) {
+				await Authentication.applicationKey(req);
 			}
 
-			if (this.req.header['authorization']) {
-				await this.bearerToken(this.req, this.res);
+			if (req.header['authorization']) {
+				await Authentication.bearerToken(req);
 			}
 
-
-			this.next();
+			return;
 		}
 	}
 
-
 	module.exports = async function (req, res, next) {
 		console.log("middlware/authentication");
-
-		let a = new Authentication(req, res, next);
 		try {
-			await a.verify()
+			await Authentication.verify(req);
+			console.log(req.currentRoles);
+			next();
 		} catch (e) {
 			console.log(e);
 			a.error("Unknown Server Error", 500);

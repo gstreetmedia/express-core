@@ -21,15 +21,23 @@ module.exports = async function (req, res, next) {
 			obj.count = req.count;
 		}
 		res.status(200).send(obj);
-	}
+	};
 
 	res.invalid = function(e) {
 		res.status(500).send(e);
-	}
+	};
+
+	res.notFound = function(e) {
+		res.status(404).send(e);
+	};
 
 	res.notAllowed = function(e) {
 		res.status(401).send({error:true,message:"Missing/Invalid Credentials"});
-	}
+	};
+
+	res.invalid = function(message) {
+		res.status(400).send({error:true,message:message});
+	};
 
 	next();
 }

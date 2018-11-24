@@ -60,4 +60,12 @@ router.delete('/:id', async function (req, res, next) {
 	return next();
 });
 
+router.post('/login', async function (req, res, next) {
+	req.allowRole("guest");
+	if(req.checkRole()){
+		return await c.login(req, res);
+	}
+	return next();
+});
+
 module.exports = router;

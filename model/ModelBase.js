@@ -4,19 +4,7 @@ let uuid = require("node-uuid");
 let _ = require("lodash");
 let inflector = require("inflected");
 let validateAgainstSchema = require("../helper/validate-against-schema");
-let pool;
-let sqlBuilder;
-let db;
 
-if (process.env.DEFAULT_DB.indexOf("postgres") === 0) {
-	sqlBuilder = require("../helper/query-to-sql");
-	pool = require("../helper/postgres-pool");
-	db = "pg";
-} else if (process.env.DEFAULT_DB.indexOf("mysql") === 0) {
-	sqlBuilder = require("../helper/query-to-mysql");
-	pool = require("../helper/mysql-pool");
-	db = "mysql"
-}
 
 module.exports = class ModelBase {
 
@@ -38,14 +26,31 @@ module.exports = class ModelBase {
 		if (req) {
 			this.req = req;
 		}
+
+
+		this.connectionString = process.env.DEFAULT_DB;
 	}
 
 	/**
 	 *
 	 * @returns {Pool}
 	 */
-	getPool() {
-		return pool;
+	get pool() {
+		if (this.connectionString.indexOf("postgres") === 0) {
+			this.db = "pg";
+			return require("../helper/postgres-pool")(this.connectionString);
+		} else if (this.connectionString.indexOf("mysql") === 0) {
+			this.db = "mysql"
+			return require("../helper/mysql-pool")(this.connectionString);
+		}
+	}
+
+	get sqlBuilder() {
+		if (this.connectionString.indexOf("postgres") === 0) {
+			return require("../helper/query-to-sql")
+		} else if (this.connectionString.indexOf("mysql") === 0) {
+			return require("../helper/query-to-mysql")
+		}
 	}
 
 	/**
@@ -64,7 +69,7 @@ module.exports = class ModelBase {
 			obj.select = query.select;
 		}
 
-		let command = sqlBuilder.select(this.tableName, obj, this.properties);
+		let command = this.sqlBuilder.select(this.tableName, obj, this.properties);
 
 		var result = await this.execute(command);
 
@@ -119,7 +124,7 @@ module.exports = class ModelBase {
 			};
 		}
 
-		let command = sqlBuilder.insert(
+		let command = this.sqlBuilder.insert(
 			this.tableName,
 			this.primaryKey,
 			params,
@@ -188,7 +193,7 @@ module.exports = class ModelBase {
 				delete data[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
 			}
 
-			let command = sqlBuilder.update(this.tableName, query, data, this.properties);
+			let command = this.sqlBuilder.update(this.tableName, query, data, this.properties);
 
 			try {
 				let result = await this.execute(command);
@@ -240,7 +245,7 @@ module.exports = class ModelBase {
 			};
 		}
 
-		let command = sqlBuilder.update(this.tableName, query, params, this.properties);
+		let command = this.sqlBuilder.update(this.tableName, query, params, this.properties);
 
 		try {
 			let result = await this.execute(command);
@@ -259,7 +264,7 @@ module.exports = class ModelBase {
 	 */
 	async query(query) {
 
-		let command = sqlBuilder.select(this.tableName, query, this.properties);
+		let command = this.sqlBuilder.select(this.tableName, query, this.properties);
 
 		try {
 			let result = await this.execute(command);
@@ -274,9 +279,9 @@ module.exports = class ModelBase {
 	}
 
 	async count(query) {
-		let command = sqlBuilder.count(this.tableName, this.primaryKey, query, this.properties);
+		let command = this.sqlBuilder.count(this.tableName, this.primaryKey, query, this.properties);
 		let results = await this.execute(command);
-		if (db === "pg" && results[0].count) {
+		if (this.db === "pg" && results[0].count) {
 			return results[0].count;
 		} else {
 			let key = Object.keys(results[0]);
@@ -315,7 +320,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroy(id) {
-		let command = sqlBuilder.delete(
+		let command = this.sqlBuilder.delete(
 			this.tableName,
 			{
 				where: {
@@ -359,7 +364,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<boolean>}
 	 */
 	async exists(id) {
-		let command = sqlBuilder.select(
+		let command = this.sqlBuilder.select(
 			this.tableName,
 			{
 				where: {
@@ -394,7 +399,7 @@ module.exports = class ModelBase {
 			return null;
 		}
 
-		let command = sqlBuilder.update(
+		let command = this.sqlBuilder.update(
 			this.tableName,
 			{
 				where: {
@@ -423,7 +428,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async getKey(id, key) {
-		let command = sqlBuilder.select(
+		let command = this.sqlBuilder.select(
 			this.tableName,
 			{
 				where: {
@@ -690,7 +695,7 @@ module.exports = class ModelBase {
 							}
 							return null;
 						default :
-							return sqlBuilder.decodeQuery(value).trim();
+							return this.sqlBuilder.decodeQuery(value).trim();
 					}
 				} else {
 					return _.isString(value) ? value.trim() : value;
@@ -795,10 +800,9 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
-
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
-				let results = await this.getPool().query(sql);
+				let results = await this.pool.query(sql);
 				if (postProcess) {
 					if (results.rows) {
 						return this.postProcessResponse(results.rows);
@@ -820,7 +824,7 @@ module.exports = class ModelBase {
 				return false;
 			}
 		} else {
-			let results = await this.getPool().query(sql);
+			let results = await this.pool.query(sql);
 			if (results.rows) {
 				return results;
 			} else {

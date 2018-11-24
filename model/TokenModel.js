@@ -1,8 +1,9 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/tokens-schema');
-const validation = require('../schema/validation/tokens-validation');
-const fields = require('../schema/fields/tokens-fields');
+const schema = require('../../schema/tokens-schema');
+const validation = require('../../schema/validation/tokens-validation');
+const fields = require('../../schema/fields/tokens-fields');
+const uuid = require("node-uuid");
 
 module.exports = class TokenModel extends ModelBase {
 
@@ -16,11 +17,13 @@ module.exports = class TokenModel extends ModelBase {
 
 	static get fields() { return fields; }
 
-	async index(key, value){
-		return await super.index(key, value);
+	async index(query){
+		return await super.index(query);
 	}
 
 	async create(data){
+		data.key = uuid.v4();
+		data.secret = uuid.v4();
 		return await super.create(data);
 	}
 
@@ -41,7 +44,6 @@ module.exports = class TokenModel extends ModelBase {
 	}
 
 	get relationMappings() {
-
 		let Config = require("./ConfigModel");
 
 		return {
