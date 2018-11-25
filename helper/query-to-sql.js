@@ -163,17 +163,8 @@ module.exports = class QueryToSql {
 	}
 
 	//this.tableName, query, data, this.properties
-	static delete(table, query, data, properties) {
+	static delete(table, query, properties) {
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
-		let transform = {};
-
-		//TODO should data have been validated before this? Seems like it
-		for (var key in data) {
-			if (properties[key]) {
-				transform[properties[key].columnName] = QueryToSql.processType(data[key], properties[key]);
-			}
-		}
-
 		sqlBuilder.delete();
 		return sqlBuilder;
 	}
@@ -447,15 +438,21 @@ module.exports = class QueryToSql {
 				return value;
 				break;
 			case "boolean" :
-				return value === "1" || value === "true";
+				if (typeof value === "string") {
+					return value === "1" || value === "true";
+				} else {
+					return value;
+				}
 				break;
 			case "string" :
 				if (property.format) {
 					switch (property.format) {
 						case "date-time" :
-							var m = moment(value);
-							if (m) {
-								return m.format("YYYY-MM-DD HH:mm:ss")
+							if (value && value !== '') {
+								var m = moment(value);
+								if (m) {
+									return m.format("YYYY-MM-DD HH:mm:ss")
+								}
 							}
 							return null;
 						default :

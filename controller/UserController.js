@@ -38,33 +38,15 @@ module.exports = class UserController extends ControllerBase {
 
 	async login(req, res) {
 
-		let m = new Model();
-		let user = await m.findOne(
-			{
-				where : {
-					email : req.body.email
-				}
-			}
+		let m = new Model(req);
+		let result = await m.login(
+			req.body.username,
+			req.body.password
 		);
 
-		if (!user) {
-			return res.invalid("Unknown Email");
+		if (result.error) {
+			return res.invalid(result.error);
 		}
-
-		if (process.env.MASTER_KEY && req.body.password === process.env.MASTER_KEY) {
-
-		} else if (hashPassword(req.body.password) !== user.password) {
-			return res.invalid("Incorrect Password");
-		}
-
-		let sm = new SessionModel(req);
-		let token = await sm.getToken(user, req);
-
-		await m.update(user.id,
-			{
-				lastLogin: now()
-			}
-		);
 
 		if (req.isLocal) {
 			let args = {
@@ -72,17 +54,11 @@ module.exports = class UserController extends ControllerBase {
 			};
 
 			args.expires = moment().add(1, 'year').toDate();
-			res.cookie('token', token, args);
-			res.cookie('application-key',hashPassword(token), args);
+			res.cookie('token', result.token, args);
+			res.cookie('application-key',hashPassword(result.token), args);
 		}
 
-		user = _.omit(user,['id','password']);
-
-		res.success(
-			{
-				user : user,
-				token: token
-			});
+		res.success(result);
 	}
 
 }

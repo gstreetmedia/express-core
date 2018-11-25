@@ -170,5 +170,10 @@ module.exports = function (model, key, value) {
 		attr.disabled = true;
 	}
 
+	if (key === "password") {
+		attr.value = '';
+		attr.required = false;
+	}
+
 	return createElement(attr);
 };

@@ -340,8 +340,11 @@ module.exports = class ModelBase {
 				where: {
 					[this.primaryKey]: id
 				}
-			}
+			},
+			this.properties
 		);
+
+		console.log(command.toString());
 
 		var result = await this.execute(command);
 		return result;
@@ -697,15 +700,21 @@ module.exports = class ModelBase {
 				return value;
 				break;
 			case "boolean" :
-				return value === "1" || value === "true";
+				if (typeof value === "string") {
+					return value === "1" || value === "true";
+				} else {
+					return value;
+				}
 				break;
 			case "string" :
 				if (property.format) {
 					switch (property.format) {
 						case "date-time" :
-							var m = moment(value);
-							if (m) {
-								return m.format("YYYY-MM-DD HH:mm:ss")
+							if (value && value !== '') {
+								var m = moment(value);
+								if (m) {
+									return m.format("YYYY-MM-DD HH:mm:ss")
+								}
 							}
 							return null;
 						default :
@@ -813,6 +822,8 @@ module.exports = class ModelBase {
 	async execute(command, postProcess) {
 		let sql = command.toString();
 		this.lastCommand = command;
+
+		console.log(sql.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {

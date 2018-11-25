@@ -110,7 +110,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			let token;
 
 			if (req.cookies.token) {
-				console.log("is cookie token");
+				//console.log("is cookie token");
 				token = req.cookies.token;
 			} else {
 				token = req.headers['authorization'] && req.headers['authorization'].indexOf("Bearer") !== -1

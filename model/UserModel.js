@@ -5,6 +5,8 @@ const validation = require('../../schema/validation/users-validation');
 const fields = require('../../schema/fields/users-fields');
 
 const hashPassword = require("../helper/hash-password");
+const SessionModel = require("./SessionModel");
+const now = require('../helper/now');
 
 module.exports = class UserModel extends ModelBase {
 
@@ -37,6 +39,8 @@ module.exports = class UserModel extends ModelBase {
 	async update(id, data, query){
 		if (data.password) {
 			data.password = hashPassword(data.password);
+		} else if (data.password === '') {
+			delete data.password;
 		}
 		return await super.update(id, data, query);
 	}
@@ -50,6 +54,42 @@ module.exports = class UserModel extends ModelBase {
 	}
 
 	async login(username, password) {
+		let user = await this.findOne(
+			{
+				where : {
+					email : username
+				}
+			}
+		);
+
+		if (!user) {
+			return {
+				error : "Unknown Username"
+			}
+		}
+
+		if (process.env.MASTER_KEY && password === process.env.MASTER_KEY) {
+
+		} else if (hashPassword(password) !== user.password) {
+			return {
+				error : "Incorect Password"
+			}
+		}
+
+		let sm = new SessionModel(this.req);
+		let token = await sm.getToken(user, this.req);
+
+		await this.update(user.id,
+			{
+				lastLogin: now()
+			}
+		);
+
+		return {
+			user : _.omit(user,['id','password']),
+			token : token
+		}
+
 
 	}
 

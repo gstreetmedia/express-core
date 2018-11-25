@@ -188,6 +188,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroy(req, res) {
+		console.log("ControllerBase::destroy");
 		try {
 			let result = await new this.Model(req).destroy(req.params.id);
 			if (res) {
@@ -196,6 +197,7 @@ module.exports = class ControllerBase {
 				return result;
 			}
 		} catch (e) {
+			console.log(e);
 			if (res) {
 				return res.invalid(e);
 			} else {

@@ -55,7 +55,7 @@ router.patch('/:id', async function (req, res, next) {
 
 router.delete('/:id', async function (req, res, next) {
 	if(req.checkRole()){
-		return await c.delete(req, res);
+		return await c.destroy(req, res);
 	}
 	return next();
 });
