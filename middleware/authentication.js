@@ -225,10 +225,8 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 	}
 
 	module.exports = async function (req, res, next) {
-		console.log("middlware/authentication");
 		try {
 			await Authentication.verify(req);
-			console.log(req.currentRoles);
 			next();
 		} catch (e) {
 			console.log(e);

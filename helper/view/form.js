@@ -44,7 +44,6 @@ function findStringType(attribute, attr) {
 				attr.type = "tel";
 				return;
 			case "enum" :
-				console.log("isIn bitches!!!");
 				break;
 			case "maxLength" :
 
@@ -136,7 +135,7 @@ module.exports = function (model, key, value) {
 		attr.required = "required";
 	}
 
-	console.log(model.schema.required);
+	//console.log(model.schema.required);
 
 	switch (attribute.type) {
 		case "string" :
@@ -158,13 +157,13 @@ module.exports = function (model, key, value) {
 	}
 
 	if (attr.type === "date" && typeof attr.value === "object") {
-		console.log("format value");
+		//console.log("format value");
 		attr.value = moment(attr.value).format("YYYY-MM-DD");
-		console.log(attr.value);
+		//console.log(attr.value);
 	} else if (attr.type === "datetime-local" && typeof attr.value === "object") {
-		console.log("format value");
+		//console.log("format value");
 		attr.value = moment(attr.value).format("YYYY-MM-DDTHH:mm:ss");
-		console.log(attr.value);
+		//console.log(attr.value);
 	}
 
 	if (key === model.primaryKey) {

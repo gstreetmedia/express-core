@@ -15,7 +15,7 @@ module.exports = class ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async index(req, res) {
-		console.log("ControllerBase::index");
+		//console.log("ControllerBase::index");
 		return this.render(
 			'page-list',
 			{

@@ -99,7 +99,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			return res.notFound(req.params.id);
 		}
 
-		console.log(data);
+		//console.log(data);
 
 		return this.render(
 			'page-admin-view',
@@ -220,7 +220,7 @@ module.exports = class AdminController extends ViewControllerBase {
 
 	static getController(req) {
 		let c = "../../controller/" + inflector.classify(inflector.underscore(req.params.model)) + "Controller";
-		console.log(c);
+		//console.log(c);
 		const Controller = require(c);
 		return new Controller();
 	}
