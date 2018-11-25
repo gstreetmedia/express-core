@@ -1,4 +1,5 @@
 require('dotenv').config();
+const md5 = require("md5");
 let converter;
 
 if (process.env.DEFAULT_DB.indexOf("postgresql") === 0) {
@@ -60,10 +61,11 @@ if (!fs.existsSync(routerBase)) {
 }
 
 
-async function convert() {
+async function convert(destination, connectionString) {
 	let schemas = await converter({
 		"baseUrl": '',
-		"indent": 2
+		"indent": 2,
+		connectionString : connectionString
 	});
 
 	// Schema's is an array of json-schema objects
@@ -74,15 +76,19 @@ async function convert() {
 		function (item) {
 
 			let keys = [];
-			let props = {};
+			let properties = {};
 			let primaryKey = item.primaryKey || "id";
+			if (primaryKey === '') {
+				primaryKey = 'id';
+			}
+
 			for (let key in item.properties) {
 				let k = inflector.camelize(key, false);
 				if (k.length === 2) {
 					k = k.toLowerCase();
 				}
-				props[k] = _.clone(item.properties[key]);
-				props[k].columnName = key;
+				properties[k] = _.clone(item.properties[key]);
+				properties[k].columnName = key;
 				keys.push(k);
 			}
 
@@ -94,13 +100,50 @@ async function convert() {
 				item.required[i] = k;
 			}
 
-			item.properties = props;
+			keys = _.uniq(keys);
+			keys.sort();
+			let filtered = keys.filter(
+				(value, index, arr) => {
+					if (value === item.primaryKey ||
+						value === "createdAt" ||
+						value === "updatedAt" ||
+						value === "name"
+					) {
+						return false
+					}
+					return true;
+				}
+			)
+
+			if (keys.indexOf("name") !== -1) {
+				filtered.unshift("name")
+			}
+			filtered.unshift(item.primaryKey);
+
+			if (keys.indexOf("createdAt") !== -1) {
+				filtered.push("createdAt")
+			}
+			if (keys.indexOf("updatedAt") !== -1) {
+				filtered.push("updatedAt")
+			}
+
+			keys = filtered;
+
+			item.properties = properties;
 			let schemaName = schemaBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-schema";
 			let validationPath = validationBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-validation.js";
 			let fieldPath = fieldBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-fields.js";
 			let modelPath = modelBase + "/" + inflector.classify(item.tableName) + "Model.js";
 			let controllerPath = controllerBase + "/" + inflector.classify(item.tableName) + "Controller.js";
 			let routerPath = routerBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-router.js";
+
+			if (destination === "memory") {
+				global.schemaCache = global.schemaCache || {};
+				let name = md5(connectionString || process.env.DEFAULT_DB);
+				global.schemaCache[name] = global.schemaCache[name] || {};
+				global.schemaCache[name][item.title] = item;
+				return;
+			}
 
 
 			//schemas are always written because the DB can change
@@ -129,16 +172,16 @@ async function convert() {
 			}
 
 			if (!fs.existsSync(fieldPath)) {
-				keys = Object.keys(item.properties);
+			
 				let s = 'exports.admin = {\n';
 				s += "\tindex : [\n\t\t'" + keys.join("',\n\t\t'") + "'\n\t],\n";
-				s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("','") + "'\n\t\t\t]\n\t\t}\n\t],\n";
-				s += "\tread : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("','") + "'\n\t\t\t]\n\t\t}\n\t]\n";
+				s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t],\n";
+				s += "\tread : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t]\n";
 				s += "}\n\n";
 				s += 'exports.public = {\n';
 				s += "\tindex : [\n\t\t'" + keys.join("',\n\t\t'") + "'\n\t],\n";
-				s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("','") + "'\n\t\t\t]\n\t\t}\n\t],\n";
-				s += "\tread : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("','") + "'\n\t\t\t]\n\t\t}\n\t]\n";
+				s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t],\n";
+				s += "\tread : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t]\n";
 				s += "}";
 				fs.writeFileSync(fieldPath, s);
 			}
@@ -228,6 +271,10 @@ async function convert() {
 			routers.push(item.tableName);
 		}
 	);
+
+	if (destination === "memory") {
+		return;
+	}
 
 	routers.sort();
 

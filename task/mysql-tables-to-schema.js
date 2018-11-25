@@ -15,11 +15,15 @@ var emptySchema = {
 	type:        'object'
 };
 
-let pool = require("../helper/mysql-pool")(process.env.DEFAULT_DB);
-
-
 module.exports = async function( options )
 {
+
+	let pool;
+	if (options.connectionString) {
+		pool = require("../helper/mysql-pool")(options.connectionString)
+	} else {
+		pool = require("../helper/mysql-pool")(process.env.DEFAULT_DB)
+	}
 
 	let data =  pool.query("select * from information_schema.COLUMNS where TABLE_SCHEMA = '" + connectionString.path[0] + "'");
 

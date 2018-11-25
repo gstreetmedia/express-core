@@ -4,6 +4,7 @@ let uuid = require("node-uuid");
 let _ = require("lodash");
 let inflector = require("inflected");
 let validateAgainstSchema = require("../helper/validate-against-schema");
+let md5 = require("md5");
 
 
 module.exports = class ModelBase {
@@ -27,7 +28,6 @@ module.exports = class ModelBase {
 			this.req = req;
 		}
 
-
 		this.connectionString = process.env.DEFAULT_DB;
 	}
 
@@ -45,12 +45,26 @@ module.exports = class ModelBase {
 		}
 	}
 
-	get sqlBuilder() {
+	/**
+	 * Create a query builder in the DB flavor of choice
+	 * @returns {module.QueryToSql|*}
+	 */
+	get queryBuilder() {
+		if (global.schemaCache) {
+			let name = md5(this.connectionString);
+			if (global.schemaCache[name] && global.schemaCache[name][this.schema.title]) {
+				this.schema = global.schemaCache[name][this.schema.title];
+				this.properties = this.schema.properties;
+				this.primaryKey = this.schema.primaryKey;
+			}
+		}
+
 		if (this.connectionString.indexOf("postgres") === 0) {
 			return require("../helper/query-to-sql")
 		} else if (this.connectionString.indexOf("mysql") === 0) {
 			return require("../helper/query-to-mysql")
 		}
+		//TODO MSSQL, ElasticSearch, Mongo, Redis
 	}
 
 	/**
@@ -69,7 +83,7 @@ module.exports = class ModelBase {
 			obj.select = query.select;
 		}
 
-		let command = this.sqlBuilder.select(this.tableName, obj, this.properties);
+		let command = this.queryBuilder.select(this.tableName, obj, this.properties);
 
 		var result = await this.execute(command);
 
@@ -124,7 +138,7 @@ module.exports = class ModelBase {
 			};
 		}
 
-		let command = this.sqlBuilder.insert(
+		let command = this.queryBuilder.insert(
 			this.tableName,
 			this.primaryKey,
 			params,
@@ -193,7 +207,7 @@ module.exports = class ModelBase {
 				delete data[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
 			}
 
-			let command = this.sqlBuilder.update(this.tableName, query, data, this.properties);
+			let command = this.queryBuilder.update(this.tableName, query, data, this.properties);
 
 			try {
 				let result = await this.execute(command);
@@ -245,7 +259,7 @@ module.exports = class ModelBase {
 			};
 		}
 
-		let command = this.sqlBuilder.update(this.tableName, query, params, this.properties);
+		let command = this.queryBuilder.update(this.tableName, query, params, this.properties);
 
 		try {
 			let result = await this.execute(command);
@@ -264,7 +278,7 @@ module.exports = class ModelBase {
 	 */
 	async query(query) {
 
-		let command = this.sqlBuilder.select(this.tableName, query, this.properties);
+		let command = this.queryBuilder.select(this.tableName, query, this.properties);
 
 		try {
 			let result = await this.execute(command);
@@ -279,7 +293,7 @@ module.exports = class ModelBase {
 	}
 
 	async count(query) {
-		let command = this.sqlBuilder.count(this.tableName, this.primaryKey, query, this.properties);
+		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
 		let results = await this.execute(command);
 		if (this.db === "pg" && results[0].count) {
 			return results[0].count;
@@ -320,7 +334,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroy(id) {
-		let command = this.sqlBuilder.delete(
+		let command = this.queryBuilder.delete(
 			this.tableName,
 			{
 				where: {
@@ -364,7 +378,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<boolean>}
 	 */
 	async exists(id) {
-		let command = this.sqlBuilder.select(
+		let command = this.queryBuilder.select(
 			this.tableName,
 			{
 				where: {
@@ -399,7 +413,7 @@ module.exports = class ModelBase {
 			return null;
 		}
 
-		let command = this.sqlBuilder.update(
+		let command = this.queryBuilder.update(
 			this.tableName,
 			{
 				where: {
@@ -428,7 +442,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async getKey(id, key) {
-		let command = this.sqlBuilder.select(
+		let command = this.queryBuilder.select(
 			this.tableName,
 			{
 				where: {
@@ -695,7 +709,7 @@ module.exports = class ModelBase {
 							}
 							return null;
 						default :
-							return this.sqlBuilder.decodeQuery(value).trim();
+							return this.queryBuilder.decodeQuery(value).trim();
 					}
 				} else {
 					return _.isString(value) ? value.trim() : value;

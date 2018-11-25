@@ -92,6 +92,7 @@ module.exports = class AdminController extends ViewControllerBase {
 	 */
 	async view(req, res) {
 		let controller = AdminController.getController(req);
+		req.query.join = "*";
 		let data = await controller.read(req);
 
 		if (!data) {
