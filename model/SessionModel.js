@@ -146,6 +146,7 @@ module.exports = class SessionModel extends ModelBase {
 		return token;
 	}
 
+
 	get relationMappings() {
 		let User = require("./UserModel");
 		return {
