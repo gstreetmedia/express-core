@@ -47,7 +47,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 		 * @returns {Promise<*>}
 		 */
 		static async applicationKey(req) {
-			console.log("middlware/authentication::applicationKey");
+			console.log("middlware/authentication::applicationKey " + req.hostname);
 			//Check header for application-key
 
 			let key = req.headers['application-key'];
@@ -85,10 +85,20 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				return 'Invalid Application Key';
 			}
 
+			if (
+				req.hostname.indexOf("localhost") === -1 &&
+				token.config.settings &&
+				token.config.settings.hosts
+			) {
+				if (_.indexOf(token.config.settings.hosts, req.host) === -1) {
+					console.log("Token not allowed");
+				}
+			}
+
 			req.config = token.config;
 			req.token = token;
 			delete token.config;
-			req.addRole("api-user");
+			req.addRole(token.role || "api-user");
 
 			await cache.set("configuration_" + key,
 				{

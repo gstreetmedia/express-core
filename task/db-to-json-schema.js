@@ -67,13 +67,13 @@ async function convert(destination, connectionString) {
 		let cs = connectionString[i];
 
 		if (cs.indexOf("postgresql") === 0) {
-			console.log("postgres");
+			//console.log("postgres");
 			converter = require("./pg-tables-to-schema");
 		} else if (cs.indexOf("mysql") === 0) {
-			console.log("mysql");
+			//console.log("mysql");
 			converter = require("./mysql-tables-to-schema");
 		} else {
-			console.log("wtf");
+			//console.log("wtf");
 		}
 
 		let schema = await converter({
@@ -302,6 +302,8 @@ async function convert(destination, connectionString) {
 	}
 
 	routers.sort();
+
+	routers = _.uniq(routers);
 
 	let s = "let router = require('express').Router();\n";
 	routers.forEach(
