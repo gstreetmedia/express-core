@@ -55,8 +55,6 @@ module.exports = class UserModel extends ModelBase {
 
 	async login(username, password) {
 
-		console.log("UserModel::login => " + username + " / " + password);
-
 		let user = await this.findOne(
 			{
 				where : {

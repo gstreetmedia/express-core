@@ -1,26 +1,14 @@
 require('dotenv').config();
 const md5 = require("md5");
-let converter;
-
-if (process.env.DEFAULT_DB.indexOf("postgresql") === 0) {
-	console.log("postgres");
-	converter = require("./pg-tables-to-schema");
-} else if (process.env.DEFAULT_DB.indexOf("mysql") === 0) {
-	console.log("mysql");
-	converter = require("./mysql-tables-to-schema");
-} else {
-	console.log("wtf");
-}
-
-let fs = require('fs');
-let path = require("path");
-
-let inflector = require("inflected");
-let _ = require("underscore");
+const fs = require('fs');
+const path = require("path");
+const inflector = require("inflected");
+const _ = require("underscore");
+const connectionStringParser = require("connection-string");
 
 //used to format output
-let stt = require('spaces-to-tabs');
-let stringify = require("stringify-object");
+const stt = require('spaces-to-tabs');
+const stringify = require("stringify-object");
 
 let sourceBase = path.resolve(__dirname  + "/../../");
 
@@ -62,11 +50,48 @@ if (!fs.existsSync(routerBase)) {
 
 
 async function convert(destination, connectionString) {
-	let schemas = await converter({
-		"baseUrl": '',
-		"indent": 2,
-		connectionString : connectionString
-	});
+
+
+	let converter;
+	let schemas = [];
+
+	if (!connectionString) {
+		connectionString = [process.env.DEFAULT_DB]
+	} else if (!_.isArray(connectionString)) {
+		connectionString = [connectionString];
+	}
+
+	for (let i = 0; i < connectionString.length; i++) {
+
+
+		let cs = connectionString[i];
+
+		if (cs.indexOf("postgresql") === 0) {
+			console.log("postgres");
+			converter = require("./pg-tables-to-schema");
+		} else if (cs.indexOf("mysql") === 0) {
+			console.log("mysql");
+			converter = require("./mysql-tables-to-schema");
+		} else {
+			console.log("wtf");
+		}
+
+		let schema = await converter({
+			"baseUrl": '',
+			"indent": 2,
+			connectionString : cs
+		});
+
+		cs = connectionStringParser(cs);
+
+		schema.forEach(
+			function(item) {
+				item.dataSource = cs.path[0];
+				schemas.push(item);
+			}
+		)
+	}
+
 
 	// Schema's is an array of json-schema objects
 	//
@@ -139,7 +164,7 @@ async function convert(destination, connectionString) {
 
 			if (destination === "memory") {
 				global.schemaCache = global.schemaCache || {};
-				let name = md5(connectionString || process.env.DEFAULT_DB);
+				let name = md5(connectionString.join("::"));
 				global.schemaCache[name] = global.schemaCache[name] || {};
 				global.schemaCache[name][item.title] = item;
 				return;

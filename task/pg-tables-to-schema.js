@@ -77,6 +77,7 @@ module.exports = async function( options ) {
 					$schema:              'http://json-schema.org/draft-06/schema#',
 					$id:                  options.baseUrl + tableName + '.json',
 					title:                inflector.classify(inflector.singularize(tableName)),
+					dataSource: null,
 					tableName:            tableName,
 					description:          'Generated: ' + new Date(),
 					primaryKey : null,

@@ -28,7 +28,17 @@ module.exports = class ModelBase {
 			this.req = req;
 		}
 
-		this.connectionString = process.env.DEFAULT_DB;
+	}
+
+	get connectionString() {
+		for (let key in process.env) {
+			if (_.isString(process.env[key])) {
+				if (process.env[key].indexOf(this.schema.dataSource) !== -1) {
+					return process.env[key];
+				}
+			}
+		}
+		return process.env.DEFAULT_DB;
 	}
 
 	/**
