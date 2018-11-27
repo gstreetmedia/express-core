@@ -847,8 +847,7 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
-		console.log(command.toString());
-
+		//console.log(command.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {

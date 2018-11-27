@@ -91,8 +91,8 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				token.config.settings &&
 				token.config.settings.hosts
 			) {
-				if (_.indexOf(token.config.settings.hosts, req.host) === -1) {
-					console.log("Token not allowed");
+				if (_.indexOf(token.config.settings.hosts, req.hostname) === -1) {
+					return 'Token not allowed for this host';
 				}
 			}
 
