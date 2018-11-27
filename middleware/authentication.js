@@ -122,7 +122,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				try {
 					decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
 				} catch (e) {
-					await this.sessionModel.destroy(
+					await this.sessionModel.destroyWhere(
 						{
 							where: {
 								tokenId: token
@@ -135,8 +135,6 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				if (!decoded) {
 					return;
 				}
-
-				//console.log(decoded);
 
 				let cacheKey = "session" + decoded.id;
 
@@ -156,6 +154,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 					);
 				} else {
 					req.user = session.user;
+					req.jwt = token;
 					req.addRole(session.user.role);
 					return true;
 				}
@@ -172,7 +171,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				let args = {
 					user: req.user
 				};
-				//console.log("saving cache");
+
 				await cache.set(cacheKey, args);
 			}
 

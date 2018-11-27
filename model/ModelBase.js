@@ -344,8 +344,22 @@ module.exports = class ModelBase {
 			this.properties
 		);
 
-		console.log(command.toString());
+		var result = await this.execute(command);
+		return result;
+	}
 
+	/**
+	 * Delete one or more matching records
+	 * @param query
+	 * @returns {Promise<*>}
+	 */
+	async destroyWhere(query) {
+		console.log("ModelBase::destroyWhere");
+		let command = this.queryBuilder.delete(
+			this.tableName,
+			query,
+			this.properties
+		);
 		var result = await this.execute(command);
 		return result;
 	}
@@ -739,11 +753,9 @@ module.exports = class ModelBase {
 			let keys = [];
 
 			for (let key in data) {
-				if (!data[key] && _.indexOf(this.schema.required, key) !== -1) {
-					if (this.validation[key] && this.validation[key].default) {
-						data[key] = this.validation[key];
-						keys.push(key);
-					}
+				if (!data[key] && this.properties[key].default) {
+					data[key] = this.properties[key].default;
+					keys.push(key);
 				} else if (data[key]) {
 					keys.push(key);
 				}
@@ -782,6 +794,7 @@ module.exports = class ModelBase {
 		let invalid = [];
 		for (let key in data) {
 			if (!this.properties[key]) {
+				console.log("validate => removing " + key);
 				delete data[key];
 				continue;
 			}
@@ -800,6 +813,7 @@ module.exports = class ModelBase {
 				if (_.indexOf(this.schema.required, key) !== -1) {
 					invalid.push(key);
 				} else {
+					console.log("validate => removing invalid " + key);
 					delete data[key];
 				}
 			}
@@ -823,7 +837,6 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
-		//console.log(sql.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {

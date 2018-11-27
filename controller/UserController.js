@@ -39,8 +39,11 @@ module.exports = class UserController extends ControllerBase {
 	async login(req, res) {
 
 		let m = new Model(req);
+
+		console.log(req.body);
+
 		let result = await m.login(
-			req.body.username || req.body.email,
+			req.body.email,
 			req.body.password
 		);
 
@@ -59,6 +62,20 @@ module.exports = class UserController extends ControllerBase {
 		}
 
 		res.success(result);
+	}
+
+	async logout(req, res) {
+		if (!req.jwt) {
+			return res.invalid("Missing Token");
+		}
+
+		let m = new Model(req);
+		let result = await m.logout(req.jwt);
+
+		res.clearCookie('token');
+		res.clearCookie('application-key');
+
+		return res.success("Logged Out");
 	}
 
 }

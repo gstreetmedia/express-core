@@ -92,8 +92,17 @@ module.exports = class UserModel extends ModelBase {
 			user : _.omit(user,['id','password']),
 			token : token
 		}
+	}
 
-
+	async logout(token) {
+		let sm = new SessionModel(this.req);
+		return await sm.destroyWhere(
+			{
+				where : {
+					token : token
+				}
+			}
+		);
 	}
 
 }

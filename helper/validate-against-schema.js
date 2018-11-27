@@ -8,9 +8,8 @@ module.exports = (key, data, schema) => {
 
 	switch (schema.properties[key].type) {
 		case "string" :
-
 			if (schema.properties[key].enum) {
-				return _.findIndex(schema.properties[key].enum, data[key]) !== -1;
+				return _.indexOf(schema.properties[key].enum, data[key]) >= 0;
 			}
 
 			switch (schema.properties[key].format) {
