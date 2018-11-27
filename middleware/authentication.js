@@ -10,6 +10,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 	const cache = require('../helper/cache-manager');
 	const hashPassword = require("../helper/hash-password");
 	const now = require("../helper/now");
+	const _ = require("lodash");
 
 	let ConfigModel = require("../../model/ConfigModel");
 	let TokenModel = require("../../model/TokenModel");
