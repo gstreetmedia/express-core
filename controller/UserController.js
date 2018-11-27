@@ -40,7 +40,7 @@ module.exports = class UserController extends ControllerBase {
 
 		let m = new Model(req);
 		let result = await m.login(
-			req.body.username,
+			req.body.username || req.body.email,
 			req.body.password
 		);
 
