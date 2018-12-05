@@ -1,8 +1,10 @@
 const cacheManager = require('cache-manager');
 const redisStore = require('cache-manager-redis');
 let config;
+let manager;
+let cachePrefix = process.env.CACHE_PREFIX || "core";
 
-if (0 && process.env.CACHE_REDIS) {
+if (process.env.CACHE_REDIS) {
 	console.log("redis " + process.env.CACHE_REDIS);
 	config = {
 		store: redisStore,
@@ -10,26 +12,20 @@ if (0 && process.env.CACHE_REDIS) {
 		db: 0,
 		ttl: 120
 	};
-} else {
-	config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
-}
-
-let manager = cacheManager.caching(config);
-
-if (0 && process.env.CACHE_REDIS) {
+	manager = cacheManager.caching(config);
 	manager.store.events.on('redisError', function(error) {
 		// handle error here
 		console.log(error);
 	});
+
+} else {
+	config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
+	manager = cacheManager.caching(config);
 }
-
-module.exports = manager;
-
-/*
 
 exports.set = async function(key, value, ttl) {
 	return await manager.set(
-		"MEMBIO_ACTIONS_" + key, value,
+		cachePrefix + "_" + key, value,
 		{
 			ttl : ttl || 60
 		}
@@ -38,8 +34,6 @@ exports.set = async function(key, value, ttl) {
 
 exports.get = async function(key) {
 	return await manager.get(
-		"MEMBIO_ACTIONS_" + key
+		cachePrefix + "_" + key
 	);
-} ;
-
-*/
+}

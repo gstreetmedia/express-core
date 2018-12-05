@@ -110,6 +110,7 @@ module.exports = class QueryToSql {
 					queryBuilder.limit(parseInt(query[key]));
 					break;
 				case "sort" :
+					//TODO we might not want to worry about ASC, DESC just check for presence
 					let params = query[key].split(" ");
 					let direction = "ASC";
 					if (properties[params[0]]) {

@@ -382,6 +382,8 @@ module.exports = class ModelBase {
 	 */
 	async index(query) {
 
+		query = query || {};
+
 		let keys = Object.keys(this.properties);
 
 		if (query.select && _.isString(query.select)) {
@@ -869,18 +871,28 @@ module.exports = class ModelBase {
 				//return results.rows;
 			} catch (e) {
 				this.lastError = e;
+				console.log(command.toString());
 				console.log(e.detail);
 				return false;
 			}
 		} else {
-			let results = await this.pool.query(sql);
-			if (results.rows) {
-				return results;
-			} else {
-				return {
-					rows: results
-				};
+			try {
+				let results = await this.pool.query(sql);
+				if (results.rows) {
+					return results;
+				} else {
+					return {
+						rows: results
+					};
+				}
+			} catch (e) {
+				this.lastError = e;
+				console.log(command.toString());
+				console.log(e.detail);
+				return false;
 			}
+
+
 		}
 	}
 
