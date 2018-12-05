@@ -9,7 +9,13 @@ module.exports = function (req, res, next) {
 	 * @param role
 	 */
 	req.addRole = function(role) {
-		if (_.indexOf(req.currentRoles, role) === -1) {
+		if (_.isArray(role)) {
+			role.forEach(
+				function(item) {
+					req.addRole(item);
+				}
+			)
+		} else if (_.indexOf(req.currentRoles, role) === -1) {
 			req.currentRoles.push(role);
 		}
 	};
@@ -36,10 +42,8 @@ module.exports = function (req, res, next) {
 			}
 		} else if (_.isArray(role)) {
 			role.forEach(
-				function(role) {
-					if (_.indexOf(req.allowedRoles, role) === -1) {
-						req.allowedRoles.push(item);
-					}
+				function(item) {
+					req.allowRole(item);
 				}
 			)
 		}

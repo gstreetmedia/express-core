@@ -244,6 +244,6 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 		}
 	}
 } else {
-	module.exports = require(path.resolve(__dirname + "/../../middleware.authentication"))
+	module.exports = require(path.resolve(__dirname + "/../../middleware/authentication"))
 }
 

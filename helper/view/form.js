@@ -3,11 +3,11 @@ const fs = require("fs");
 const moment = require("moment");
 const _ = require("lodash");
 
-const selectTemplate = ejs.compile(fs.readFileSync("./src/views/elements/form/select.ejs", 'utf-8'));
-const radioTemplate = ejs.compile(fs.readFileSync("./src/views/elements/form/radio.ejs", 'utf-8'));
-const checkboxTemplate = ejs.compile(fs.readFileSync("./src/views/elements/form/checkbox.ejs", 'utf-8'));
-const textAreaTemplate = ejs.compile(fs.readFileSync("./src/views/elements/form/textArea.ejs", 'utf-8'));
-const inputTemplate = ejs.compile(fs.readFileSync("./src/views/elements/form/input.ejs", 'utf-8'));
+const selectTemplate = ejs.compile(fs.readFileSync("./views/elements/form/select.ejs", 'utf-8'));
+const radioTemplate = ejs.compile(fs.readFileSync("./views/elements/form/radio.ejs", 'utf-8'));
+const checkboxTemplate = ejs.compile(fs.readFileSync("./views/elements/form/checkbox.ejs", 'utf-8'));
+const textAreaTemplate = ejs.compile(fs.readFileSync("./views/elements/form/textArea.ejs", 'utf-8'));
+const inputTemplate = ejs.compile(fs.readFileSync("./views/elements/form/input.ejs", 'utf-8'));
 
 function findStringType(attribute, attr) {
 
