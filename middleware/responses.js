@@ -27,6 +27,10 @@ module.exports = async function (req, res, next) {
 		res.status(500).send(e);
 	};
 
+	res.error = function(e) {
+		res.status(500).send(e);
+	};
+
 	res.notFound = function(e) {
 		res.status(404).send(e);
 	};

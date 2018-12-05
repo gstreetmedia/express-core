@@ -107,7 +107,7 @@ module.exports = class ControllerBase {
 			} else {
 				result = await new this.Model(req).update(req.params.id, req.body);
 			}
-			if (res) {
+			if (result) {
 				if (result.error) {
 					return res.invalid(result);
 				}

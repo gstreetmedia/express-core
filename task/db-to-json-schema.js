@@ -3,7 +3,7 @@ const md5 = require("md5");
 const fs = require('fs');
 const path = require("path");
 const inflector = require("inflected");
-const _ = require("underscore");
+const _ = require("lodash");
 const connectionStringParser = require("connection-string");
 
 //used to format output
@@ -63,8 +63,9 @@ async function convert(destination, connectionString) {
 
 	for (let i = 0; i < connectionString.length; i++) {
 
-
 		let cs = connectionString[i];
+
+		console.log(cs);
 
 		if (cs.indexOf("postgresql") === 0) {
 			//console.log("postgres");
