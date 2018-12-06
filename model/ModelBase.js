@@ -102,9 +102,10 @@ module.exports = class ModelBase {
 				return await this.join(result[0], query);
 			}
 			return result[0];
-
+		} else if (result.length === 0) {
+			return null;
 		} else {
-			console.error("Ambiguous find one " + id);
+			console.error("Ambiguous find one " + this.tableName + " => " + id);
 			return null;
 		}
 	}
