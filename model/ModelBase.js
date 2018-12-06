@@ -860,8 +860,6 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
-		console.log(sql);
-
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
 				let results = await this.pool.query(sql);
