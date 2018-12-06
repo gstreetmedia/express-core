@@ -62,6 +62,7 @@ module.exports = class QueryToSql {
 			return knexProxy;
 		}
 	}
+
 	/**
 	 * Generate SQL select statement
 	 * @param table - the name of the table (optional);
@@ -82,7 +83,7 @@ module.exports = class QueryToSql {
 			query.select = typeof query.select === "string" ? query.select.split(',') : query.select;
 			for (let i = 0; i < query.select.length; i++) {
 				let key = query.select[i];
-				if (properties[key]){
+				if (properties[key]) {
 					//note: must wrap in knex.raw or it will be passed to the wrapIdentifier function
 					queryBuilder.select(QueryToSql.knex().raw('"' + table + '"."' + properties[key].columnName + '" as "' + key + '"'));
 				} else if (key.indexOf('as') != -1) {
@@ -292,6 +293,12 @@ module.exports = class QueryToSql {
 			return;
 		}
 
+		let columnType = properties[key].type;
+
+		if (columnType === "array") {
+			return this.processArrayColumn(table, key, compare, value, properties, sqlBuilder)
+		}
+
 		switch (compare) {
 			case "inside" :
 			case "near" :
@@ -307,50 +314,57 @@ module.exports = class QueryToSql {
 				break;
 			case "gte" :
 			case ">=" :
-				sqlBuilder.where(table + "." +columnName, ">=", QueryToSql.processType(value, properties[key]));
+				sqlBuilder.where(table + "." + columnName, ">=", QueryToSql.processType(value, properties[key]));
 				break;
 			case "lt" :
 			case "<" :
-				sqlBuilder.where(table + "." +columnName, "<", QueryToSql.processType(value, properties[key]));
+				sqlBuilder.where(table + "." + columnName, "<", QueryToSql.processType(value, properties[key]));
 				break;
 			case "lte" :
 			case "<=" :
-				sqlBuilder.where(table + "." +columnName, "<=", QueryToSql.processType(value, properties[key]));
+				sqlBuilder.where(table + "." + columnName, "<=", QueryToSql.processType(value, properties[key]));
 				break;
 			case "in" :
-				sqlBuilder.whereIn(table + "." +columnName, QueryToSql.processArrayType(value, properties[key]));
+				sqlBuilder.whereIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				break;
 			case "nin" :
-				sqlBuilder.whereNotIn(table + "." +columnName, QueryToSql.processArrayType(value, properties[key]));
+				sqlBuilder.whereNotIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				break;
 			case "endsWith" :
-				sqlBuilder.where(table + "." +columnName, QueryToSql.like, "%" + value); //todo postgres only
+				sqlBuilder.where(table + "." + columnName, QueryToSql.like, "%" + value); //todo postgres only
 				break;
 			case "startsWith" :
-				sqlBuilder.where(table + "." +columnName, QueryToSql.like, value + "%"); //todo postgres only
+				sqlBuilder.where(table + "." + columnName, QueryToSql.like, value + "%"); //todo postgres only
 				break;
 			case "contains" :
-				sqlBuilder.where(table + "." +columnName, QueryToSql.like, "%" + value + "%"); //todo postgres only
+				sqlBuilder.where(table + "." + columnName, QueryToSql.like, "%" + value + "%"); //todo postgres only
 				break;
+			case "=" :
 			case "==" :
 			case "eq" :
 				if (value === null) {
-					sqlBuilder.whereNull(table + "." +columnName, QueryToSql.processType(value, properties[key]));
+					sqlBuilder.whereNull(table + "." + columnName, QueryToSql.processType(value, properties[key]));
 				} else if (_.isArray(value)) {
-					sqlBuilder.whereIn(table + "." +columnName, QueryToSql.processArrayType(value, properties[key]));
+					sqlBuilder.whereIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				} else {
-					sqlBuilder.whereNot(table + "." +columnName, QueryToSql.processType(value, properties[key]));
+					sqlBuilder.whereNot(table + "." + columnName, QueryToSql.processType(value, properties[key]));
 				}
+
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
-				if (value === null) {
-					sqlBuilder.whereNotNull(table + "." +columnName, QueryToSql.processType(value, properties[key]));
-				} else if (_.isArray(value)) {
-					sqlBuilder.whereNotIn(table + "." +columnName, QueryToSql.processArrayType(value, properties[key]));
+				if (columnType === "array") {
+					let k = this.knex();
+					sqlBuilder.where(k.raw(QueryToSql.processType(value, properties[key]) + " != ANY(" + columnName + ")"));
 				} else {
-					sqlBuilder.whereNot(table + "." +columnName, QueryToSql.processType(value, properties[key]));
+					if (value === null) {
+						sqlBuilder.whereNotNull(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+					} else if (_.isArray(value)) {
+						sqlBuilder.whereNotIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
+					} else {
+						sqlBuilder.whereNot(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+					}
 				}
 				break;
 			case "or" :
@@ -386,11 +400,152 @@ module.exports = class QueryToSql {
 				break;
 			default :
 				if (value === null) {
-					sqlBuilder.whereNull(table + "." +columnName, QueryToSql.processType(value, properties[key]));
+					sqlBuilder.whereNull(table + "." + columnName, QueryToSql.processType(value, properties[key]));
 				} else if (_.isArray(value)) {
-					sqlBuilder.whereIn(table + "." +columnName, QueryToSql.processArrayType(value, properties[key]));
+					sqlBuilder.whereIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				} else {
-					sqlBuilder.where(table + "." +columnName, QueryToSql.processType(value, properties[key]));
+					sqlBuilder.where(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+				}
+		}
+	}
+
+	static processArrayColumn(table, key, compare, value, properties, sqlBuilder) {
+
+		let columnName;
+		if (properties[key] && properties[key].columnName) {
+			columnName = properties[key].columnName;
+		} else {
+			return;
+		}
+
+		let columnType = properties[key].type;
+		let knex = this.knex();
+
+		switch (compare) {
+			case "inside" :
+			case "near" :
+			case "radius" :
+			case "poly" :
+			case "geohash" :
+			case "box" :
+				//TODO integrate geo query functions
+				break;
+			case "gt" :
+			case ">" :
+				sqlBuilder.where(knex.raw(QueryToSql.processType(val, properties[key]) + " > ANY(" + columnName + ")"));
+				break;
+			case "gte" :
+			case ">=" :
+				sqlBuilder.where(knex.raw(QueryToSql.processType(val, properties[key]) + " >= ANY(" + columnName + ")"));
+				break;
+			case "lt" :
+			case "<" :
+				sqlBuilder.where(knex.raw(QueryToSql.processType(val, properties[key]) + " < ANY(" + columnName + ")"));
+				break;
+			case "lte" :
+			case "<=" :
+				sqlBuilder.where(knex.raw(QueryToSql.processType(val, properties[key]) + " <= ANY(" + columnName + ")"));
+				break;
+			case "in" :
+				sqlBuilder.where(
+					(builder) => {
+						value.forEach(
+							function (val) {
+								builder.orWhere(knex.raw(QueryToSql.processType(val, properties[key]) + " = ANY(" + columnName + ")"));
+							}
+						)
+					}
+				)
+
+				break;
+			case "nin" :
+				sqlBuilder.where(
+					(builder) => {
+						value.forEach(
+							function (val) {
+								builder.where(knex.raw(QueryToSql.processType(val, properties[key]) + " != ANY(" + columnName + ")"));
+							}
+						)
+					}
+				)
+				break;
+			case "=" :
+			case "==" :
+			case "eq" :
+				if (_.isArray(value)) {
+					sqlBuilder.where(
+						(builder) => {
+							value.forEach(
+								function (val) {
+									builder.orWhere(knex.raw(QueryToSql.processType(val, properties[key]) + " = ANY(" + columnName + ")"));
+								}
+							)
+						}
+					)
+				} else {
+					sqlBuilder.where(knex.raw(QueryToSql.processType(value, properties[key]) + " = ANY(" + columnName + ")"));
+				}
+				break;
+			case "!" :
+			case "!=" :
+			case "ne" :
+				if (_.isArray(value)) {
+					sqlBuilder.where(
+						(builder) => {
+							value.forEach(
+								function (val) {
+									builder.where(knex.raw(QueryToSql.processType(val, properties[key]) + " != ANY(" + columnName + ")"));
+								}
+							)
+						}
+					)
+				} else {
+					sqlBuilder.where(knex.raw(QueryToSql.processType(value, properties[key]) + " = ANY(" + columnName + ")"));
+				}
+				break;
+				break;
+			case "or" :
+				/**
+				 * or : [
+				 *  {field1: val1},
+				 *  {field2 {">":val2}
+			        * ]
+				 */
+				sqlBuilder.where(
+					(builder) => {
+						for (let i = 0; i < value.length; i++) {
+							let innerCompare = "";
+							let innerValue;
+							let innerKey = Object.keys(value[i])[0];
+							let innerColumnName;
+
+							if (typeof value[i][innerKey] === "object") {
+								innerCompare = Object.keys(value[i][innerKey])[0];
+							}
+
+							if (innerCompare !== "") {
+								innerValue = value[i][innerKey][compare];
+							} else {
+								innerValue = value[i];
+							}
+
+							//compare, columnName, key, value, properties, sqlBuilder
+							QueryToSql.processArrayColumn(innerKey, innerCompare, innerValue, properties, builder)
+						}
+					}
+				);
+				break;
+			default :
+				if (value === null) {
+					sqlBuilder.whereNull(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+				} else if (_.isArray(value)) {
+					value.forEach(
+						function (val) {
+							sqlBuilder.orWhere(knex.raw(QueryToSql.processType(val, properties[key]) + " != ANY(" + columnName + ")"));
+						}
+					)
+				} else {
+					sqlBuilder.where(knex.raw(QueryToSql.processType(value, properties[key]) + " = ANY(" + columnName + ")"));
 				}
 		}
 	}
@@ -411,7 +566,7 @@ module.exports = class QueryToSql {
 	 * @param {Object} property - a single json schema property
 	 * @returns {*}
 	 */
-	static processType(value, property) {
+	static processType(value, property, isInsertOrUpdate) {
 		switch (property.type) {
 			case "object" :
 				try {
@@ -420,6 +575,23 @@ module.exports = class QueryToSql {
 					return null;
 				}
 				break;
+			case "array" :
+				if (isInsertOrUpdate) {
+					return "{" + value.join(",") + "}";
+				}
+				if (_.isArray(value)) {
+					if (property.format === "string") {
+						return "('" + value.join("','") + "')";
+					} else {
+						return "(" + value.join(",") + ")";
+					}
+				} else {
+					if (property.format === "string") {
+						return "'" + value + "'";
+					} else {
+						return value;
+					}
+				}
 			case "number" :
 				if (!_.isNumber(value)) {
 					if (property.type && property.type === "integer") {
