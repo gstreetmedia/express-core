@@ -144,10 +144,15 @@ module.exports = function (model, key, value) {
 		case "number" :
 			attr.type = "number";
 			break;
+		case "array" :
+			attr.value = JSON.stringify(value);
+			attr.dataType = 'json';
+			attr.type = "textArea";
+			break;
 		case "object" :
 			attr.value = JSON.stringify(value);
 			attr.dataType = 'json';
-			attr.type = "textArea"
+			attr.type = "textArea";
 			break;
 		case "boolean" :
 			attr.type = "radio";
