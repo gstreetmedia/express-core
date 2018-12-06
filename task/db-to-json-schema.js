@@ -65,7 +65,7 @@ async function convert(destination, connectionString) {
 
 		let cs = connectionString[i];
 
-		console.log(cs);
+		//console.log(cs);
 
 		if (cs.indexOf("postgresql") === 0) {
 			//console.log("postgres");

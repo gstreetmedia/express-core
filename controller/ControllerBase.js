@@ -182,6 +182,41 @@ module.exports = class ControllerBase {
 	}
 
 	/**
+	 *
+	 * @param req
+	 * @param res
+	 * @returns {Promise<void>}
+	 */
+	async search(req, res) {
+		let m = new this.Model(req);
+
+		let query = {
+			where : {
+				or : [
+
+				]
+			}
+		}
+
+		query.select = [this.Model.primaryKey];
+
+		for(let key in m.properties) {
+			if (m.properties[key].type === "string") {
+				query.where.or.push(
+					{
+						[key] : {"contains" : req.query.query}
+					}
+				)
+				query.select.push(key);
+			}
+		}
+
+		let results = await m.query(query);
+
+		//TODO limit search results to some for of a "name" field + the model.primaryKey
+	}
+
+	/**
 	 * Remove and existing row
 	 * @param req
 	 * @param res

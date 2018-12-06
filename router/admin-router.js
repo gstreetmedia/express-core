@@ -49,5 +49,13 @@ router.get("/:model/:id/edit", async (req, res, next) => {
 	}
 );
 
+router.get("/search/:countroller", async (req, res, next) => {
+		if (req.checkRole()) {
+			return await c.search(req, res);
+		}
+		return res.redirect("/");
+	}
+);
+
 
 module.exports = router;

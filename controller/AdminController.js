@@ -165,6 +165,12 @@ module.exports = class AdminController extends ViewControllerBase {
 		)
 	}
 
+	async search(req, res) {
+		let Controller = require("./" + req.params.controller + "Controller");
+		let c = new Controller();
+		return await c.search(req, res);
+	}
+
 	/**
 	 * Remove and existing row
 	 * @param req
