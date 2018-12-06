@@ -57,18 +57,14 @@ module.exports = class SessionModel extends ModelBase {
 
 		let sessions = await this.find(
 			{
-				userId: userRecord.id
+				where : {
+					userId: {"=" : userRecord.id}
+				},
+				limit : 1
 			}
 		);
 
-		let session = _.find(sessions,
-			{
-				userAgent: userAgent,
-				ipAddress : ipAddress
-			}
-		);
-
-		if (session) {
+		if (sessions.length > 0) {
 			let decoded;
 			try {
 				decoded = jwt.verify(this.token, process.env.JWT_TOKEN_SECRET);
@@ -98,7 +94,6 @@ module.exports = class SessionModel extends ModelBase {
 										token: this.token
 									}
 								)
-							sessions.splice(i, 1);
 						} catch (e) {
 							console.log("Error removing expired");
 						}
@@ -108,12 +103,6 @@ module.exports = class SessionModel extends ModelBase {
 			}
 		}
 
-		while (sessions.length > 2) {
-			//No one gets more that three sessions
-			console.log("deleting existing session (too many sessions)");
-			await this.destroy({id: sessions[0].id});
-			sessions.splice(0, 1);
-		}
 		// If no sessions then create new
 		var obj = _.cloneDeep(userRecord);
 		obj.ipAddress = ipAddress;
@@ -131,8 +120,7 @@ module.exports = class SessionModel extends ModelBase {
 			}
 		);
 
-		await
-			this.create(
+		await this.create(
 				{
 					id: uuid.v4(),
 					userId: userId,

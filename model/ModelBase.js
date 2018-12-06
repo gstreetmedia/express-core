@@ -102,10 +102,9 @@ module.exports = class ModelBase {
 				return await this.join(result[0], query);
 			}
 			return result[0];
-		} else if (result.length === 0) {
-			return null;
+
 		} else {
-			console.error("Ambiguous find one " + this.tableName + " => " + id);
+			console.error("Ambiguous find one " + id);
 			return null;
 		}
 	}
@@ -288,7 +287,6 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async query(query) {
-
 		let command = this.queryBuilder.select(this.tableName, query, this.properties);
 
 		try {
@@ -303,6 +301,11 @@ module.exports = class ModelBase {
 		}
 	}
 
+	/**
+	 *
+	 * @param query
+	 * @returns {Promise<*>}
+	 */
 	async count(query) {
 		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
 		console.log(command.toString());
@@ -317,7 +320,6 @@ module.exports = class ModelBase {
 		} else {
 			return 0;
 		}
-
 	}
 
 	/**
@@ -387,8 +389,6 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async index(query) {
-
-		query = query || {};
 
 		let keys = Object.keys(this.properties);
 
@@ -801,13 +801,18 @@ module.exports = class ModelBase {
 				}
 			}
 			if (missing.length > 0) {
-				return missing
+				return missing;
 			} else {
 				return true;
 			}
 		}
 	}
 
+	/**
+	 *
+	 * @param data
+	 * @returns {*}
+	 */
 	validate(data) {
 		let invalid = [];
 		for (let key in data) {
@@ -855,6 +860,8 @@ module.exports = class ModelBase {
 		let sql = command.toString();
 		this.lastCommand = command;
 
+		console.log(sql);
+
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
 				let results = await this.pool.query(sql);
@@ -875,28 +882,18 @@ module.exports = class ModelBase {
 				//return results.rows;
 			} catch (e) {
 				this.lastError = e;
-				console.log(command.toString());
 				console.log(e.detail);
 				return false;
 			}
 		} else {
-			try {
-				let results = await this.pool.query(sql);
-				if (results.rows) {
-					return results;
-				} else {
-					return {
-						rows: results
-					};
-				}
-			} catch (e) {
-				this.lastError = e;
-				console.log(command.toString());
-				console.log(e.detail);
-				return false;
+			let results = await this.pool.query(sql);
+			if (results.rows) {
+				return results;
+			} else {
+				return {
+					rows: results
+				};
 			}
-
-
 		}
 	}
 

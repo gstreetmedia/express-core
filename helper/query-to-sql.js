@@ -354,17 +354,12 @@ module.exports = class QueryToSql {
 			case "!" :
 			case "!=" :
 			case "ne" :
-				if (columnType === "array") {
-					let k = this.knex();
-					sqlBuilder.where(k.raw(QueryToSql.processType(value, properties[key]) + " != ANY(" + columnName + ")"));
+				if (value === null) {
+					sqlBuilder.whereNotNull(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+				} else if (_.isArray(value)) {
+					sqlBuilder.whereNotIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				} else {
-					if (value === null) {
-						sqlBuilder.whereNotNull(table + "." + columnName, QueryToSql.processType(value, properties[key]));
-					} else if (_.isArray(value)) {
-						sqlBuilder.whereNotIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
-					} else {
-						sqlBuilder.whereNot(table + "." + columnName, QueryToSql.processType(value, properties[key]));
-					}
+					sqlBuilder.whereNot(table + "." + columnName, QueryToSql.processType(value, properties[key]));
 				}
 				break;
 			case "or" :
