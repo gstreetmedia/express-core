@@ -305,12 +305,17 @@ module.exports = class ModelBase {
 
 	async count(query) {
 		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
+		console.log(command.toString());
 		let results = await this.execute(command);
-		if (this.db === "pg" && results[0].count) {
-			return results[0].count;
+		if (results) {
+			if (this.db === "pg" && results[0].count) {
+				return results[0].count;
+			} else {
+				let key = Object.keys(results[0]);
+				return results[0][key];
+			}
 		} else {
-			let key = Object.keys(results[0]);
-			return results[0][key];
+			return 0;
 		}
 
 	}
@@ -849,8 +854,6 @@ module.exports = class ModelBase {
 	async execute(command, postProcess) {
 		let sql = command.toString();
 		this.lastCommand = command;
-
-		//console.log(command.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {

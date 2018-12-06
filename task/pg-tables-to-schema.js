@@ -184,6 +184,26 @@ var convertColumnType = function( column, enums )
 			break;
 		}
 
+		case 'ARRAY': {
+			schemaProperty.type = 'array';
+
+			switch (column.udt_name) {
+				case "_text" :
+				case "_varchar" :
+					schemaProperty.format = "string";
+					break;
+				case "_int4" :
+					schemaProperty.format = "integer";
+				case "_numeric" :
+				case "_float8" :
+					schemaProperty.format = "number";
+				default :
+					schemaProperty.format = column.udt_name;
+			}
+
+			break;
+		}
+
 		case 'date':
 		{
 			schemaProperty.type   = 'string';
