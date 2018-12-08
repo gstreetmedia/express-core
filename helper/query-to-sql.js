@@ -347,7 +347,7 @@ module.exports = class QueryToSql {
 				} else if (_.isArray(value)) {
 					sqlBuilder.whereIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				} else {
-					sqlBuilder.whereNot(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+					sqlBuilder.where(table + "." + columnName, QueryToSql.processType(value, properties[key]));
 				}
 
 				break;
