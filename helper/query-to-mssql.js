@@ -133,7 +133,7 @@ module.exports = class QueryToSql {
 	}
 
 	static count(table, key, query, properties) {
-		console.log("key " + key);
+		//console.log("key " + key);
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
 		return sqlBuilder.count(QueryToSql.knex().raw(properties[key].columnName));
 	}

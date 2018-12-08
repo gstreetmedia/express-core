@@ -308,7 +308,6 @@ module.exports = class ModelBase {
 	 */
 	async count(query) {
 		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
-		console.log(command.toString());
 		let results = await this.execute(command);
 		if (results) {
 			if (this.db === "pg" && results[0].count) {
@@ -859,6 +858,8 @@ module.exports = class ModelBase {
 	async execute(command, postProcess) {
 		let sql = command.toString();
 		this.lastCommand = command;
+
+		//console.log(sql);
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
