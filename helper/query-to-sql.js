@@ -447,9 +447,9 @@ module.exports = class QueryToSql {
 						} else {
 							columnName += " -> '" + parts[i] + "'";
 						}
-						as += "_" + inflector.underscore(parts[i]);
+						as += "." + parts[i];
 					}
-					sqlBuilder.select(knex.raw(table + "." + columnName + " as " + as));
+					sqlBuilder.select(knex.raw(table + "." + columnName + " as \"" + as + "\""));
 				} else {
 					return;
 				}

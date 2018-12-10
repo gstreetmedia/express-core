@@ -42,6 +42,7 @@ module.exports = (key, data, schema) => {
 
 			}
 		case "object" :
+			console.log("checking object " + typeof data[key]);
 			switch (schema.properties[key].format) {
 				case "array" :
 					return _.isArray(data[key]);

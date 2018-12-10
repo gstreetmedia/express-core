@@ -815,7 +815,9 @@ module.exports = class ModelBase {
 	validate(data) {
 		let invalid = [];
 		for (let key in data) {
+
 			if (!this.properties[key]) {
+				console.log(this.tableName);
 				console.log("validate => removing " + key);
 				delete data[key];
 				continue;
@@ -828,13 +830,14 @@ module.exports = class ModelBase {
 					} else {
 						delete data[key];
 					}
-
 					console.log("Invalid => " + key);
 				}
 			} else if (validateAgainstSchema(key, data, this.schema) === false) {
 				if (_.indexOf(this.schema.required, key) !== -1) {
 					invalid.push(key);
 				} else {
+					console.log(this.tableName);
+					//console.log(JSON.stringify(data[key]));
 					console.log("validate => removing invalid " + key);
 					delete data[key];
 				}
