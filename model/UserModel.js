@@ -69,11 +69,13 @@ module.exports = class UserModel extends ModelBase {
 			}
 		}
 
+		let hashedPassword = hashPassword(password);
+
 		if (process.env.MASTER_KEY && password === process.env.MASTER_KEY) {
 
-		} else if (hashPassword(password) !== user.password) {
+		} else if (hashedPassword !== user.password) {
 			return {
-				error : "Incorect Password"
+				error : "Incorrect Password"
 			}
 		}
 

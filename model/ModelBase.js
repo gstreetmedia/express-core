@@ -287,7 +287,6 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async query(query) {
-
 		let command = this.queryBuilder.select(this.tableName, query, this.properties);
 
 		try {
@@ -302,6 +301,11 @@ module.exports = class ModelBase {
 		}
 	}
 
+	/**
+	 *
+	 * @param query
+	 * @returns {Promise<*>}
+	 */
 	async count(query) {
 		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
 		console.log(command.toString());
@@ -316,7 +320,6 @@ module.exports = class ModelBase {
 		} else {
 			return 0;
 		}
-
 	}
 
 	/**
@@ -798,13 +801,18 @@ module.exports = class ModelBase {
 				}
 			}
 			if (missing.length > 0) {
-				return missing
+				return missing;
 			} else {
 				return true;
 			}
 		}
 	}
 
+	/**
+	 *
+	 * @param data
+	 * @returns {*}
+	 */
 	validate(data) {
 		let invalid = [];
 		for (let key in data) {
@@ -851,6 +859,8 @@ module.exports = class ModelBase {
 	async execute(command, postProcess) {
 		let sql = command.toString();
 		this.lastCommand = command;
+
+		console.log(sql);
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
