@@ -73,12 +73,12 @@ module.exports = async function( options ) {
 
 	descriptions = descriptions.rows;
 
-	fs.writeFileSync("./descriptions-" + new Date().getTime() + ".json", JSON.stringify(descriptions));
+	//fs.writeFileSync("./descriptions-" + new Date().getTime() + ".json", JSON.stringify(descriptions));
 
 	let schema = {};
 
 	//TODO need to figure out how to weed out views vs tables
-	fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
+	//fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
 
 	data.rows.forEach(
 		function(column) {
