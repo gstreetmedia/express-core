@@ -46,6 +46,7 @@ module.exports = class ModelBase {
 	 * @returns {Pool}
 	 */
 	get pool() {
+
 		if (this.connectionString.indexOf("postgres") === 0) {
 			this.db = "pg";
 			return require("../helper/postgres-pool")(this.connectionString);
@@ -157,10 +158,8 @@ module.exports = class ModelBase {
 
 		try {
 			let result = await this.execute(command);
-			return {
-				id: data[this.primaryKey],
-				body: data
-			};
+			let record = await this.read(data[this.primaryKey]);
+			return record;
 		} catch (e) {
 			return {
 				error: e
@@ -308,7 +307,6 @@ module.exports = class ModelBase {
 	 */
 	async count(query) {
 		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
-		console.log(command.toString());
 		let results = await this.execute(command);
 		if (results) {
 			if (this.db === "pg" && results[0].count) {
@@ -816,7 +814,10 @@ module.exports = class ModelBase {
 	validate(data) {
 		let invalid = [];
 		for (let key in data) {
+
 			if (!this.properties[key]) {
+				console.log(this.tableName);
+				console.log(this.properties);
 				console.log("validate => removing " + key);
 				delete data[key];
 				continue;
@@ -829,14 +830,17 @@ module.exports = class ModelBase {
 					} else {
 						delete data[key];
 					}
-
 					console.log("Invalid => " + key);
 				}
 			} else if (validateAgainstSchema(key, data, this.schema) === false) {
 				if (_.indexOf(this.schema.required, key) !== -1) {
 					invalid.push(key);
 				} else {
-					console.log("validate => removing invalid " + key);
+					//console.log(this.tableName);
+					//console.log("validate => removing invalid " + key);
+					//console.log(data[key]);
+					//console.log(data);
+					//throw new Error(key);
 					delete data[key];
 				}
 			}
@@ -857,10 +861,10 @@ module.exports = class ModelBase {
 	}
 
 	async execute(command, postProcess) {
-		let sql = command.toString();
+		let sql = !_.isString(command) ? command.toString() : command;
 		this.lastCommand = command;
 
-		console.log(sql);
+		//console.log(sql);
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
@@ -882,7 +886,6 @@ module.exports = class ModelBase {
 				//return results.rows;
 			} catch (e) {
 				this.lastError = e;
-				console.log(e.detail);
 				return false;
 			}
 		} else {

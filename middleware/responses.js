@@ -23,7 +23,7 @@ module.exports = async function (req, res, next) {
 		res.status(200).send(obj);
 	};
 
-	res.invalid = function(e) {
+	res.error = function(e) {
 		res.status(500).send(e);
 	};
 
@@ -40,6 +40,9 @@ module.exports = async function (req, res, next) {
 	};
 
 	res.invalid = function(message) {
+		if (typeof  message === "object") {
+			return res.status(400).send(message)
+		}
 		res.status(400).send({error:true,message:message});
 	};
 

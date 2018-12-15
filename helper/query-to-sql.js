@@ -133,7 +133,7 @@ module.exports = class QueryToSql {
 	}
 
 	static count(table, key, query, properties) {
-		console.log("key " + key);
+		//console.log("key " + key);
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
 		return sqlBuilder.count(QueryToSql.knex().raw(properties[key].columnName));
 	}
@@ -287,6 +287,11 @@ module.exports = class QueryToSql {
 	static processCompare(table, key, compare, value, properties, sqlBuilder) {
 
 		let columnName;
+
+		if (key.indexOf(".") !== -1 || _.isObject(key)) { //JSONB Syntax
+			return this.processObjectColumn(table, key, compare, value, properties, sqlBuilder)
+		}
+
 		if (properties[key] && properties[key].columnName) {
 			columnName = properties[key].columnName;
 		} else {
@@ -347,7 +352,7 @@ module.exports = class QueryToSql {
 				} else if (_.isArray(value)) {
 					sqlBuilder.whereIn(table + "." + columnName, QueryToSql.processArrayType(value, properties[key]));
 				} else {
-					sqlBuilder.whereNot(table + "." + columnName, QueryToSql.processType(value, properties[key]));
+					sqlBuilder.where(table + "." + columnName, QueryToSql.processType(value, properties[key]));
 				}
 
 				break;
@@ -404,6 +409,170 @@ module.exports = class QueryToSql {
 		}
 	}
 
+	/**
+	 * Process a text[] int[] real[] column
+	 * @param table
+	 * @param key
+	 * @param compare
+	 * @param value
+	 * @param properties
+	 * @param sqlBuilder
+	 */
+	static processObjectColumn(table, key, compare, value, properties, sqlBuilder) {
+
+		let columnName;
+		let knex = this.knex();
+
+		if (properties[key] && properties[key].columnName) {
+			columnName = properties[key].columnName;
+		} else {
+			/*
+			select
+			  id,
+			  sync.record -> 'listing' ->> 'ExpirationDate' as "expiration_date"
+			from sync where
+			  sync.record -> 'listing' ->> 'ExpirationDate' < '2018-12-08'
+			 */
+			if (key.indexOf(".") !== -1) {
+				let parts = key.split(".");
+				key = parts[0];
+				let as = "";
+				if (properties[key] && properties[key].columnName) {
+					columnName = properties[key].columnName;
+					as = columnName;
+					parts.shift();
+					for (let i = 0; i < parts.length; i++) {
+						if (i+1 == parts.length) {
+							columnName += " ->> '" + parts[i] + "'";
+						} else {
+							columnName += " -> '" + parts[i] + "'";
+						}
+						as += "." + parts[i];
+					}
+					sqlBuilder.select(knex.raw(table + "." + columnName + " as \"" + as + "\""));
+				} else {
+					return;
+				}
+			} else {
+				return;
+			}
+		}
+
+		switch (compare) {
+			case "inside" :
+			case "near" :
+			case "radius" :
+			case "poly" :
+			case "geohash" :
+			case "box" :
+				//TODO integrate geo query functions
+				break;
+			case "gt" :
+			case ">" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), ">", QueryToSql.processType(value, properties[key]));
+				break;
+			case "gte" :
+			case ">=" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), ">=", QueryToSql.processType(value, properties[key]));
+				break;
+			case "lt" :
+			case "<" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), "<", QueryToSql.processType(value, properties[key]));
+				break;
+			case "lte" :
+			case "<=" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), "<=", QueryToSql.processType(value, properties[key]));
+				break;
+			case "in" :
+				sqlBuilder.whereIn(knex.raw(table + "." + columnName), QueryToSql.processArrayType(value, properties[key]));
+				break;
+			case "nin" :
+				sqlBuilder.whereNotIn(knex.raw(table + "." + columnName), QueryToSql.processArrayType(value, properties[key]));
+				break;
+			case "endsWith" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), QueryToSql.like, "%" + value); //todo postgres only
+				break;
+			case "startsWith" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), QueryToSql.like, value + "%"); //todo postgres only
+				break;
+			case "contains" :
+				sqlBuilder.where(knex.raw(table + "." + columnName), QueryToSql.like, "%" + value + "%"); //todo postgres only
+				break;
+			case "=" :
+			case "==" :
+			case "eq" :
+				if (value === null) {
+					sqlBuilder.whereNull(knex.raw(table + "." + columnName), QueryToSql.processType(value, properties[key]));
+				} else if (_.isArray(value)) {
+					sqlBuilder.whereIn(knex.raw(table + "." + columnName), QueryToSql.processArrayType(value, properties[key]));
+				} else {
+					sqlBuilder.where(knex.raw(table + "." + columnName), QueryToSql.processType(value, properties[key]));
+				}
+
+				break;
+			case "!" :
+			case "!=" :
+			case "ne" :
+				if (value === null) {
+					sqlBuilder.whereNotNull(knex.raw(table + "." + columnName), QueryToSql.processType(value, properties[key]));
+				} else if (_.isArray(value)) {
+					sqlBuilder.whereNotIn(knex.raw(table + "." + columnName), QueryToSql.processArrayType(value, properties[key]));
+				} else {
+					sqlBuilder.whereNot(knex.raw(table + "." + columnName), QueryToSql.processType(value, properties[key]));
+				}
+				break;
+			case "or" :
+				/**
+				 * or : [
+				 *  {field1: val1},
+				 *  {field2 {">":val2}
+			        * ]
+				 */
+				sqlBuilder.where(
+					(builder) => {
+						for (let i = 0; i < value.length; i++) {
+							let innerCompare = "";
+							let innerValue;
+							let innerKey = Object.keys(value[i])[0];
+							let innerColumnName;
+
+							if (typeof value[i][innerKey] === "object") {
+								innerCompare = Object.keys(value[i][innerKey])[0];
+							}
+
+							if (innerCompare !== "") {
+								innerValue = value[i][innerKey][compare];
+							} else {
+								innerValue = value[i];
+							}
+
+							//compare, columnName, key, value, properties, sqlBuilder
+							QueryToSql.processCompare(innerKey, innerCompare, innerValue, properties, builder)
+						}
+					}
+				);
+				break;
+			default :
+				if (value === null) {
+					sqlBuilder.whereNull(knex.raw(table + "." + columnName), QueryToSql.processType(value, properties[key]));
+				} else if (_.isArray(value)) {
+					sqlBuilder.whereIn(knex.raw(table + "." + columnName), QueryToSql.processArrayType(value, properties[key]));
+				} else {
+					sqlBuilder.where(knex.raw(table + "." + columnName), QueryToSql.processType(value, properties[key]));
+				}
+		}
+	}
+
+
+	/**
+	 * Process a JSONB Column
+	 * @param table
+	 * @param key
+	 * @param compare
+	 * @param value
+	 * @param properties
+	 * @param sqlBuilder
+	 */
 	static processArrayColumn(table, key, compare, value, properties, sqlBuilder) {
 
 		let columnName;
@@ -544,7 +713,6 @@ module.exports = class QueryToSql {
 				}
 		}
 	}
-
 
 	/**
 	 * decode funny query string values

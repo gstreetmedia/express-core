@@ -6,7 +6,7 @@ let c = new Controller()
 router.use(authentication);
 
 router.use(async function(req, res, next){
-	req.allowRole('api-user');
+	req.allowRole('super-api');
 	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
 	return next();
 });

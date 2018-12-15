@@ -5,6 +5,7 @@ const path = require("path");
 const inflector = require("inflected");
 const _ = require("lodash");
 const connectionStringParser = require("connection-string");
+const SchemaModel = require("../model/SchemaModel");
 
 //used to format output
 const stt = require('spaces-to-tabs');
@@ -51,7 +52,7 @@ if (!fs.existsSync(routerBase)) {
 
 async function convert(destination, connectionString) {
 
-
+	let schemaModel = new SchemaModel();
 	let converter;
 	let schemas = [];
 
@@ -65,7 +66,7 @@ async function convert(destination, connectionString) {
 
 		let cs = connectionString[i];
 
-		console.log(cs);
+		//console.log(cs);
 
 		if (cs.indexOf("postgresql") === 0) {
 			//console.log("postgres");
@@ -99,7 +100,11 @@ async function convert(destination, connectionString) {
 	let routers = [];
 
 	schemas.forEach(
-		function (item) {
+		async function (item) {
+
+			if (item.tableName.indexOf("_") === 0) {
+				return;
+			}
 
 			let keys = [];
 			let properties = {};
@@ -139,7 +144,7 @@ async function convert(destination, connectionString) {
 					}
 					return true;
 				}
-			)
+			);
 
 			if (keys.indexOf("name") !== -1) {
 				filtered.unshift("name")
@@ -162,6 +167,8 @@ async function convert(destination, connectionString) {
 			let modelPath = modelBase + "/" + inflector.classify(item.tableName) + "Model.js";
 			let controllerPath = controllerBase + "/" + inflector.classify(item.tableName) + "Controller.js";
 			let routerPath = routerBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-router.js";
+
+			await schemaModel.set(item.tableName, item);
 
 			if (destination === "memory") {
 				global.schemaCache = global.schemaCache || {};

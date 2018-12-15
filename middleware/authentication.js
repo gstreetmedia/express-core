@@ -203,7 +203,6 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				return true;
 			}
 			return false;
-
 		}
 
 		/**

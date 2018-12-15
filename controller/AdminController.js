@@ -36,12 +36,12 @@ module.exports = class AdminController extends ViewControllerBase {
 		let controller = AdminController.getController(req);
 		req.query.select = controller.Model.fields.admin.index;
 
-		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) == -1) {
+		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
 			req.query.select.unshift(controller.Model.schema.primaryKey);
 		}
 
-		req.query.limit = 50;
-		req.query.sort = req.order || "name ASC";
+		req.query.limit = req.query.limit || 50;
+		req.query.sort = req.query.sort ? req.query.sort : req.order || "name ASC";
 		let data = await controller.query(req);
 
 		return this.render(
@@ -53,7 +53,9 @@ module.exports = class AdminController extends ViewControllerBase {
 				model : new controller.Model(),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
-				action : "index"
+				action : "index",
+				query : req.query,
+				_ : _
 			},
 			req,
 			res
@@ -163,6 +165,12 @@ module.exports = class AdminController extends ViewControllerBase {
 				action : "query"
 			}
 		)
+	}
+
+	async search(req, res) {
+		let Controller = require("./" + req.params.controller + "Controller");
+		let c = new Controller();
+		return await c.search(req, res);
 	}
 
 	/**

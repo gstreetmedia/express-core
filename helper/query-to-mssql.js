@@ -110,6 +110,7 @@ module.exports = class QueryToSql {
 					queryBuilder.limit(parseInt(query[key]));
 					break;
 				case "sort" :
+					//TODO we might not want to worry about ASC, DESC just check for presence
 					let params = query[key].split(" ");
 					let direction = "ASC";
 					if (properties[params[0]]) {
@@ -132,7 +133,7 @@ module.exports = class QueryToSql {
 	}
 
 	static count(table, key, query, properties) {
-		console.log("key " + key);
+		//console.log("key " + key);
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
 		return sqlBuilder.count(QueryToSql.knex().raw(properties[key].columnName));
 	}
