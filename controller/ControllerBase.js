@@ -10,7 +10,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async index(req, res) {
-		console.log("ControllerBase::index");
+		//console.log("ControllerBase::index");
 		try {
 			let m = new this.Model(req);
 			let count = await m.count(req.query);
@@ -46,7 +46,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async create(req, res) {
-		console.log("ControllerBase::create");
+		//console.log("ControllerBase::create");
 		try {
 			let result = await new this.Model(req).create(req.body);
 			if (res) {
@@ -74,7 +74,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async read(req, res) {
-		console.log("ControllerBase:read");
+		//console.log("ControllerBase:read");
 		try {
 			let result = await new this.Model(req).read(req.params.id, req.query);
 			if (res) {
@@ -99,7 +99,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async update(req, res) {
-		console.log("ControllerBase:update");
+		//console.log("ControllerBase:update");
 		try {
 			let result;
 			if (req.query.where) {

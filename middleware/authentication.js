@@ -48,7 +48,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 		 * @returns {Promise<*>}
 		 */
 		static async applicationKey(req) {
-			console.log("middlware/authentication::applicationKey " + req.hostname);
+			//console.log("middlware/authentication::applicationKey " + req.hostname);
 			//Check header for application-key
 
 			let key = req.headers['application-key'];

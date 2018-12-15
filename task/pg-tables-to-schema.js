@@ -35,6 +35,7 @@ module.exports = async function( options ) {
 	 */
 	let data =  await pool.query("Select\n" +
 		" isc.*,\n" +
+		//" kcu.*,\n" +
 		"    tc.constraint_type\n" +
 		"\t\tFrom information_schema.columns as isc\n" +
 		"\t\tLEFT JOIN information_schema.key_column_usage as kcu on kcu.table_name = isc.table_name and kcu.column_name = isc.column_name\n" +
@@ -49,9 +50,13 @@ module.exports = async function( options ) {
 
 	enums = enums.rows;
 
+	let views = await pool.query("SELECT view_name FROM information_schema.view_table_usage");
+	views = _.map(views.rows, "view_name");
+
 	let descriptions = await pool.query("SELECT\n" +
-		"  cols.table_name,\n" +
-		"  cols.column_name,\n" +
+		//"  cols.table_name,\n" +
+		//"  cols.column_name,\n" +
+		"  cols.*, " +
 		"  (\n" +
 		"    SELECT\n" +
 		"      pg_catalog.col_description(c.oid, cols.ordinal_position::int)\n" +
@@ -68,15 +73,19 @@ module.exports = async function( options ) {
 
 	descriptions = descriptions.rows;
 
+	fs.writeFileSync("./descriptions-" + new Date().getTime() + ".json", JSON.stringify(descriptions));
+
 	let schema = {};
 
 	//TODO need to figure out how to weed out views vs tables
-	//fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
+	fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
 
 	data.rows.forEach(
 		function(column) {
 
-
+			if (_.indexOf(views, column.table_name) !== -1) { //don't do views
+				return;
+			}
 
 			var tableName = column.table_name;
 			var columnName = column.column_name;
