@@ -4,12 +4,15 @@ const schema = require('../schema/schemas-schema');
 const validation = require('../schema/validation/schemas-validation');
 const fields = require('../schema/fields/schemas-fields');
 const cache = require("../helper/cache-manager");
+const md5 = require("md5");
+const connectionStringParser = require("connection-string");
 let schemaModel;
 
 module.exports = class SchemaModel extends ModelBase {
 
 	constructor(req) {
 		super(schema, validation, fields, req);
+		this.exists = null;
 	}
 
 	static get schema() { return schema; }
@@ -42,6 +45,62 @@ module.exports = class SchemaModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
+	async loadSchemas(connectionStrings) {
+		if (!_.isArray(connectionStrings)) {
+			connectionStrings = [connectionStrings];
+		}
+
+		let strings = [];
+
+		connectionStrings.forEach(
+			function(item) {
+
+				let cs = connectionStringParser(item);
+				cs.connectionString = item;
+				strings.push(cs);
+				console.log();
+
+			}
+		)
+
+		let results = await this.find({where:{dataSource:{"!=":null}}});
+		let count = 0;
+		results.forEach(
+			function(item) {
+				strings.forEach(
+					function(cs) {
+						if (cs.path[0] = item.dataSource) {
+							global.schemaCache = global.schemaCache || {};
+							let name = md5(cs.connectionString);
+							global.schemaCache[name] = global.schemaCache[name] || {};
+							global.schemaCache[name][item.title] = item;
+							count++;
+						}
+					}
+				)
+			}
+		);
+		console.log("Loaded " + count + " schemas");
+	}
+
+	async tableExists() {
+		if (this.exists === null) {
+			let result = await this.execute(
+				'SELECT EXISTS (\n' +
+				'    SELECT 1\n' +
+				'    FROM   information_schema.tables\n' +
+				'    WHERE  table_schema = \'public\'\n' +
+				'           AND    table_name = \'_schemas\'\n' +
+				');'
+			)
+
+			this.exists = result[0].exists;
+
+			console.log("this.exists => " + this.exists);
+		}
+		return this.exists;
+	}
+
 	async get(tableName, fromCache) {
 
 		if (fromCache !== false) {
@@ -50,6 +109,7 @@ module.exports = class SchemaModel extends ModelBase {
 				return result;
 			}
 		}
+
 		let result = this.find(
 			{
 				where : {
@@ -62,6 +122,7 @@ module.exports = class SchemaModel extends ModelBase {
 			return result[0];
 		}
 		return null;
+
 	}
 
 	async set(tableName, data) {
@@ -80,9 +141,9 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async createTable() {
-		this.execute(
-			'drop table schemas;\n' +
-			'create table schemas\n' +
+		await this.execute(
+			'drop table _schemas;\n' +
+			'create table "_schemas"\n' +
 			'(\n' +
 			'  id          uuid        not null\n' +
 			'    constraint schemas_pkey\n' +
@@ -99,10 +160,11 @@ module.exports = class SchemaModel extends ModelBase {
 			');\n' +
 			'\n' +
 			'create unique index schemas_id_uindex\n' +
-			'  on schemas (id);\n' +
+			'  on "_schemas" (id);\n' +
 			'\n' +
 			'create unique index schemas_table_name_uindex\n' +
-			'  on schemas (table_name);\n'
+			'  on "_schemas" (table_name);\n' +
+			'\n'
 		)
 	}
 

@@ -155,7 +155,7 @@ module.exports = class QueryToSql {
 		//TODO should data have been validated before this? Seems like it
 		for (var key in data) {
 			if (properties[key]) {
-				transform[properties[key].columnName] = QueryToSql.processType(data[key], properties[key]);
+				transform[properties[key].columnName] = QueryToSql.processType(data[key], properties[key], true);
 			}
 		}
 
@@ -179,8 +179,6 @@ module.exports = class QueryToSql {
 	 * @returns {*}
 	 */
 	static insert(table, primaryKey, data, schema) {
-		console.log("insert");
-
 		let sqlBuilder = QueryToSql.knex(table);
 		let translation = {};
 		var properties = schema.properties;
@@ -198,7 +196,7 @@ module.exports = class QueryToSql {
 		for (var key in data) {
 			if (properties[key]) {
 				//does final json conversion as needed
-				translation[properties[key].columnName] = QueryToSql.processType(data[key], properties[key]);
+				translation[properties[key].columnName] = QueryToSql.processType(data[key], properties[key], true);
 			}
 			let index = _.indexOf(required, key);
 			if (index !== -1) {
@@ -730,6 +728,7 @@ module.exports = class QueryToSql {
 	 * @returns {*}
 	 */
 	static processType(value, property, isInsertOrUpdate) {
+		let knex = this.knex();
 		switch (property.type) {
 			case "object" :
 				try {
@@ -740,7 +739,11 @@ module.exports = class QueryToSql {
 				break;
 			case "array" :
 				if (isInsertOrUpdate) {
-					return "{" + value.join(",") + "}";
+					if (property.format === "string") {
+						return knex.raw("ARRAY['" + value.join("','") + "']");
+					} else {
+						return knex.raw("ARRAY[" + value.join(",") + "]");
+					}
 				}
 				if (_.isArray(value)) {
 					if (property.format === "string") {

@@ -6,7 +6,6 @@ let inflector = require("inflected");
 let validateAgainstSchema = require("../helper/validate-against-schema");
 let md5 = require("md5");
 
-
 module.exports = class ModelBase {
 
 	/**
