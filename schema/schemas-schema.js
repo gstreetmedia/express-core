@@ -2,7 +2,6 @@ module.exports={
   $schema: "http://json-schema.org/draft-06/schema#",
   $id: "schemas.json",
   title: "Schema",
-  dataSource: "membio",
   tableName: "_schemas",
   description: "Generated: Sat Dec 15 2018 06:18:11 GMT-0800 (Pacific Standard Time)",
   primaryKey: "id",

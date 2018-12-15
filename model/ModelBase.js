@@ -102,9 +102,7 @@ module.exports = class ModelBase {
 				return await this.join(result[0], query);
 			}
 			return result[0];
-
-		} else {
-			console.error("Ambiguous find one " + id);
+		} else if (result.length === 0) {
 			return null;
 		}
 	}
@@ -174,7 +172,7 @@ module.exports = class ModelBase {
 	 * @param query
 	 * @returns {Promise<void>}
 	 */
-	async update(id, data) {
+	async update(id, data, fetch) {
 
 		var exists = await this.exists(id);
 
@@ -217,17 +215,19 @@ module.exports = class ModelBase {
 
 			let command = this.queryBuilder.update(this.tableName, query, data, this.properties);
 
-			try {
-				let result = await this.execute(command);
-				return {
-					id: id,
-					body: params
-				};
-			} catch (e) {
-				return {
-					error: e
-				};
+			let result = await this.execute(command);
+			if (result.error) {
+				return result.error;
 			}
+			if (fetch) {
+				return await this.read(id);
+			}
+			return {
+				id : id,
+				action : "update",
+				success : true
+			}
+
 		} else {
 			return {
 				error: {

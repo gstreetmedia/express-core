@@ -174,7 +174,8 @@ async function convert(destination, connectionString) {
 		let controllerPath = controllerBase + "/" + inflector.classify(item.tableName) + "Controller.js";
 		let routerPath = routerBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-router.js";
 
-		await schemaModel.set(item.tableName, item);
+		let result = await schemaModel.set(item.tableName, item);
+		//console.log(result);
 
 		if (destination === "memory") {
 			global.schemaCache = global.schemaCache || {};
@@ -183,8 +184,6 @@ async function convert(destination, connectionString) {
 			global.schemaCache[name][item.title] = item;
 			continue;
 		}
-
-
 		//schemas are always written because the DB can change
 		fs.writeFileSync(schemaName + ".js", "module.exports=" +
 			stt(stringify(item, {

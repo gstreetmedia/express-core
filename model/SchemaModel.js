@@ -12,36 +12,46 @@ module.exports = class SchemaModel extends ModelBase {
 
 	constructor(req) {
 		super(schema, validation, fields, req);
-		this.exists = null;
+		this.tableExists = null;
 	}
 
-	static get schema() { return schema; }
+	get connectionString() {
+		return process.env.DEFAULT_DB;
+	}
 
-	static get validation() { return validation; }
+	static get schema() {
+		return schema;
+	}
 
-	static get fields() { return fields; }
+	static get validation() {
+		return validation;
+	}
 
-	async index(key, value){
+	static get fields() {
+		return fields;
+	}
+
+	async index(key, value) {
 		return await super.index(key, value);
 	}
 
-	async create(data){
+	async create(data) {
 		return await super.create(data);
 	}
 
-	async read(id, query){
+	async read(id, query) {
 		return await super.read(id, query);
 	}
 
-	async update(id, data, query){
+	async update(id, data, query) {
 		return await super.update(id, data, query);
 	}
 
-	async query(query){
+	async query(query) {
 		return await super.query(query);
 	}
 
-	async destroy(id){
+	async destroy(id) {
 		return await super.destroy(id);
 	}
 
@@ -53,7 +63,7 @@ module.exports = class SchemaModel extends ModelBase {
 		let strings = [];
 
 		connectionStrings.forEach(
-			function(item) {
+			function (item) {
 
 				let cs = connectionStringParser(item);
 				cs.connectionString = item;
@@ -63,12 +73,12 @@ module.exports = class SchemaModel extends ModelBase {
 			}
 		)
 
-		let results = await this.find({where:{dataSource:{"!=":null}}});
+		let results = await this.find({where: {dataSource: {"!=": null}}});
 		let count = 0;
 		results.forEach(
-			function(item) {
+			function (item) {
 				strings.forEach(
-					function(cs) {
+					function (cs) {
 						if (cs.path[0] = item.dataSource) {
 							global.schemaCache = global.schemaCache || {};
 							let name = md5(cs.connectionString);
@@ -83,8 +93,8 @@ module.exports = class SchemaModel extends ModelBase {
 		console.log("Loaded " + count + " schemas");
 	}
 
-	async tableExists() {
-		if (this.exists === null) {
+	async hasTable() {
+		if (this.tableExists === null) {
 			let result = await this.execute(
 				'SELECT EXISTS (\n' +
 				'    SELECT 1\n' +
@@ -94,11 +104,11 @@ module.exports = class SchemaModel extends ModelBase {
 				');'
 			)
 
-			this.exists = result[0].exists;
+			this.tableExists = result[0].exists;
 
-			console.log("this.exists => " + this.exists);
+			console.log("this.tableExists => " + this.tableExists);
 		}
-		return this.exists;
+		return this.tableExists;
 	}
 
 	async get(tableName, fromCache) {
@@ -110,13 +120,14 @@ module.exports = class SchemaModel extends ModelBase {
 			}
 		}
 
-		let result = this.find(
+		let result = await this.find(
 			{
-				where : {
-					tableName : tableName
+				where: {
+					tableName: tableName
 				}
 			}
 		);
+
 		if (result.length === 1) {
 			await cache.get("schema_" + tableName, result[0]);
 			return result[0];
@@ -128,15 +139,15 @@ module.exports = class SchemaModel extends ModelBase {
 	async set(tableName, data) {
 		let table = await this.get(tableName, false);
 		if (table) {
-			await this.update(table.id, data);
+			return await this.update(table.id, data);
 		} else {
 			table = this.create(data);
 			if (table.error) {
-				console.log(table.error);
+				console.log("schema set error " + table.error);
 			} else {
 				await cache.set("schema_" + tableName, table);
 			}
-
+			return table;
 		}
 	}
 

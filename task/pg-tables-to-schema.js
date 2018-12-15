@@ -21,8 +21,8 @@ module.exports = async function( options ) {
 		pool = require("../helper/postgres-pool")(process.env.DEFAULT_DB)
 	}
 
-	let data =  await pool.query("Select\n" +
-		"\t\tisc.table_name,\n" +
+	/*
+	"\t\tisc.table_name,\n" +
 		"\t\tisc.column_name,\n" +
 		"\t\tisc.column_default,\n" +
 		"\t\tisc.is_nullable,\n" +
@@ -32,6 +32,9 @@ module.exports = async function( options ) {
 		"\t\tisc.data_type,\n" +
 		"\t\tisc.udt_name,\n" +
 		"\t\tisc.is_updatable,\n" +
+	 */
+	let data =  await pool.query("Select\n" +
+		" isc.*,\n" +
 		"    tc.constraint_type\n" +
 		"\t\tFrom information_schema.columns as isc\n" +
 		"\t\tLEFT JOIN information_schema.key_column_usage as kcu on kcu.table_name = isc.table_name and kcu.column_name = isc.column_name\n" +
@@ -67,8 +70,14 @@ module.exports = async function( options ) {
 
 	let schema = {};
 
+	//TODO need to figure out how to weed out views vs tables
+	//fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
+
 	data.rows.forEach(
 		function(column) {
+
+
+
 			var tableName = column.table_name;
 			var columnName = column.column_name;
 
