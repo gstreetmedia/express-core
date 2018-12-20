@@ -1,3 +1,5 @@
+var jsonlint = require("jsonlint");
+
 module.exports = class ControllerBase {
 	constructor(Model) {
 		this.Model = Model;
@@ -11,6 +13,12 @@ module.exports = class ControllerBase {
 	 */
 	async index(req, res) {
 		//console.log("ControllerBase::index");
+
+		let queryTest = this.testQuery(req, res);
+		if (queryTest.error) {
+			return res.invalid(queryTest);
+		}
+
 		try {
 			let m = new this.Model(req);
 			let count = await m.count(req.query);
@@ -75,6 +83,13 @@ module.exports = class ControllerBase {
 	 */
 	async read(req, res) {
 		//console.log("ControllerBase:read");
+
+		let queryTest = this.testQuery(req, res);
+		if (queryTest.error) {
+			return res.invalid(queryTest);
+		}
+
+
 		try {
 			let result = await new this.Model(req).read(req.params.id, req.query);
 			if (res) {
@@ -132,6 +147,12 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async updateWhere(req, res) {
+
+		let queryTest = this.testQuery(req, res);
+		if (queryTest.error) {
+			return res.invalid(queryTest);
+		}
+
 		try {
 			let result = await new this.Model(req).updateWhere(req.params.query, req.body);
 			if (res) {
@@ -155,6 +176,12 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async query(req, res) {
+
+		let queryTest = this.testQuery(req, res);
+		if (queryTest.error) {
+			return res.invalid(queryTest);
+		}
+
 		try {
 			let m = new this.Model(req);
 			let count = await m.count(req.query);
@@ -188,6 +215,12 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<void>}
 	 */
 	async search(req, res) {
+
+		let queryTest = this.testQuery(req, res);
+		if (queryTest.error) {
+			return res.invalid(queryTest);
+		}
+
 		let m = new this.Model(req);
 
 		let query = {
@@ -241,6 +274,36 @@ module.exports = class ControllerBase {
 		}
 	}
 
+
+	testQuery(req, res) {
+
+		if (req.query && req.query.where && typeof req.query.where === "string") {
+			try {
+				let result = jsonlint.parse(req.query.where);
+			} catch (e) {
+				return {
+					error : true,
+					message : e.toString(),
+					reason : "Malformed JSON Where"
+				}
+			}
+			req.query.where = JSON.parse(req.query.where);
+		}
+
+		if (req.query && req.query.join && typeof req.query.join === "string") {
+			try {
+				let result = jsonlint.parse(req.query.join);
+			} catch (e) {
+				return {
+					error : true,
+					message : e.toString(),
+					reason : "Malformed JSON Join"
+				}
+			}
+			req.query.join = JSON.parse(req.query.join);
+		}
+		return req.query;
+	}
 
 
 }

@@ -79,11 +79,10 @@ module.exports = class SchemaModel extends ModelBase {
 			function (item) {
 				strings.forEach(
 					function (cs) {
-						if (cs.path[0] = item.dataSource) {
+
+						if (cs.path[0] === item.dataSource) {
 							global.schemaCache = global.schemaCache || {};
-							let name = md5(cs.connectionString);
-							global.schemaCache[name] = global.schemaCache[name] || {};
-							global.schemaCache[name][item.title] = item;
+							global.schemaCache[item.title] = item;
 							count++;
 						}
 					}

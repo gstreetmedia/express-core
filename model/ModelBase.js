@@ -62,8 +62,8 @@ module.exports = class ModelBase {
 	get queryBuilder() {
 		if (global.schemaCache) {
 			let name = md5(this.connectionString);
-			if (global.schemaCache[name] && global.schemaCache[name][this.schema.title]) {
-				this.schema = global.schemaCache[name][this.schema.title];
+			if (global.schemaCache[this.schema.title]) {
+				this.schema = global.schemaCache[this.schema.title];
 				this.properties = this.schema.properties;
 				this.primaryKey = this.schema.primaryKey;
 			}
@@ -96,6 +96,10 @@ module.exports = class ModelBase {
 		let command = this.queryBuilder.select(this.tableName, obj, this.properties);
 
 		var result = await this.execute(command);
+
+		if (result.error) {
+			return result;
+		}
 
 		if (result.length === 1) {
 			if (query && query.join) {
@@ -153,15 +157,14 @@ module.exports = class ModelBase {
 			this.schema
 		);
 
-		try {
-			let result = await this.execute(command);
-			let record = await this.read(data[this.primaryKey]);
-			return record;
-		} catch (e) {
-			return {
-				error: e
-			};
+		let result = await this.execute(command);
+
+		if (result.error) {
+			return result;
 		}
+
+		let record = await this.read(data[this.primaryKey]);
+		return record;
 	}
 
 
@@ -217,7 +220,7 @@ module.exports = class ModelBase {
 
 			let result = await this.execute(command);
 			if (result.error) {
-				return result.error;
+				return result;
 			}
 			if (fetch) {
 				return await this.read(id);
@@ -269,14 +272,11 @@ module.exports = class ModelBase {
 
 		let command = this.queryBuilder.update(this.tableName, query, params, this.properties);
 
-		try {
-			let result = await this.execute(command);
+		let result = await this.execute(command);
+		if (result.error) {
 			return result;
-		} catch (e) {
-			return {
-				error: e
-			};
 		}
+		return result;
 	}
 
 	/**
@@ -287,15 +287,15 @@ module.exports = class ModelBase {
 	async query(query) {
 		let command = this.queryBuilder.select(this.tableName, query, this.properties);
 
-		try {
-			let result = await this.execute(command);
-			if (query.join) {
-				return await this.join(result, query);
-			} else {
-				return result;
-			}
-		} catch (e) {
-			return [];
+		let result = await this.execute(command);
+		if (result.error) {
+			return result;
+		}
+
+		if (query.join) {
+			return await this.join(result, query);
+		} else {
+			return result;
 		}
 	}
 
@@ -306,13 +306,18 @@ module.exports = class ModelBase {
 	 */
 	async count(query) {
 		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
-		let results = await this.execute(command);
-		if (results) {
-			if (this.db === "pg" && results[0].count) {
-				return results[0].count;
+		let result = await this.execute(command);
+
+		if (result.error) {
+			return result;
+		}
+
+		if (result) {
+			if (this.db === "pg" && result[0].count) {
+				return result[0].count;
 			} else {
-				let key = Object.keys(results[0]);
-				return results[0][key];
+				let key = Object.keys(result[0]);
+				return result[0][key];
 			}
 		} else {
 			return 0;
@@ -336,7 +341,6 @@ module.exports = class ModelBase {
 	async findOne(query) {
 		query.limit = 1;
 		let result = await this.query(query);
-
 		if (result && result.length > 0) {
 			return result[0];
 		}
@@ -360,6 +364,7 @@ module.exports = class ModelBase {
 		);
 
 		var result = await this.execute(command);
+
 		return result;
 	}
 
@@ -386,7 +391,6 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async index(query) {
-
 		let keys = Object.keys(this.properties);
 
 		if (query.select && _.isString(query.select)) {
@@ -420,7 +424,8 @@ module.exports = class ModelBase {
 				limit: 1
 			},
 			this.properties
-		)
+		);
+
 		this.lastCommand = command;
 
 		var result = await this.execute(command);
@@ -536,12 +541,12 @@ module.exports = class ModelBase {
 			query.join = Object.keys(relations);
 		}
 
-
 		let join = _.clone(query.join);
 
+		//console.log(join);
 
 		if (_.isString(join)) {
-
+			//console.log("JOIN IS A STRING");
 			let items = join.split(",");
 			join = {};
 			items.forEach(
@@ -552,6 +557,7 @@ module.exports = class ModelBase {
 				}
 			)
 		} else if (_.isArray(join)) {
+			//console.log("JOIN IS AN ARRAY");
 			//console.log("condition 2");
 			let temp = {};
 			join.forEach(
@@ -563,6 +569,7 @@ module.exports = class ModelBase {
 			);
 			join = temp;
 		} else if (_.isObject(join)) {
+			//console.log("JOIN IS AN OBJECT");
 			//not sure is there is anything to do here
 			//console.log("Condition 3");
 		}
@@ -571,17 +578,10 @@ module.exports = class ModelBase {
 
 			if (relations[key]) {
 
-				//To stop infinite recursion, a relationship may only be requested once.
-				if (_.isString(query.join)) {
-					let parts = query.join.split(',');
-					let index = _.indexOf(parts, key);
-					parts.splice(index, 1);
-					query.join = parts.join(",");
-				} else if (_.isArray(query.join)) {
-					let index = _.indexOf(query.join, key);
-					query.join.splice(index, 1);
-				} else {
-					delete query.join[key];
+				if (join[key] === true) {
+					join[key] = {
+
+					}
 				}
 
 				let list;
@@ -595,7 +595,7 @@ module.exports = class ModelBase {
 				let targetKeys = [];
 				let deepJoin;
 
-				for (let i = 0; i < results.length; i++) {
+				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
 					if (results[i][joinFrom]) {
 						targetKeys.push(results[i][joinFrom]);
 						fromIndex[results[i][joinFrom]] = i;
@@ -605,9 +605,9 @@ module.exports = class ModelBase {
 				if (item.throughClass) { //build new targetKey based on the pivot table
 					m = new item.throughClass(this.req);
 					let j = _.clone(join[key]);
-					j.where = {};
+					j.where = j.where || {};
 					j.where[joinThroughFrom] = {in: targetKeys};
-					j.join = query.join;
+					//j.join = query.join;
 					j.select = [joinThroughFrom, joinThroughTo];
 					throughList = await m.find(j);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
@@ -616,14 +616,18 @@ module.exports = class ModelBase {
 				switch (item.relation) {
 					case "HasOne":
 						m = new item.modelClass(this.req);
+						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
-						join[key].join = query.join;
 						list = await m.find(join[key]);
+
+						if (list.error) {
+							console.log(list.error);
+							continue;
+						}
 
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									;
 									var obj = {};
 									obj[joinThroughTo] = row[joinTo];
 									let throughItem = _.find(throughList, obj);
@@ -640,9 +644,14 @@ module.exports = class ModelBase {
 						break;
 					case "HasMany" :
 						m = new item.modelClass(this.req);
+						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
-						join[key].join = query.join;
 						list = await m.find(join[key]);
+
+						if (list.error) {
+							console.log(list.error);
+							continue;
+						}
 
 						if (item.throughClass) {
 							list.forEach(
@@ -657,10 +666,15 @@ module.exports = class ModelBase {
 							)
 						} else {
 							for (let i = 0; i < list.length; i++) {
-								if (!results[fromIndex[list[i][joinTo]]][key]) {
-									results[fromIndex[list[i][joinTo]]][key] = [];
+								try {
+									if (!results[fromIndex[list[i][joinTo]]][key]) {
+										results[fromIndex[list[i][joinTo]]][key] = [];
+									}
+									results[fromIndex[list[i][joinTo]]][key].push(list[i]);
+								} catch (e) {
+									console.log("Could not join " + key + " for " + this.tableName);
+									console.log("joinTo => " + joinTo);
 								}
-								results[fromIndex[list[i][joinTo]]][key].push(list[i]);
 							}
 						}
 
@@ -860,7 +874,15 @@ module.exports = class ModelBase {
 	}
 
 	async execute(command, postProcess) {
-		let sql = !_.isString(command) ? command.toString() : command;
+
+		let sql;
+		try {
+			sql = !_.isString(command) ? command.toString() : command;
+		} catch (e) {
+			return {
+				error : e
+			}
+		}
 		this.lastCommand = command;
 
 		//console.log(sql);
@@ -885,17 +907,27 @@ module.exports = class ModelBase {
 				//return results.rows;
 			} catch (e) {
 				this.lastError = e;
-				return false;
-			}
-		} else {
-			let results = await this.pool.query(sql);
-			if (results.rows) {
-				return results;
-			} else {
 				return {
-					rows: results
+					error : e
 				};
 			}
+		} else {
+			try {
+				let results = await this.pool.query(sql);
+				if (results.rows) {
+					return results;
+				} else {
+					return {
+						rows: results
+					};
+				}
+			} catch (e) {
+				this.lastError = e;
+				return {
+					error : e
+				};
+			}
+
 		}
 	}
 

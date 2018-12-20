@@ -72,6 +72,8 @@ module.exports = class QueryToSql {
 	 */
 	static select(table, query, properties) {
 
+		query = _.clone(query);
+
 		let queryBuilder = QueryToSql.parseQuery(table, query, properties);
 
 		if (!query.select) {
@@ -133,6 +135,9 @@ module.exports = class QueryToSql {
 	}
 
 	static count(table, key, query, properties) {
+
+		query = _.clone(query);
+
 		//console.log("key " + key);
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
 		return sqlBuilder.count(QueryToSql.knex().raw(properties[key].columnName));
@@ -149,6 +154,9 @@ module.exports = class QueryToSql {
 
 	//this.tableName, query, data, this.properties
 	static update(table, query, data, properties) {
+
+		query = _.clone(query);
+
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
 		let transform = {};
 
@@ -165,6 +173,9 @@ module.exports = class QueryToSql {
 
 	//this.tableName, query, data, this.properties
 	static delete(table, query, properties) {
+
+		query = _.clone(query);
+
 		let sqlBuilder = QueryToSql.parseQuery(table, query, properties);
 		sqlBuilder.delete();
 		return sqlBuilder;

@@ -27,10 +27,6 @@ module.exports = async function (req, res, next) {
 		res.status(500).send(e);
 	};
 
-	res.error = function(e) {
-		res.status(500).send(e);
-	};
-
 	res.notFound = function(e) {
 		res.status(404).send(e);
 	};
@@ -40,6 +36,7 @@ module.exports = async function (req, res, next) {
 	};
 
 	res.invalid = function(message) {
+		console.log(message);
 		if (typeof  message === "object") {
 			return res.status(400).send(message)
 		}
