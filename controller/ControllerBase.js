@@ -16,7 +16,11 @@ module.exports = class ControllerBase {
 
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
-			return res.invalid(queryTest);
+			if (res) {
+				return res.invalid(queryTest);
+			} else {
+				return queryTest
+			}
 		}
 
 		try {
@@ -86,9 +90,12 @@ module.exports = class ControllerBase {
 
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
-			return res.invalid(queryTest);
+			if (res) {
+				return res.invalid(queryTest);
+			} else {
+				return queryTest
+			}
 		}
-
 
 		try {
 			let result = await new this.Model(req).read(req.params.id, req.query);
@@ -150,7 +157,11 @@ module.exports = class ControllerBase {
 
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
-			return res.invalid(queryTest);
+			if (res) {
+				return res.invalid(queryTest);
+			} else {
+				return queryTest
+			}
 		}
 
 		try {
@@ -179,7 +190,11 @@ module.exports = class ControllerBase {
 
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
-			return res.invalid(queryTest);
+			if (res) {
+				return res.invalid(queryTest);
+			} else {
+				return queryTest
+			}
 		}
 
 		try {
@@ -218,7 +233,11 @@ module.exports = class ControllerBase {
 
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
-			return res.invalid(queryTest);
+			if (res) {
+				return res.invalid(queryTest);
+			} else {
+				return queryTest
+			}
 		}
 
 		let m = new this.Model(req);
@@ -277,6 +296,10 @@ module.exports = class ControllerBase {
 
 	testQuery(req, res) {
 
+		if (req.query && !req.query.where || typeof req.query.where === "object") {
+			return req.query;
+		}
+
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
 				let result = jsonlint.parse(req.query.where);
@@ -291,6 +314,9 @@ module.exports = class ControllerBase {
 		}
 
 		if (req.query && req.query.join && typeof req.query.join === "string") {
+			if (req.query.join === "*") {
+				return req.query;
+			}
 			try {
 				let result = jsonlint.parse(req.query.join);
 			} catch (e) {
