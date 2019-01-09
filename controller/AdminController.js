@@ -34,6 +34,9 @@ module.exports = class AdminController extends ViewControllerBase {
 	async index(req, res) {
 
 		let controller = AdminController.getController(req);
+		if (!controller) {
+			throw new Error("Unknown controller");
+		}
 		req.query.select = controller.Model.fields.admin.index;
 
 		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {

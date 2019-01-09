@@ -95,7 +95,7 @@ module.exports = class ModelBase {
 
 		let command = this.queryBuilder.select(this.tableName, obj, this.properties);
 
-		var result = await this.execute(command);
+		let result = await this.execute(command);
 
 		if (result.error) {
 			return result;
@@ -177,7 +177,7 @@ module.exports = class ModelBase {
 	 */
 	async update(id, data, fetch) {
 
-		var exists = await this.exists(id);
+		let exists = await this.exists(id);
 
 		if (exists) {
 			data.updatedAt = now();
@@ -363,7 +363,7 @@ module.exports = class ModelBase {
 			this.properties
 		);
 
-		var result = await this.execute(command);
+		let result = await this.execute(command);
 
 		return result;
 	}
@@ -380,7 +380,7 @@ module.exports = class ModelBase {
 			query,
 			this.properties
 		);
-		var result = await this.execute(command);
+		let result = await this.execute(command);
 		return result;
 	}
 
@@ -428,7 +428,7 @@ module.exports = class ModelBase {
 
 		this.lastCommand = command;
 
-		var result = await this.execute(command);
+		let result = await this.execute(command);
 		if (result.length === 1) {
 			return true
 		}
@@ -464,7 +464,7 @@ module.exports = class ModelBase {
 		);
 
 		try {
-			var result = await this.execute(command);
+			let result = await this.execute(command);
 			return result;
 		} catch (e) {
 			console.log(e);
@@ -490,7 +490,7 @@ module.exports = class ModelBase {
 		);
 
 		try {
-			var result = await this.execute(command);
+			let result = await this.execute(command);
 			return result;
 		} catch (e) {
 			console.log(e);
@@ -524,11 +524,12 @@ module.exports = class ModelBase {
 	 */
 	async join(results, query) {
 
-		if (!this.relationMappings) {
+		if (!this.relationMappings && !this.relations) {
 			return results;
 		}
 
-		let relations = this.relationMappings;
+		let relations = this.relationMappings || this.relations;
+		let foreignKeys = this.foreignKeys || {};
 		let fromIndex = {};
 		let findOne = false;
 
@@ -539,6 +540,8 @@ module.exports = class ModelBase {
 
 		if (query.join === "*") {
 			query.join = Object.keys(relations);
+			query.join = query.join.concat(Object.keys(foreignKeys));
+			//results[0].join = query.join;
 		}
 
 		let join = _.clone(query.join);
@@ -575,7 +578,6 @@ module.exports = class ModelBase {
 		}
 
 		for (let key in join) {
-
 			if (relations[key]) {
 
 				if (join[key] === true) {
@@ -628,7 +630,7 @@ module.exports = class ModelBase {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									var obj = {};
+									let obj = {};
 									obj[joinThroughTo] = row[joinTo];
 									let throughItem = _.find(throughList, obj);
 									let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
@@ -656,7 +658,7 @@ module.exports = class ModelBase {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									var obj = {};
+									let obj = {};
 									obj[joinThroughTo] = row[joinTo];
 									let throughItem = _.find(throughList, obj);
 									let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
@@ -680,6 +682,39 @@ module.exports = class ModelBase {
 
 						break;
 				}
+			} else if (foreignKeys[key]) {
+				let m = new foreignKeys[key].modelClass(this.req);
+				let idList = [];
+				results.forEach(
+					function(item) {
+						if (item[key] !== null) {
+							idList.push(item[key]);
+						}
+					}
+				)
+				if (idList.length > 0) {
+					let primaryKey = foreignKeys[key].to || m.primaryKey;
+					let list = await m.query(
+						{
+							where: {
+								[primaryKey]: {"in": idList}
+							}
+						}
+					);
+					if (!list.error) {
+						list.forEach(
+							function (item) {
+								for (let i = 0; i < results.length; i++) {
+									if (results[i][key] === item[primaryKey]) {
+										results[i].foreignKeys = results[i].foreignKeys || {};
+										results[i].foreignKeys[key] = item;
+										break;
+									}
+								}
+							}
+						)
+					}
+				}
 			}
 		}
 
@@ -697,7 +732,7 @@ module.exports = class ModelBase {
 	 */
 	convertDataTypes(data) {
 		let params = {};
-		for (var key in data) {
+		for (let key in data) {
 			if (this.properties[key]) {
 				params[key] = this.processType(data[key], this.properties[key]);
 			}
@@ -754,7 +789,7 @@ module.exports = class ModelBase {
 					switch (property.format) {
 						case "date-time" :
 							if (value && value !== '') {
-								var m = moment(value);
+								let m = moment(value);
 								if (m) {
 									return m.format("YYYY-MM-DD HH:mm:ss")
 								}
@@ -806,7 +841,7 @@ module.exports = class ModelBase {
 		} else {
 			let missing = [];
 
-			for (var key in data) {
+			for (let key in data) {
 				if (!data[key] && _.indexOf(this.schema.required, key) !== -1) {
 					missing.push(key);
 				}
@@ -864,7 +899,7 @@ module.exports = class ModelBase {
 
 	convertToColumnNames(data) {
 		let params = {};
-		for (var key in data) {
+		for (let key in data) {
 			if (this.properties[key]) {
 				params[this.properties[key].columnName] = data[key];
 			}
