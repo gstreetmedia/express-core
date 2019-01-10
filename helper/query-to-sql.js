@@ -256,6 +256,7 @@ module.exports = class QueryToSql {
 
 		for (let key in queryParams) {
 			if (_.indexOf(QueryToSql.keywords, key) !== -1) {
+				console.log("parseQuery => keyword error");
 				continue;
 			}
 
@@ -268,10 +269,16 @@ module.exports = class QueryToSql {
 			}
 
 			if (typeof queryParams[key] === "object") {
-				compare = Object.keys(queryParams[key])[0];
+				if (key === "and" || key === "or") {
+					compare = key;
+					//console.log(JSON.stringify(queryParams[key]))
+				} else {
+					compare = Object.keys(queryParams[key])[0]; //TODO what is this?
+				}
+
 			}
 
-			if (compare !== "") {
+			if (compare !== "" && compare !== "or" && compare !== "and") {
 				value = queryParams[key][compare];
 			} else {
 				value = queryParams[key];
@@ -303,14 +310,12 @@ module.exports = class QueryToSql {
 
 		if (properties[key] && properties[key].columnName) {
 			columnName = properties[key].columnName;
-		} else {
+			let columnType = properties[key].type;
+			if (columnType === "array") {
+				return this.processArrayColumn(table, key, compare, value, properties, sqlBuilder)
+			}
+		} else if (key !== "or" && key !== "and") {
 			return;
-		}
-
-		let columnType = properties[key].type;
-
-		if (columnType === "array") {
-			return this.processArrayColumn(table, key, compare, value, properties, sqlBuilder)
 		}
 
 		switch (compare) {
@@ -377,13 +382,15 @@ module.exports = class QueryToSql {
 				}
 				break;
 			case "or" :
+			case "and" :
 				/**
 				 * or : [
 				 *  {field1: val1},
 				 *  {field2 {">":val2}
 			        * ]
 				 */
-				sqlBuilder.where(
+
+				sqlBuilder[compare === "or" ? "orWhere" : "where"](
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
 							let innerCompare = "";
@@ -396,13 +403,15 @@ module.exports = class QueryToSql {
 							}
 
 							if (innerCompare !== "") {
-								innerValue = value[i][innerKey][compare];
+								innerValue = value[i][innerKey][innerCompare];
 							} else {
-								innerValue = value[i];
+								innerValue = value[i][innerKey];
 							}
 
 							//compare, columnName, key, value, properties, sqlBuilder
-							QueryToSql.processCompare(innerKey, innerCompare, innerValue, properties, builder)
+							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
+							//table, key, compare, value, properties, sqlBuilder
+							QueryToSql.processCompare(table, innerKey, innerCompare, innerValue, properties, builder);
 						}
 					}
 				);
@@ -531,13 +540,14 @@ module.exports = class QueryToSql {
 				}
 				break;
 			case "or" :
+			case "and" :
 				/**
 				 * or : [
 				 *  {field1: val1},
 				 *  {field2 {">":val2}
 			        * ]
 				 */
-				sqlBuilder.where(
+				sqlBuilder[compare === "or" ? "orWhere" : "where"](
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
 							let innerCompare = "";
@@ -550,13 +560,15 @@ module.exports = class QueryToSql {
 							}
 
 							if (innerCompare !== "") {
-								innerValue = value[i][innerKey][compare];
+								innerValue = value[i][innerKey][innerCompare];
 							} else {
-								innerValue = value[i];
+								innerValue = value[i][innerKey];
 							}
 
 							//compare, columnName, key, value, properties, sqlBuilder
-							QueryToSql.processCompare(innerKey, innerCompare, innerValue, properties, builder)
+							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
+							//table, key, compare, value, properties, sqlBuilder
+							QueryToSql.processCompare(table, innerKey, innerCompare, innerValue, properties, builder);
 						}
 					}
 				);
@@ -684,7 +696,7 @@ module.exports = class QueryToSql {
 				 *  {field2 {">":val2}
 			        * ]
 				 */
-				sqlBuilder.where(
+				sqlBuilder[compare === "or" ? "orWhere" : "where"](
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
 							let innerCompare = "";
@@ -697,13 +709,15 @@ module.exports = class QueryToSql {
 							}
 
 							if (innerCompare !== "") {
-								innerValue = value[i][innerKey][compare];
+								innerValue = value[i][innerKey][innerCompare];
 							} else {
-								innerValue = value[i];
+								innerValue = value[i][innerKey];
 							}
 
 							//compare, columnName, key, value, properties, sqlBuilder
-							QueryToSql.processArrayColumn(innerKey, innerCompare, innerValue, properties, builder)
+							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
+							//table, key, compare, value, properties, sqlBuilder
+							QueryToSql.processCompare(table, innerKey, innerCompare, innerValue, properties, builder);
 						}
 					}
 				);

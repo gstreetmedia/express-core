@@ -135,7 +135,7 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 
-	get relationMappings() {
+	get relations() {
 		let User = require("./UserModel");
 		return {
 			user : {
@@ -145,6 +145,15 @@ module.exports = class SessionModel extends ModelBase {
 					from: "userId",
 					to: "id"
 				}
+			}
+		}
+	}
+
+	get foreignKeys () {
+		return {
+			userId : {
+				modelClass : require("./User"),
+				to : "id"
 			}
 		}
 	}

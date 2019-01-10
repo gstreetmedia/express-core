@@ -18,7 +18,14 @@ module.exports = class AdminController extends ViewControllerBase {
 			'page-admin-home',
 			{
 				schemaList : AdminController.getSchemaList(),
-				slug : "home"
+				slug : "home",
+				action : "home",
+				model : {
+					schema : {
+						title : "Home"
+					}
+				},
+				_ : _
 			},
 			req,
 			res

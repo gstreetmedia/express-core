@@ -84,6 +84,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async read(id, query) {
+
 		let obj = {
 			where: {}
 		}
@@ -344,6 +345,9 @@ module.exports = class ModelBase {
 		if (result && result.length > 0) {
 			return result[0];
 		}
+		if (result.error) {
+			return result;
+		}
 		return null;
 	}
 
@@ -524,11 +528,13 @@ module.exports = class ModelBase {
 	 */
 	async join(results, query) {
 
-		if (!this.relationMappings && !this.relations) {
+		console.log("join " + this.tableName);
+
+		if (!this.relationMappings && !this.relations && !this.foreignKeys) {
 			return results;
 		}
 
-		let relations = this.relationMappings || this.relations;
+		let relations = this.relationMappings || this.relations || {};
 		let foreignKeys = this.foreignKeys || {};
 		let fromIndex = {};
 		let findOne = false;
@@ -915,7 +921,8 @@ module.exports = class ModelBase {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
 			return {
-				error : e
+				error : e,
+				message : "Error converting command to string"
 			}
 		}
 		this.lastCommand = command;
