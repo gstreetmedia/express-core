@@ -797,7 +797,7 @@ module.exports = class ModelBase {
 							if (value && value !== '') {
 								let m = moment(value);
 								if (m) {
-									return m.utc().format("YYYY-MM-DD HH:mm:ss")
+									return m.format("YYYY-MM-DD HH:mm:ss")
 								}
 							}
 							return null;
