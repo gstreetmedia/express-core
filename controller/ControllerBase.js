@@ -295,11 +295,6 @@ module.exports = class ControllerBase {
 
 
 	testQuery(req, res) {
-
-		if (req.query && !req.query.where || typeof req.query.where === "object") {
-			return req.query;
-		}
-
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
 				let result = jsonlint.parse(req.query.where);

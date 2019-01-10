@@ -583,6 +583,8 @@ module.exports = class ModelBase {
 			//console.log("Condition 3");
 		}
 
+		console.log(join);
+
 		for (let key in join) {
 			if (relations[key]) {
 
@@ -797,7 +799,8 @@ module.exports = class ModelBase {
 							if (value && value !== '') {
 								let m = moment(value);
 								if (m) {
-									return m.format("YYYY-MM-DD HH:mm:ss")
+									return m.toISOString();
+									//return m.format("YYYY-MM-DD HH:mm:ss")
 								}
 							}
 							return null;

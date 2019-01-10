@@ -256,7 +256,7 @@ module.exports = class QueryToSql {
 
 		for (let key in queryParams) {
 			if (_.indexOf(QueryToSql.keywords, key) !== -1) {
-				console.log("parseQuery => keyword error");
+				//console.log("parseQuery => keyword error " + key);
 				continue;
 			}
 
@@ -814,7 +814,8 @@ module.exports = class QueryToSql {
 							if (value && value !== '') {
 								var m = moment(value);
 								if (m) {
-									return m.utc().format("YYYY-MM-DD HH:mm:ss")
+									//return m.utc().format("YYYY-MM-DD HH:mm:ss")
+									return m.utc().toISOString()
 								}
 							}
 							return null;

@@ -15,12 +15,14 @@ module.exports = function(model, key, value) {
 		return value;
 	}
 
-	if (!model.properties[key]) {
+	let properties = model.properties || model.schema.properties;
+
+	if (!properties[key]) {
 		console.log("Missing Key for " + key);
 		return value;
 	}
 
-	switch (model.properties[key].type) {
+	switch (properties[key].type) {
 		case "number" :
 			value = numeral(value).format();
 			break;
@@ -31,13 +33,13 @@ module.exports = function(model, key, value) {
 			value = value
 			break;
 		default :
-			if (model.properties[key].format) {
-				switch (model.properties[key].format) {
+			if (properties[key].format) {
+				switch (properties[key].format) {
 					case "date-time" :
-						value = moment(value).format("MM/DD/YY - HH:mm");
+						value = moment(value).utc().format("MM/DD/YY - HH:mm");
 						break;
 					case "date" :
-						value = moment(value).format("MM/DD/YY");
+						value = moment(value).utc().format("MM/DD/YY");
 						break;
 					case "uuid" :
 
