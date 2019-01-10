@@ -814,7 +814,7 @@ module.exports = class QueryToSql {
 							if (value && value !== '') {
 								var m = moment(value);
 								if (m) {
-									return m.format("YYYY-MM-DD HH:mm:ss")
+									return m.utc().format("YYYY-MM-DD HH:mm:ss")
 								}
 							}
 							return null;
