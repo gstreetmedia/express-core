@@ -7,7 +7,7 @@ const getIpAddress = require("../helper/get-ip-address");
 const jwt = require('jsonwebtoken');
 const moment = require("moment");
 const uuid = require("node-uuid");
-const UserModel = require("./UserModel");
+
 
 module.exports = class SessionModel extends ModelBase {
 
@@ -137,7 +137,7 @@ module.exports = class SessionModel extends ModelBase {
 
 
 	get relations() {
-
+		const UserModel = require("./UserModel");
 		return {
 			user : {
 				relation : "HasOne",
@@ -151,7 +151,7 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 	get foreignKeys () {
-
+		const UserModel = require("./UserModel");
 		return {
 			userId : {
 				modelClass : UserModel,

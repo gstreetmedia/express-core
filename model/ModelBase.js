@@ -528,7 +528,7 @@ module.exports = class ModelBase {
 	 */
 	async join(results, query) {
 
-		console.log("join " + this.tableName);
+		//console.log("join " + this.tableName);
 
 		if (!this.relationMappings && !this.relations && !this.foreignKeys) {
 			return results;
@@ -583,7 +583,7 @@ module.exports = class ModelBase {
 			//console.log("Condition 3");
 		}
 
-		console.log(join);
+		//console.log(join);
 
 		for (let key in join) {
 			if (relations[key]) {
@@ -625,7 +625,13 @@ module.exports = class ModelBase {
 
 				switch (item.relation) {
 					case "HasOne":
-						m = new item.modelClass(this.req);
+						try {
+							m = new item.modelClass(this.req);
+						} catch (e) {
+							console.log(this.tableName);
+							console.log(item);
+							continue;
+						}
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
 						list = await m.find(join[key]);
