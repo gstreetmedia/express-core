@@ -21,8 +21,8 @@ module.exports = async function( options ) {
 		pool = require("../helper/postgres-pool")(process.env.DEFAULT_DB)
 	}
 
-	/*
-	"\t\tisc.table_name,\n" +
+	let data =  await pool.query("Select\n" +
+		"\t\tisc.table_name,\n" +
 		"\t\tisc.column_name,\n" +
 		"\t\tisc.column_default,\n" +
 		"\t\tisc.is_nullable,\n" +
@@ -32,10 +32,6 @@ module.exports = async function( options ) {
 		"\t\tisc.data_type,\n" +
 		"\t\tisc.udt_name,\n" +
 		"\t\tisc.is_updatable,\n" +
-	 */
-	let data =  await pool.query("Select\n" +
-		" isc.*,\n" +
-		//" kcu.*,\n" +
 		"    tc.constraint_type\n" +
 		"\t\tFrom information_schema.columns as isc\n" +
 		"\t\tLEFT JOIN information_schema.key_column_usage as kcu on kcu.table_name = isc.table_name and kcu.column_name = isc.column_name\n" +
@@ -50,13 +46,9 @@ module.exports = async function( options ) {
 
 	enums = enums.rows;
 
-	let views = await pool.query("SELECT view_name FROM information_schema.view_table_usage");
-	views = _.map(views.rows, "view_name");
-
 	let descriptions = await pool.query("SELECT\n" +
-		//"  cols.table_name,\n" +
-		//"  cols.column_name,\n" +
-		"  cols.*, " +
+		"  cols.table_name,\n" +
+		"  cols.column_name,\n" +
 		"  (\n" +
 		"    SELECT\n" +
 		"      pg_catalog.col_description(c.oid, cols.ordinal_position::int)\n" +
@@ -73,27 +65,10 @@ module.exports = async function( options ) {
 
 	descriptions = descriptions.rows;
 
-	//fs.writeFileSync("./descriptions-" + new Date().getTime() + ".json", JSON.stringify(descriptions));
-
 	let schema = {};
-
-	//TODO need to figure out how to weed out views vs tables
-	//fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
 
 	data.rows.forEach(
 		function(column) {
-
-			if (_.indexOf(views, column.table_name) !== -1) { //don't do views
-				return;
-			}
-			if (column.table_name.indexOf("geography_") !== -1 ||
-				column.table_name.indexOf("geometry_") !== -1 ||
-				column.table_name.indexOf("raster_") !== -1 ||
-				column.table_name.indexOf("spatial_ref_sys") !== -1
-			) {
-				return;
-			}
-
 			var tableName = column.table_name;
 			var columnName = column.column_name;
 
@@ -102,7 +77,6 @@ module.exports = async function( options ) {
 					$schema:              'http://json-schema.org/draft-06/schema#',
 					$id:                  options.baseUrl + tableName + '.json',
 					title:                inflector.classify(inflector.singularize(tableName)),
-					dataSource: null,
 					tableName:            tableName,
 					description:          'Generated: ' + new Date(),
 					primaryKey : null,
@@ -183,7 +157,7 @@ var convertColumnType = function( column, enums )
 	if (column.character_maximum_length) {
 		schemaProperty.maxLength = column.character_maximum_length;
 	}
-	
+
 	switch( column.data_type )
 	{
 		case 'text':
@@ -206,26 +180,6 @@ var convertColumnType = function( column, enums )
 		case 'uuid': {
 			schemaProperty.type = 'string';
 			schemaProperty.format = 'uuid';
-			break;
-		}
-
-		case 'ARRAY': {
-			schemaProperty.type = 'array';
-
-			switch (column.udt_name) {
-				case "_text" :
-				case "_varchar" :
-					schemaProperty.format = "string";
-					break;
-				case "_int4" :
-					schemaProperty.format = "integer";
-				case "_numeric" :
-				case "_float8" :
-					schemaProperty.format = "number";
-				default :
-					schemaProperty.format = column.udt_name;
-			}
-
 			break;
 		}
 
@@ -311,26 +265,18 @@ var convertColumnType = function( column, enums )
 
 		case 'USER-DEFINED':
 		{
-
 			let list = [];
 			list = _.filter(enums, {key:column.udt_name});
 			list = _.map(list, 'value');
 
-			if (list.length > 0) {
-				schemaProperty.enum = list;
-				schemaProperty.type = typeof list[0];
-			} else {
-				schemaProperty.type = "object";
-				schemaProperty.format = column.udt_name;
-			}
-
+			schemaProperty.enum = list;
+			schemaProperty.type = typeof list[0];
 			break;
 		}
 
 		default:
 		{
 			//console.warn( 'UNKNOWN TYPE: ' + column.data_type );
-			//console.log(column.data_type);
 			//console.log(column);
 			schemaProperty.type = column.data_type;
 		} break;
