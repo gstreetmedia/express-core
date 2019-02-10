@@ -74,6 +74,8 @@ module.exports = class SchemaModel extends ModelBase {
 		)
 
 		let results = await this.find({where: {dataSource: {"!=": null}}});
+		//console.log(results);
+
 		let count = 0;
 		results.forEach(
 			function (item) {

@@ -18,16 +18,21 @@ module.exports = class ModelBase {
 	 */
 	constructor(schema, validation, fields, req) {
 		this.schema = schema;
-		this.tableName = schema.tableName;
-		this.properties = schema.properties;
-		this.primaryKey = schema.primaryKey;
 		this.validation = validation;
-		this.fields = fields;
+		this.fields = fields; //TODO move to _fields table
+		this.req = req;
+	}
 
-		if (req) {
-			this.req = req;
-		}
+	get tableName() {
+		return this.schema.tableName;
+	}
 
+	get properties() {
+		return this.schema.properties;
+	}
+
+	get primaryKey() {
+		return this.schema.primaryKey;
 	}
 
 	get connectionString() {
@@ -47,7 +52,6 @@ module.exports = class ModelBase {
 	 * @returns {Pool}
 	 */
 	get pool() {
-
 		if (this.connectionString.indexOf("postgres") === 0) {
 			this.db = "pg";
 			return require("../helper/postgres-pool")(this.connectionString);
@@ -62,20 +66,29 @@ module.exports = class ModelBase {
 	 * @returns {module.QueryToSql|*}
 	 */
 	get queryBuilder() {
+
+		if (this._builder) {
+			return this._builder;
+		}
+
 		if (global.schemaCache) {
-			let name = md5(this.connectionString);
 			if (global.schemaCache[this.schema.title]) {
 				this.schema = global.schemaCache[this.schema.title];
-				this.properties = this.schema.properties;
-				this.primaryKey = this.schema.primaryKey;
 			}
 		}
 
+		let builder;
+
 		if (this.connectionString.indexOf("postgres") === 0) {
-			return require("../helper/query-to-sql")
+			builder = require("../helper/query-to-pgsql");
 		} else if (this.connectionString.indexOf("mysql") === 0) {
-			return require("../helper/query-to-mysql")
+			builder = require("../helper/query-to-mysql");
+		} else if (this.connectionString.indexOf("mssql") === 0) {
+			builder = require("../helper/query-to-mssql");
 		}
+
+		this._builder = new builder(this.schema);
+		return this._builder;
 		//TODO MSSQL, ElasticSearch, Mongo, Redis
 	}
 
@@ -96,7 +109,7 @@ module.exports = class ModelBase {
 			obj.select = query.select;
 		}
 
-		let command = this.queryBuilder.select(this.tableName, obj, this.properties);
+		let command = this.queryBuilder.select(obj);
 
 		let result = await this.execute(command);
 
@@ -155,12 +168,7 @@ module.exports = class ModelBase {
 
 		await this.beforeCreate(params);
 
-		let command = this.queryBuilder.insert(
-			this.tableName,
-			this.primaryKey,
-			params,
-			this.schema
-		);
+		let command = this.queryBuilder.insert(params);
 
 		let result = await this.execute(command);
 
@@ -227,7 +235,7 @@ module.exports = class ModelBase {
 			let proceed = await this.beforeUpdate(id, params);
 
 			if (proceed) {
-				let command = this.queryBuilder.update(this.tableName, query, params, this.properties);
+				let command = this.queryBuilder.update(query, params);
 
 				let result = await this.execute(command);
 				if (result.error) {
@@ -243,14 +251,14 @@ module.exports = class ModelBase {
 				}
 
 				return {
-					id : id,
-					action : "update",
-					success : true
+					id: id,
+					action: "update",
+					success: true
 				}
 			} else {
 				return {
-					error : "Update blocked by BeforeUpdate",
-					[this.primaryKey] : id
+					error: "Update blocked by BeforeUpdate",
+					[this.primaryKey]: id
 				}
 			}
 
@@ -294,7 +302,7 @@ module.exports = class ModelBase {
 			};
 		}
 
-		let command = this.queryBuilder.update(this.tableName, query, params, this.properties);
+		let command = this.queryBuilder.update(query, params);
 
 		let result = await this.execute(command);
 		if (result.error) {
@@ -309,7 +317,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async query(query) {
-		let command = this.queryBuilder.select(this.tableName, query, this.properties);
+		let command = this.queryBuilder.select(query);
 
 		let result = await this.execute(command);
 		if (result.error) {
@@ -329,7 +337,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async count(query) {
-		let command = this.queryBuilder.count(this.tableName, this.primaryKey, query, this.properties);
+		let command = this.queryBuilder.count(query);
 		let result = await this.execute(command);
 
 		if (result.error) {
@@ -389,13 +397,11 @@ module.exports = class ModelBase {
 
 			if (proceed !== false) {
 				let command = this.queryBuilder.delete(
-					this.tableName,
 					{
 						where: {
 							[this.primaryKey]: id
 						}
 					},
-					this.properties
 				);
 
 				let result = await this.execute(command);
@@ -405,17 +411,17 @@ module.exports = class ModelBase {
 				return result;
 			} else {
 				return {
-					error : "Blocked by beforeDestroy",
-					tableName : this.tableName,
-					id : id
+					error: "Blocked by beforeDestroy",
+					tableName: this.tableName,
+					id: id
 				}
 			}
 
 		}
 		return {
-			error : "Record Not Found",
-			tableName : this.tableName,
-			id : id
+			error: "Record Not Found",
+			tableName: this.tableName,
+			id: id
 		}
 
 
@@ -428,11 +434,7 @@ module.exports = class ModelBase {
 	 */
 	async destroyWhere(query) {
 		console.log("ModelBase::destroyWhere");
-		let command = this.queryBuilder.delete(
-			this.tableName,
-			query,
-			this.properties
-		);
+		let command = this.queryBuilder.delete(query);
 		let result = await this.execute(command);
 		return result;
 	}
@@ -468,15 +470,12 @@ module.exports = class ModelBase {
 	 */
 	async exists(id) {
 		let command = this.queryBuilder.select(
-			this.tableName,
 			{
 				where: {
 					[this.primaryKey]: id,
 				},
-				select: [this.primaryKey],
 				limit: 1
-			},
-			this.properties
+			}
 		);
 
 		this.lastCommand = command;
@@ -504,7 +503,6 @@ module.exports = class ModelBase {
 		}
 
 		let command = this.queryBuilder.update(
-			this.tableName,
 			{
 				where: {
 					[this.primaryKey]: id
@@ -513,7 +511,6 @@ module.exports = class ModelBase {
 			{
 				[key]: value
 			},
-			this.properties
 		);
 
 		try {
@@ -533,7 +530,6 @@ module.exports = class ModelBase {
 	 */
 	async getKey(id, key) {
 		let command = this.queryBuilder.select(
-			this.tableName,
 			{
 				where: {
 					[this.primaryKey]: id
@@ -636,9 +632,7 @@ module.exports = class ModelBase {
 			if (relations[key]) {
 
 				if (join[key] === true) {
-					join[key] = {
-
-					}
+					join[key] = {}
 				}
 
 				let list;
@@ -741,7 +735,7 @@ module.exports = class ModelBase {
 				let m = new foreignKeys[key].modelClass(this.req);
 				let idList = [];
 				results.forEach(
-					function(item) {
+					function (item) {
 						if (item[key] !== null) {
 							idList.push(item[key]);
 						}
@@ -794,7 +788,6 @@ module.exports = class ModelBase {
 		}
 		return params;
 	}
-
 
 
 	/**
@@ -906,13 +899,13 @@ module.exports = class ModelBase {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
 			return {
-				error : e,
-				message : "Error converting command to string"
+				error: e,
+				message: "Error converting command to string"
 			}
 		}
 		this.lastCommand = command;
 
-		//console.log(sql);
+		console.log(sql.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
@@ -935,7 +928,7 @@ module.exports = class ModelBase {
 			} catch (e) {
 				this.lastError = e;
 				return {
-					error : e
+					error: e
 				};
 			}
 		} else {
@@ -951,7 +944,7 @@ module.exports = class ModelBase {
 			} catch (e) {
 				this.lastError = e;
 				return {
-					error : e
+					error: e
 				};
 			}
 
