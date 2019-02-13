@@ -78,4 +78,12 @@ module.exports = class UserController extends ControllerBase {
 		return res.success("Logged Out");
 	}
 
+	async passwordReset(req, res) {
+
+	}
+
+	async updatePassword(req, res) {
+
+	}
+
 }

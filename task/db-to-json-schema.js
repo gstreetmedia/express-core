@@ -6,6 +6,7 @@ const inflector = require("inflected");
 const _ = require("lodash");
 const connectionStringParser = require("connection-string");
 const SchemaModel = require("../model/SchemaModel");
+const FormModel = require("../model/FormModel")
 
 //used to format output
 const stt = require('spaces-to-tabs');
@@ -54,6 +55,9 @@ async function convert(destination, connectionString) {
 
 	let schemaModel = new SchemaModel();
 	//schemaModel.createTable(); //TODO do this only once
+
+	let formModel = new FormModel();
+	//formModel.createTable(); //TODO do this only once
 
 	let converter;
 	let schemas = [];
@@ -174,8 +178,38 @@ async function convert(destination, connectionString) {
 		let controllerPath = controllerBase + "/" + inflector.classify(item.tableName) + "Controller.js";
 		let routerPath = routerBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-router.js";
 
+		let tableName = item.tableName;
 		let result = await schemaModel.set(item.tableName, item);
-		//console.log(result);
+		let obj = {
+			title : item.tableName,
+			tableName : item.tableName,
+			dataSource : item.dataSource,
+			adminIndex : {},
+			adminForm : {},
+			adminRead : {},
+			publicIndex : {},
+			publicForm : {},
+			publicRead : {},
+			status : "active"
+
+		};
+
+		let keysSorted = _.clone(keys).sort(function (a, b) {
+			return b.value - a.value;
+		});
+
+		keysSorted.forEach(
+			function(k) {
+				obj.adminIndex[k] = true;
+				obj.adminForm[k] = true;
+				obj.adminRead[k] = true;
+				obj.publicIndex[k] = true;
+				obj.publicForm[k] = true;
+				obj.publicRead[k] = true;
+			}
+		);
+
+		let formResult = await formModel.set(tableName, obj);
 
 		if (destination === "memory") {
 			global.schemaCache = global.schemaCache || {};
@@ -210,7 +244,6 @@ async function convert(destination, connectionString) {
 		}
 
 		if (!fs.existsSync(fieldPath)) {
-
 			let s = 'exports.admin = {\n';
 			s += "\tindex : [\n\t\t'" + keys.join("',\n\t\t'") + "'\n\t],\n";
 			s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t],\n";

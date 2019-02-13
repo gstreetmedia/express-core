@@ -8,7 +8,7 @@ module.exports = class QueryToPgSql {
 
 	constructor(schema) {
 		this.schema = schema;
-		console.log("New Builder for " + this.tableName);
+		//console.log("New Builder for " + this.tableName);
 	}
 
 	get properties() {
@@ -238,7 +238,7 @@ module.exports = class QueryToPgSql {
 		}
 
 		if (required.length > 0) {
-			throw new Error(required);
+			throw new Error("insert Missing required => " + required);
 		}
 
 		queryBuilder.insert(translation);

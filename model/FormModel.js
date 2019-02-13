@@ -1,14 +1,14 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/schemas-schema');
-const validation = require('../schema/validation/schemas-validation');
-const fields = require('../schema/fields/schemas-fields');
+const schema = require('../schema/forms-schema');
+const validation = require('../schema/validation/forms-validation');
+const fields = require('../schema/fields/forms-fields');
 const cache = require("../helper/cache-manager");
 const md5 = require("md5");
 const connectionStringParser = require("connection-string");
-let schemaModel;
 
-module.exports = class SchemaModel extends ModelBase {
+
+module.exports = class FormModel extends ModelBase {
 
 	constructor(req) {
 		super(schema, validation, fields, req);
@@ -55,7 +55,7 @@ module.exports = class SchemaModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
-	async loadSchemas(connectionStrings) {
+	async loadForms(connectionStrings) {
 		if (!_.isArray(connectionStrings)) {
 			connectionStrings = [connectionStrings];
 		}
@@ -81,15 +81,15 @@ module.exports = class SchemaModel extends ModelBase {
 					function (cs) {
 
 						if (cs.path[0] === item.dataSource) {
-							global.schemaCache = global.schemaCache || {};
-							global.schemaCache[item.title] = item;
+							global.formCache = global.formCache || {};
+							global.formCache[item.title] = item;
 							count++;
 						}
 					}
 				)
 			}
 		);
-		console.log("Loaded " + count + " schemas");
+		console.log("Loaded " + count + " forms");
 	}
 
 	async hasTable() {
@@ -99,7 +99,7 @@ module.exports = class SchemaModel extends ModelBase {
 				'    SELECT 1\n' +
 				'    FROM   information_schema.tables\n' +
 				'    WHERE  table_schema = \'public\'\n' +
-				'           AND    table_name = \'_schemas\'\n' +
+				'           AND    table_name = \'_forms\'\n' +
 				');'
 			)
 
@@ -113,7 +113,7 @@ module.exports = class SchemaModel extends ModelBase {
 	async get(tableName, fromCache) {
 
 		if (fromCache !== false) {
-			let result = await cache.get("schema_" + tableName);
+			let result = await cache.get("forms_" + tableName);
 			if (result) {
 				return result;
 			}
@@ -128,7 +128,7 @@ module.exports = class SchemaModel extends ModelBase {
 		);
 
 		if (result.length === 1) {
-			await cache.get("schema_" + tableName, result[0]);
+			await cache.get("forms_" + tableName, result[0]);
 			return result[0];
 		}
 		return null;
@@ -142,9 +142,9 @@ module.exports = class SchemaModel extends ModelBase {
 		} else {
 			table = this.create(data);
 			if (table.error) {
-				console.log("schema set error " + table.error);
+				console.log("forms set error " + table.error);
 			} else {
-				await cache.set("schema_" + tableName, table);
+				await cache.set("forms_" + tableName, table);
 			}
 			return table;
 		}
@@ -152,29 +152,32 @@ module.exports = class SchemaModel extends ModelBase {
 
 	async createTable() {
 		await this.execute(
-			'drop table _schemas;\n' +
-			'create table "_schemas"\n' +
-			'(\n' +
-			'  id          uuid        not null\n' +
-			'    constraint schemas_pkey\n' +
-			'    primary key,\n' +
-			'  data_source varchar(64),\n' +
-			'  title       varchar(255),\n' +
-			'  table_name  varchar(64) not null,\n' +
-			'  primary_key varchar(64) default \'id\' :: character varying,\n' +
-			'  properties  jsonb       not null,\n' +
-			'  required    varchar(64) [],\n' +
-			'  read_only   varchar(64) [],\n' +
-			'  created_at  timestamp   default now(),\n' +
-			'  updated_at  timestamp   default now()\n' +
-			');\n' +
-			'\n' +
-			'create unique index schemas_id_uindex\n' +
-			'  on "_schemas" (id);\n' +
-			'\n' +
-			'create unique index schemas_table_name_uindex\n' +
-			'  on "_schemas" (table_name);\n' +
-			'\n'
+			"-- auto-generated definition\n" +
+			"create table \"_forms\"\n" +
+			"(\n" +
+			"  id           uuid        not null\n" +
+			"    constraint forms_pkey\n" +
+			"    primary key,\n" +
+			"  data_source  varchar(64),\n" +
+			"  title        varchar(255),\n" +
+			"  table_name   varchar(64) not null,\n" +
+			"  admin_index  jsonb,\n" +
+			"  admin_form   jsonb,\n" +
+			"  admin_read   jsonb,\n" +
+			"  public_index jsonb,\n" +
+			"  public_form  jsonb,\n" +
+			"  public_read  jsonb,\n" +
+			"  status       varchar(32),\n" +
+			"  created_at   timestamp with time zone default now(),\n" +
+			"  updated_at   timestamp with time zone default now()\n" +
+			");\n" +
+			"\n" +
+			"create unique index forms_id_uindex\n" +
+			"  on \"_forms\" (id);\n" +
+			"\n" +
+			"create unique index forms_table_name_uindex\n" +
+			"  on \"_forms\" (table_name);\n" +
+			"\n"
 		)
 	}
 

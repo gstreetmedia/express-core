@@ -235,9 +235,11 @@ module.exports = class ModelBase {
 			let proceed = await this.beforeUpdate(id, params);
 
 			if (proceed) {
+
 				let command = this.queryBuilder.update(query, params);
 
 				let result = await this.execute(command);
+
 				if (result.error) {
 					return result;
 				}
@@ -905,7 +907,7 @@ module.exports = class ModelBase {
 		}
 		this.lastCommand = command;
 
-		console.log(sql.toString());
+		//console.log(sql.toString());
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
