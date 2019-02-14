@@ -82,7 +82,7 @@ module.exports = class SchemaModel extends ModelBase {
 
 						if (cs.path[0] === item.dataSource) {
 							global.schemaCache = global.schemaCache || {};
-							global.schemaCache[item.title] = item;
+							global.schemaCache[item.tableName] = item;
 							count++;
 						}
 					}

@@ -10,6 +10,11 @@ router.use(
 
 router.get('/', async (req, res, next) => {
 	req.allowRole("guest");
+
+	if(req.hasRole("super-admin")){
+		return res.redirect("/admin");
+	}
+
 	return res.render(
 		'page-login',
 		{}

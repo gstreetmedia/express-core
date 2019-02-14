@@ -1,6 +1,6 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-const Controller = require('../controller/TokenController');
+const Controller = require('../controller/SchemaController');
 let c = new Controller()
 
 router.use(authentication);

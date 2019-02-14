@@ -86,7 +86,7 @@ module.exports = function (req, res, next) {
 	 * @returns {boolean}
 	 */
 	req.hasRole = function(role) {
-		return _.indexOf(currentRoles, role) === -1 ? false : true;
+		return _.indexOf(req.currentRoles, role) === -1 ? false : true;
 	};
 
 	next();

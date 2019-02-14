@@ -6,7 +6,7 @@ const inflector = require("inflected");
 const _ = require("lodash");
 const connectionStringParser = require("connection-string");
 const SchemaModel = require("../model/SchemaModel");
-const FormModel = require("../model/FormModel")
+const FieldModel = require("../model/FieldModel")
 
 //used to format output
 const stt = require('spaces-to-tabs');
@@ -56,8 +56,8 @@ async function convert(destination, connectionString) {
 	let schemaModel = new SchemaModel();
 	//schemaModel.createTable(); //TODO do this only once
 
-	let formModel = new FormModel();
-	//formModel.createTable(); //TODO do this only once
+	let fieldModel = new FieldModel();
+	//FieldModel.createTable(); //TODO do this only once
 
 	let converter;
 	let schemas = [];
@@ -209,7 +209,7 @@ async function convert(destination, connectionString) {
 			}
 		);
 
-		let formResult = await formModel.set(tableName, obj);
+		await fieldModel.set(tableName, obj);
 
 		if (destination === "memory") {
 			global.schemaCache = global.schemaCache || {};

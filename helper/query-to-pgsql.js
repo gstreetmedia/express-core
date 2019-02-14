@@ -403,12 +403,12 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (property.format) {
 					switch (property.format) {
 						case "date-time" :
-							if (value && value !== '') {
-								var m = moment(value);
-								if (m) {
-									//return m.utc().format("YYYY-MM-DD HH:mm:ss")
-									return m.utc().toISOString()
+							try {
+								if (moment(value).isValid()) {
+									return value;
 								}
+							} catch (e) {
+
 							}
 							return null;
 						case "uuid" :

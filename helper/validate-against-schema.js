@@ -1,5 +1,6 @@
 let _ = require("lodash");
 let validator = require("validator");
+let moment = require("moment-timezone");
 
 module.exports = (key, data, schema) => {
 
@@ -18,24 +19,40 @@ module.exports = (key, data, schema) => {
 			switch (schema.properties[key].format) {
 				case "uuid" :
 					try {
-						return validator.isUUID(data[key]);
+						let is = validator.isUUID(data[key]);
+						return is;
 					} catch (e) {
 						return false;
 					}
 
 				case "date" :
 				case "date-time" :
-					if (typeof data[key] === 'string') {
-						return true
+					try {
+						let result = moment(data[key]).isValid();
+						return result;
+					} catch (e) {
+						return false;
 					}
-					return _.isDate(data[key]);
+
 				default :
 					if (keyProxy === "email") {
-						return validator.isEmail(data[key]);
+						try {
+							return validator.isEmail(data[key]);
+						} catch (e) {
+							return false;
+						}
 					} else if (keyProxy.indexOf("url") !== -1) {
-						return validator.isURL(data[key]);
+						try {
+							return validator.isURL(data[key]);
+						} catch (e) {
+							return false;
+						}
 					} else if (keyProxy.indexOf("ipaddress") !== -1) {
-						return validator.isIP(data[key]);
+						try {
+							return validator.isIP(data[key]);
+						} catch (e) {
+							return false;
+						}
 					} else {
 						return _.isString(data[key]);
 					}

@@ -1,4 +1,6 @@
-var jsonlint = require("jsonlint");
+let jsonlint = require("jsonlint");
+let validateAgainstSchema = require("../helper/validate-against-schema");
+let _ = require("lodash");
 
 module.exports = class ControllerBase {
 	constructor(Model) {
@@ -231,15 +233,6 @@ module.exports = class ControllerBase {
 	 */
 	async search(req, res) {
 
-		let queryTest = this.testQuery(req, res);
-		if (queryTest.error) {
-			if (res) {
-				return res.invalid(queryTest);
-			} else {
-				return queryTest
-			}
-		}
-
 		let m = new this.Model(req);
 
 		let query = {
@@ -247,23 +240,61 @@ module.exports = class ControllerBase {
 				or : [
 
 				]
-			}
-		}
+			},
+			select : []
+		};
 
-		query.select = [this.Model.primaryKey];
+		let queryNumber = parseFloat(req.query.query);
 
 		for(let key in m.properties) {
 			if (m.properties[key].type === "string") {
-				query.where.or.push(
-					{
-						[key] : {"contains" : req.query.query}
-					}
-				)
-				query.select.push(key);
+
+				switch (m.properties[key].format) {
+					case "date" :
+					case "date-time" :
+						continue;
+					default :
+
+				}
+
+
+				if (validateAgainstSchema(key, {[key]:req.query.query}, m.schema)) {
+
+					query.where.or.push(
+						{
+							[key]: {"contains": req.query.query}
+						}
+
+					);
+					query.select.push(key);
+				}
+			} else if (m.properties[key].type === "number" && !isNaN(queryNumber)) {
+				if (validateAgainstSchema(key, {[key]:queryNumber}, m.schema)) {
+					query.where.or.push(
+						{
+							[key]: {"=": queryNumber}
+						}
+					);
+					query.select.push(key);
+				}
 			}
 		}
 
+		if (_.findIndex(query.select, m.primaryKey) === -1) {
+			query.select.push(m.primaryKey);
+		}
+
+		//return res.success(query);
+
 		let results = await m.query(query);
+
+		return res.success(
+			{
+				data : results,
+				query : query,
+				sql : m.lastCommand.toString()
+			}
+		);
 
 		//TODO limit search results to some for of a "name" field + the model.primaryKey
 	}

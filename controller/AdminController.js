@@ -4,6 +4,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const inflector = require("inflected");
 let helpers = require("../helper/view/index");
+let FieldModel = require("../model/FieldModel");
 let schemaList;
 
 module.exports = class AdminController extends ViewControllerBase {
@@ -25,7 +26,8 @@ module.exports = class AdminController extends ViewControllerBase {
 						title : "Home"
 					}
 				},
-				_ : _
+				_ : _,
+				inflector : inflector
 			},
 			req,
 			res
@@ -44,7 +46,23 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (!controller) {
 			throw new Error("Unknown controller");
 		}
-		req.query.select = controller.Model.fields.admin.index;
+
+		const tableName = controller.Model.schema.tableName;
+
+		if (global.fieldCache && global.fieldCache[tableName]) {
+			req.query.select = [];
+
+			let rawfields = global.fieldCache[tableName].adminIndex;
+			let fields = [];
+			for (let k in rawfields) {
+				if (rawfields[k]) {
+					req.query.select.push(k);
+				}
+			}
+			console.log("from cache");
+		} else {
+			req.query.select = controller.Model.fields.admin.index;
+		}
 
 		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
 			req.query.select.unshift(controller.Model.schema.primaryKey);
@@ -65,7 +83,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				schemaList : AdminController.getSchemaList(),
 				action : "index",
 				query : req.query,
-				_ : _
+				_ : _,
+				inflector : inflector
 			},
 			req,
 			res
@@ -203,10 +222,25 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (schemaList) {
 			return schemaList;
 		}
-		let files = fs.readdirSync(global.appRoot + '/src/schema');
+		//TODO convert over to what's in memory
+
 		let list = [];
 
+		if (global.schemaCache) {
+			for(let tableName in global.schemaCache) {
+				list.push(
+					{
+						modelName : inflector.classify(tableName),
+						name : inflector.humanize(tableName),
+						slug : inflector.singularize(tableName)
+					}
+				)
+			}
+			schemaList = list;
+			return schemaList;
+		}
 
+		let files = fs.readdirSync(global.appRoot + '/src/schema');
 
 		files.forEach(
 			function(file) {
@@ -223,10 +257,6 @@ module.exports = class AdminController extends ViewControllerBase {
 				)
 			}
 		);
-
-
-
-
 		schemaList = list;
 		return schemaList;
 	}
@@ -242,7 +272,5 @@ module.exports = class AdminController extends ViewControllerBase {
 		const Controller = require(c);
 		return new Controller();
 	}
-
-
 
 }

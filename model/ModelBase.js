@@ -72,8 +72,13 @@ module.exports = class ModelBase {
 		}
 
 		if (global.schemaCache) {
-			if (global.schemaCache[this.schema.title]) {
-				this.schema = global.schemaCache[this.schema.title];
+			if (global.schemaCache[this.schema.tableName]) {
+				this.schema = global.schemaCache[this.schema.tableName];
+			}
+		}
+		if (global.fieldCache) {
+			if (global.fieldCache[this.schema.tableName]) {
+				this.fields = global.fieldCache[this.schema.tableName];
 			}
 		}
 
