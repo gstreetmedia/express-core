@@ -177,21 +177,41 @@ module.exports = class AdminController extends ViewControllerBase {
 	async fields(req, res) {
 		let fm = new FieldModel(req);
 		let result = await fm.get(req.params.model, false);
-		return res.render(
-			'page-admin-field-editor',
-			{
-				schemaList : AdminController.getSchemaList(),
-				title : "Fields",
-				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : fm,
-				data : result,
-				query : req.query,
-				_ : _,
-				inflector : inflector,
-				action : req.params.model
-			}
-		)
+		if (req.params.model) {
+			return res.render(
+				'page-admin-field-editor',
+				{
+					schemaList : AdminController.getSchemaList(),
+					title : "Fields",
+					name : inflector.titleize(inflector.dasherize(req.params.model)),
+					slug : inflector.dasherize(inflector.singularize(req.params.model)),
+					model : fm,
+					fields : result,
+					data : result,
+					query : req.query,
+					_ : _,
+					inflector : inflector,
+					action : req.params.model
+				}
+			)
+		} else {
+			return res.render(
+				'page-admin-field-index',
+				{
+					schemaList : AdminController.getSchemaList(),
+					title : "Fields",
+					name : "fields",
+					slug : "fields",
+					model : fm,
+					data : result,
+					query : req.query,
+					_ : _,
+					inflector : inflector,
+					action : req.params.model
+				}
+			)
+		}
+
 	}
 
 
@@ -256,8 +276,9 @@ module.exports = class AdminController extends ViewControllerBase {
 					}
 				)
 			}
-			schemaList = list;
-			return schemaList;
+			list = _.sortBy(list, ['modelName']);
+
+			return list;
 		}
 
 		let files = fs.readdirSync(global.appRoot + '/src/schema');

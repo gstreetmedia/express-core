@@ -67,7 +67,7 @@ module.exports = class ControllerBase {
 				if (result.error) {
 					return res.invalid(result);
 				}
-				return res.success(result);
+				return res.created(result);
 			} else {
 				return result;
 			}
@@ -244,7 +244,9 @@ module.exports = class ControllerBase {
 			select : []
 		};
 
-		let queryNumber = parseFloat(req.query.query);
+
+		let search = req.query.query.toString().toLowerCase();
+		let queryNumber = parseFloat(search);
 
 		for(let key in m.properties) {
 			if (m.properties[key].type === "string") {
@@ -254,15 +256,13 @@ module.exports = class ControllerBase {
 					case "date-time" :
 						continue;
 					default :
-
 				}
 
 
-				if (validateAgainstSchema(key, {[key]:req.query.query}, m.schema)) {
-
+				if (validateAgainstSchema(key, {[key]:search}, m.schema)) {
 					query.where.or.push(
 						{
-							[key]: {"contains": req.query.query}
+							[key]: {"contains": search}
 						}
 
 					);
@@ -284,13 +284,47 @@ module.exports = class ControllerBase {
 			query.select.push(m.primaryKey);
 		}
 
-		//return res.success(query);
-
 		let results = await m.query(query);
+
+		if (results.error) {
+			return res.error(results.error);
+		}
+
+		let hash = {};
+
+		results.forEach(
+			function(item) {
+				for(let field in item) {
+					if (item[field] && item[field].toLowerCase().indexOf(search) !== -1) {
+						hash[field] = hash[field] || [];
+						hash[field].push(item[field])
+					}
+
+				}
+			}
+		);
+
+		let list = [];
+
+		for(let field in hash) {
+			let values = _.uniq(hash[field]);;
+			values.forEach(
+				function(item) {
+					list.push(
+						{
+							value : item,
+							field : field
+						}
+					)
+				}
+			)
+		}
+
 
 		return res.success(
 			{
-				data : results,
+				data : list,
+				hash : hash,
 				query : query,
 				sql : m.lastCommand.toString()
 			}
