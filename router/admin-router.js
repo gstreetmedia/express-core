@@ -17,6 +17,14 @@ router.get('/', async (req, res, next) => {
 	return res.redirect("/");
 });
 
+router.get("/fields/:model", async (req, res, next) => {
+		if (req.checkRole()) {
+			return await c.fields(req, res);
+		}
+		return res.redirect("/");
+	}
+);
+
 router.get("/:model", async (req, res, next) => {
 		if (req.checkRole()) {
 			return await c.index(req, res);

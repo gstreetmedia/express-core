@@ -174,6 +174,26 @@ module.exports = class AdminController extends ViewControllerBase {
 		)
 	}
 
+	async fields(req, res) {
+		let fm = new FieldModel(req);
+		let result = await fm.get(req.params.model, false);
+		return res.render(
+			'page-admin-field-editor',
+			{
+				schemaList : AdminController.getSchemaList(),
+				title : "Fields",
+				name : inflector.titleize(inflector.dasherize(req.params.model)),
+				slug : inflector.dasherize(inflector.singularize(req.params.model)),
+				model : fm,
+				data : result,
+				query : req.query,
+				_ : _,
+				inflector : inflector,
+				action : req.params.model
+			}
+		)
+	}
+
 
 	/**
 	 * Query for 1 to n rows based on input query

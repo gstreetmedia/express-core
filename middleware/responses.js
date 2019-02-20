@@ -3,7 +3,7 @@ module.exports = async function (req, res, next) {
 	let startTime = new Date();
 	//add more stuff you want
 
-	res.success = function(result) {
+	res.success = (result)=>  {
 		let now = new Date();
 		let obj = {
 			success:true,
@@ -23,19 +23,32 @@ module.exports = async function (req, res, next) {
 		res.status(200).send(obj);
 	};
 
-	res.error = function(e) {
-		res.status(500).send(e);
+	res.error = (e) => {
+		if (e.statusCode) {
+
+		} else {
+			res.status(500).send(e);
+		}
 	};
 
-	res.notFound = function(e) {
+	res.withStatus = (status, result)=> {
+		let obj = {
+			success:status === 200 ? "success" : false,
+			results:result,
+			time : now.getTime() - startTime.getTime(),
+
+		};
+	}
+
+	res.notFound = (e)=> {
 		res.status(404).send(e);
 	};
 
-	res.notAllowed = function(e) {
+	res.notAllowed = (e)=> {
 		res.status(401).send({error:true,message:"Missing/Invalid Credentials"});
 	};
 
-	res.invalid = function(message) {
+	res.invalid = (message)=> {
 		console.log(message);
 		if (typeof  message === "object") {
 			return res.status(400).send(message)
