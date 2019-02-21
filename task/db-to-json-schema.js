@@ -311,6 +311,10 @@ async function convert(destination, connectionString) {
 				"\tif(req.checkRole()){\n" +
 				"\t\treturn await c.index(req, res);\n\t}\n\treturn next();\n" +
 				"});\n\n" +
+				"router.get('/search', async function (req, res, next) {\n" +
+				"\tif(req.checkRole()){\n" +
+				"\t\treturn await c.search(req, res);\n\t}\n\treturn next();\n" +
+				"});\n\n" +
 				"router.get('/', async function (req, res, next) {\n" +
 				"\tif(req.checkRole()){\n" +
 				"\t\treturn await c.query(req, res);\n\t}\n\treturn next();\n" +
