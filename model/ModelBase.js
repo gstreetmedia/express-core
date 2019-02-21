@@ -910,6 +910,7 @@ module.exports = class ModelBase {
 				message: "Error converting command to string"
 			}
 		}
+
 		this.lastCommand = command;
 
 		//console.log(sql.toString());
@@ -935,7 +936,8 @@ module.exports = class ModelBase {
 			} catch (e) {
 				this.lastError = e;
 				return {
-					error: e
+					error: e,
+					query : sql
 				};
 			}
 		} else {
@@ -951,7 +953,8 @@ module.exports = class ModelBase {
 			} catch (e) {
 				this.lastError = e;
 				return {
-					error: e
+					error: e,
+					query : sql
 				};
 			}
 

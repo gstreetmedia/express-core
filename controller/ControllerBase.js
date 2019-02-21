@@ -250,23 +250,33 @@ module.exports = class ControllerBase {
 
 		for(let key in m.properties) {
 			if (m.properties[key].type === "string") {
+				let validate = true;
+
+				if (m.properties.enum) {
+					validate = false;
+				}
 
 				switch (m.properties[key].format) {
 					case "date" :
 					case "date-time" :
 						continue;
+					case "uuid" :
+						//continue;
+						break;
+						//it's okay, we
 					default :
 				}
 
+				query.where.or.push(
+					{
+						[key]: {"contains": search}
+					}
 
-				if (validateAgainstSchema(key, {[key]:search}, m.schema)) {
-					query.where.or.push(
-						{
-							[key]: {"contains": search}
-						}
+				);
+				query.select.push(key);
 
-					);
-					query.select.push(key);
+				if (!validate || validateAgainstSchema(key, {[key]:search}, m.schema)) {
+
 				}
 			} else if (m.properties[key].type === "number" && !isNaN(queryNumber)) {
 				if (validateAgainstSchema(key, {[key]:queryNumber}, m.schema)) {
@@ -286,6 +296,8 @@ module.exports = class ControllerBase {
 
 		let results = await m.query(query);
 
+		console.log(m.lastCommand);
+
 		if (results.error) {
 			return res.error(results.error);
 		}
@@ -299,7 +311,6 @@ module.exports = class ControllerBase {
 						hash[field] = hash[field] || [];
 						hash[field].push(item[field])
 					}
-
 				}
 			}
 		);

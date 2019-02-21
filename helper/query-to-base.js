@@ -69,7 +69,10 @@ module.exports = class QueryToPgSql {
 				wrapIdentifier: (value, origImpl, queryContext) => {
 					if (value.indexOf("_") === -1) {
 						//console.log(value + " => " + inflector.underscore(value));
-						value = inflector.underscore(value);
+						if (!process.env.IGNORE_CASE) {
+							value = inflector.underscore(value);
+						}
+
 					}
 					return origImpl(value);
 				}
@@ -317,6 +320,7 @@ module.exports = class QueryToPgSql {
 	processCompare(key, compare, value, queryBuilder, isOr) {
 
 		let columnName;
+		let columnFormat = null;
 
 		if (key.indexOf(".") !== -1 || _.isObject(key)) { //JSONB Syntax
 			return this.processObjectColumn(this.tableName, key, compare, value, queryBuilder)
@@ -325,6 +329,7 @@ module.exports = class QueryToPgSql {
 		if (this.properties[key] && this.properties[key].columnName) {
 			columnName = this.properties[key].columnName;
 			let columnType = this.properties[key].type;
+			columnFormat = this.properties[key].format;
 			if (columnType === "array") {
 				return this.processArrayColumn(key, compare, value, queryBuilder)
 			}
@@ -384,13 +389,27 @@ module.exports = class QueryToPgSql {
 				queryBuilder[c.whereNotIn](this.tableName + "." + columnName, this.processArrayType(value, this.properties[key]));
 				break;
 			case "endsWith" :
-				queryBuilder[c.where](this.tableName + "." + columnName, this.like, "%" + value); //todo postgres only
+				if (columnFormat === "uuid") {
+					queryBuilder[c.where](this.knexRaw(this.tableName + "." + columnName + "::text"), this.like, "%" + value); //todo postgres only
+				} else {
+					queryBuilder[c.where](this.tableName + "." + columnName, this.like, "%" + value); //todo postgres only
+				}
 				break;
 			case "startsWith" :
-				queryBuilder[c.where](this.tableName + "." + columnName, this.like, value + "%"); //todo postgres only
+				if (columnFormat === "uuid") {
+					queryBuilder[c.where](this.knexRaw(this.tableName + "." + columnName + "::text"), this.like, value + "%"); //todo postgres only
+				} else {
+					queryBuilder[c.where](this.tableName + "." + columnName, this.like, value + "%"); //todo postgres only
+				}
+
 				break;
 			case "contains" :
-				queryBuilder[c.where](this.tableName + "." + columnName, this.like, "%" + value + "%"); //todo postgres only
+
+				if (columnFormat === "uuid") {
+					queryBuilder[c.where](this.knexRaw(this.tableName + "." + columnName + "::text"), this.like, "%" + value + "%"); //todo postgres only
+				} else {
+					queryBuilder[c.where](this.tableName + "." + columnName, this.like, "%" + value + "%"); //todo postgres only
+				}
 				break;
 			case "=" :
 			case "==" :
