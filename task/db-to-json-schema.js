@@ -179,7 +179,10 @@ async function convert(destination, connectionString) {
 		let routerPath = routerBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-router.js";
 
 		let tableName = item.tableName;
+		//TODO need to remove schemas that no longer exist
 		let result = await schemaModel.set(item.tableName, item);
+		let fields = await fieldModel.get(tableName);
+
 		let obj = {
 			title : item.tableName,
 			tableName : item.tableName,
@@ -191,23 +194,47 @@ async function convert(destination, connectionString) {
 			publicForm : {},
 			publicRead : {},
 			status : "active"
-
 		};
 
 		let keysSorted = _.clone(keys).sort(function (a, b) {
 			return b.value - a.value;
 		});
 
-		keysSorted.forEach(
-			function(k) {
-				obj.adminIndex[k] = true;
-				obj.adminForm[k] = true;
-				obj.adminRead[k] = true;
-				obj.publicIndex[k] = true;
-				obj.publicForm[k] = true;
-				obj.publicRead[k] = true;
+		if (!fields) {
+			keysSorted.forEach(
+				function(k) {
+					obj.adminIndex[k] = true;
+					obj.adminForm[k] = true;
+					obj.adminRead[k] = true;
+					obj.publicIndex[k] = true;
+					obj.publicForm[k] = true;
+					obj.publicRead[k] = true;
+				}
+			);
+		} else {
+			//TODO need to keep original sort
+			function addKeys(origin, keysSorted) {
+				let order = []
+				for (let k in fields[origin]) {
+					if (_.indexOf(keysSorted, k) !== -1) {
+						order.push(k);
+					}
+				}
+				order = _.union(order, keysSorted);
+
+				order.forEach(
+					function(k) {
+						obj[origin][k] = typeof fields[origin][k] !== "undefined" ? fields[origin][k] : true;
+					}
+				)
 			}
-		);
+			addKeys("adminIndex", keysSorted);
+			addKeys("adminForm", keysSorted);
+			addKeys("adminRead", keysSorted);
+			addKeys("publicIndex", keysSorted);
+			addKeys("publicForm", keysSorted);
+			addKeys("publicRead", keysSorted);
+		}
 
 		await fieldModel.set(tableName, obj);
 
@@ -276,6 +303,8 @@ async function convert(destination, connectionString) {
 				"\tasync update(id, data, query){\n\t\treturn await super.update(id, data, query);\n\t}\n\n" +
 				"\tasync query(query){\n\t\treturn await super.query(query);\n\t}\n\n" +
 				"\tasync destroy(id){\n\t\treturn await super.destroy(id);\n\t}\n\n" +
+				"\tget relations(){\n\t\treturn {};\n\t}\n\n" +
+				"\tget foreignKeys(){\n\t\treturn {};\n\t}\n\n" +
 				"}";
 
 			fs.writeFileSync(modelPath, s);
@@ -294,6 +323,7 @@ async function convert(destination, connectionString) {
 				"\tasync read(req, res){\n\t\treturn await super.read(req, res);\n\t}\n\n" +
 				"\tasync update(req, res){\n\t\treturn await super.update(req, res);\n\t}\n\n" +
 				"\tasync query(req, res){\n\t\treturn await super.query(req, res);\n\t}\n\n" +
+				"\tasync search(req, res){\n\t\treturn await super.search(req, res);\n\t}\n\n" +
 				"\tasync destroy(req, res){\n\t\treturn await super.destroy(req, res);\n\t}\n\n" +
 				"}";
 

@@ -356,7 +356,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "array" :
 				if (isInsertOrUpdate) {
 					if (property.format === "string") {
-						console.log(value);
+						//console.log(value);
 						return this.knexRaw("ARRAY['" + value.join("','") + "']");
 					} else {
 						return this.knexRaw("ARRAY[" + value.join(",") + "]");

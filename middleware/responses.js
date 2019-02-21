@@ -25,6 +25,14 @@ module.exports = async function (req, res, next) {
 		res.status(200).send(obj);
 	};
 
+	res.created = (e) => {
+		if (e.statusCode) {
+
+		} else {
+			res.status(201).send(e);
+		}
+	};
+
 	res.error = (e) => {
 		if (e.statusCode) {
 
