@@ -183,16 +183,18 @@ async function convert(destination, connectionString) {
 		let result = await schemaModel.set(item.tableName, item);
 		let fields = await fieldModel.get(tableName);
 
-		let obj = {
+		let fieldSchema = {
 			title : item.tableName,
 			tableName : item.tableName,
 			dataSource : item.dataSource,
-			adminIndex : {},
-			adminForm : {},
-			adminRead : {},
-			publicIndex : {},
-			publicForm : {},
-			publicRead : {},
+			adminIndex : [],
+			adminCreate : [],
+			adminRead : [],
+			adminUpdate : [],
+			publicIndex : [],
+			publicCreate : [],
+			publicRead : [],
+			publicUpdate : [],
 			status : "active"
 		};
 
@@ -200,43 +202,58 @@ async function convert(destination, connectionString) {
 			return b.value - a.value;
 		});
 
+		fields = null;
+
 		if (!fields) {
 			keysSorted.forEach(
 				function(k) {
-					obj.adminIndex[k] = true;
-					obj.adminForm[k] = true;
-					obj.adminRead[k] = true;
-					obj.publicIndex[k] = true;
-					obj.publicForm[k] = true;
-					obj.publicRead[k] = true;
+					fieldSchema.adminIndex.push({property: k, visible:true});
+					fieldSchema.adminCreate.push({property: k, visible:true});
+					fieldSchema.adminRead.push({property: k, visible:true});
+					fieldSchema.adminUpdate.push({property: k, visible:true});
+					fieldSchema.publicIndex.push({property: k, visible:true});
+					fieldSchema.publicCreate.push({property: k, visible:true});
+					fieldSchema.publicRead.push({property: k, visible:true});
+					fieldSchema.publicUpdate.push({property: k, visible:true});
 				}
 			);
 		} else {
 			//TODO need to keep original sort
 			function addKeys(origin, keysSorted) {
-				let order = []
-				for (let k in fields[origin]) {
-					if (_.indexOf(keysSorted, k) !== -1) {
-						order.push(k);
-					}
-				}
-				order = _.union(order, keysSorted);
+				let order = [];
+				keysSorted = _.clone(keysSorted);
 
-				order.forEach(
-					function(k) {
-						obj[origin][k] = typeof fields[origin][k] !== "undefined" ? fields[origin][k] : true;
+				fields[origin].forEach(
+					function(item) {
+						let index = _.indexOf(keysSorted, item.property);
+						if (index !== -1) {
+							fieldSchema[origin].push(k);
+							keysSorted.splice(index, 1);
+						}
 					}
-				)
+				);
+				keysSorted.forEach(
+					function(key) {
+						fieldSchema[origin].push(
+							{
+								property : key,
+								visible : true
+							}
+						)
+					}
+				);
 			}
 			addKeys("adminIndex", keysSorted);
-			addKeys("adminForm", keysSorted);
+			addKeys("adminCreate", keysSorted);
 			addKeys("adminRead", keysSorted);
+			addKeys("adminUpdate", keysSorted);
 			addKeys("publicIndex", keysSorted);
-			addKeys("publicForm", keysSorted);
+			addKeys("publicCreate", keysSorted);
 			addKeys("publicRead", keysSorted);
+			addKeys("publicUpdate", keysSorted);
 		}
 
-		await fieldModel.set(tableName, obj);
+		await fieldModel.set(tableName, fieldSchema);
 
 		if (destination === "memory") {
 			global.schemaCache = global.schemaCache || {};
@@ -271,15 +288,15 @@ async function convert(destination, connectionString) {
 		}
 
 		if (!fs.existsSync(fieldPath)) {
-			let s = 'exports.admin = {\n';
-			s += "\tindex : [\n\t\t'" + keys.join("',\n\t\t'") + "'\n\t],\n";
-			s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t],\n";
-			s += "\tread : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t]\n";
-			s += "}\n\n";
-			s += 'exports.public = {\n';
-			s += "\tindex : [\n\t\t'" + keys.join("',\n\t\t'") + "'\n\t],\n";
-			s += "\tform : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t],\n";
-			s += "\tread : [\n\t\t{\n\t\t\ttitle:'Fields',\n\t\t\tproperties:[\n\t\t\t\t'" + keys.join("',\n\t\t\t\t'") + "'\n\t\t\t]\n\t\t}\n\t]\n";
+			let s = 'exports = {\n';
+			s += "\tadminIndex : " + JSON.stringify(fieldSchema.adminIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tadminCreate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tadminRead : " + JSON.stringify(fieldSchema.adminRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tadminUpdate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tpublicIndex : " + JSON.stringify(fieldSchema.publicIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tpublicCreate : " + JSON.stringify(fieldSchema.publicCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tpublicRead : " + JSON.stringify(fieldSchema.publicRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
+			s += "\tpublicUpdate : " + JSON.stringify(fieldSchema.publicCreate).split('"property"').join("property").split('"visible"').join("visible") + "\n";
 			s += "}";
 			fs.writeFileSync(fieldPath, s);
 		}

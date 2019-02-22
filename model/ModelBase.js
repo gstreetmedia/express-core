@@ -21,6 +21,12 @@ module.exports = class ModelBase {
 		this.validation = validation;
 		this.fields = fields; //TODO move to _fields table
 		this.req = req;
+
+		if (global.fieldCache) {
+			if (global.fieldCache[this.schema.tableName]) {
+				this.fields = global.fieldCache[this.schema.tableName];
+			}
+		}
 	}
 
 	get tableName() {
@@ -76,11 +82,7 @@ module.exports = class ModelBase {
 				this.schema = global.schemaCache[this.schema.tableName];
 			}
 		}
-		if (global.fieldCache) {
-			if (global.fieldCache[this.schema.tableName]) {
-				this.fields = global.fieldCache[this.schema.tableName];
-			}
-		}
+
 
 		let builder;
 
@@ -268,7 +270,6 @@ module.exports = class ModelBase {
 					[this.primaryKey]: id
 				}
 			}
-
 
 		} else {
 			return {

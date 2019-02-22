@@ -144,6 +144,7 @@ module.exports = class SchemaModel extends ModelBase {
 			if (table.error) {
 				console.log("schema set error " + table.error);
 			} else {
+				console.log(tableName + " created");
 				await cache.set("schema_" + tableName, table);
 			}
 			return table;
