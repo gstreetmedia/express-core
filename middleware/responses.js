@@ -1,3 +1,5 @@
+let now = require("../../core/helper/now");
+
 module.exports = async function (req, res, next) {
 
 	let startTime = new Date();
@@ -44,12 +46,16 @@ module.exports = async function (req, res, next) {
 	};
 
 	res.withStatus = (status, result)=> {
+		let now = new Date();
+
 		let obj = {
 			success:status === 200 ? "success" : false,
 			results:result,
 			time : now.getTime() - startTime.getTime(),
 
 		};
+
+		res.status(status).send(obj);
 	}
 
 	res.notFound = (e)=> {
