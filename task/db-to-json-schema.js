@@ -184,7 +184,7 @@ async function convert(destination, connectionString) {
 		let fields = await fieldModel.get(tableName);
 
 		let fieldSchema = {
-			title : item.tableName,
+			title : inflector.titleize(item.tableName),
 			tableName : item.tableName,
 			dataSource : item.dataSource,
 			adminIndex : [],

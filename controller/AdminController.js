@@ -44,7 +44,7 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		let controller = AdminController.getController(req);
 		if (!controller) {
-			throw new Error("Unknown controller");
+			return res.status(404).send("Unknown Controller");
 		}
 
 		const tableName = controller.Model.schema.tableName;
@@ -66,8 +66,6 @@ module.exports = class AdminController extends ViewControllerBase {
 			}
 		);
 
-		//console.log(req.query.select);
-
 		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
 			req.query.select.unshift(controller.Model.schema.primaryKey);
 		}
@@ -76,13 +74,15 @@ module.exports = class AdminController extends ViewControllerBase {
 		req.query.sort = req.query.sort ? req.query.sort : req.order || "name ASC";
 		let data = await controller.query(req);
 
+		let model = new controller.Model();
+
 		return this.render(
 			'page-admin-list',
 			{
 				title : req.params.model,
-				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : new controller.Model(),
+				name : inflector.singularize(inflector.titleize(inflector.dasherize(req.params.model))),
+				slug : inflector.dasherize(req.params.model),
+				model : model,
 				data : data,
 				schemaList : AdminController.getSchemaList(),
 				action : "index",
@@ -109,7 +109,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			{
 				title : req.params.model,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
+				slug : inflector.dasherize(req.params.model),
 				model : new controller.Model(),
 				schemaList : AdminController.getSchemaList(),
 				action : "create"
@@ -163,13 +163,12 @@ module.exports = class AdminController extends ViewControllerBase {
 		let controller = AdminController.getController(req);
 		let data = await controller.read(req);
 
-
 		return this.render(
 			'page-admin-edit',
 			{
 				title : req.params.model,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
+				slug : inflector.dasherize(req.params.model),
 				model : new controller.Model(),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
@@ -182,10 +181,12 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 	async fields(req, res) {
-		let fm = new FieldModel(req);
-		let tableName = inflector.underscore(req.params.model);
-		let result = await fm.get(tableName, false);
+		let controller = AdminController.getController(req);
+		//let fm = new FieldModel(req);
+		//let tableName = inflector.underscore(req.params.model);
+		//let result = await fm.get(tableName, false);
 		//console.log(result);
+		let model = new controller.Model();
 		if (req.params.model) {
 			return res.render(
 				'page-admin-field-editor',
@@ -193,10 +194,9 @@ module.exports = class AdminController extends ViewControllerBase {
 					schemaList : AdminController.getSchemaList(),
 					title : "Fields",
 					name : inflector.titleize(inflector.dasherize(req.params.model)),
-					slug : inflector.dasherize(tableName),
-					model : fm,
-					fields : result,
-					data : result,
+					slug : inflector.dasherize(req.params.model),
+					model : model,
+					fields : model.fields,
 					query : req.query,
 					_ : _,
 					inflector : inflector,
@@ -290,7 +290,7 @@ module.exports = class AdminController extends ViewControllerBase {
 					{
 						modelName : inflector.classify(tableName),
 						name : inflector.humanize(tableName),
-						slug : inflector.singularize(tableName)
+						slug : inflector.dasherize(tableName)
 					}
 				)
 			}
@@ -327,10 +327,26 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 	static getController(req) {
-		let c = "../../controller/" + inflector.classify(inflector.underscore(req.params.model)) + "Controller";
-		//console.log(c);
-		const Controller = require(c);
-		return new Controller();
+		let baseName = inflector.classify(inflector.underscore(req.params.model));
+		let altName = inflector.singularize(baseName);
+		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
+
+		console.log(c);
+
+		if (fs.existsSync(c + ".js")) {
+			const Controller = require(c);
+			return new Controller();
+		} else {
+			c = global.appRoot + "/src/controller/" + altName + "Controller";
+			if (fs.existsSync(c + ".js")) {
+				const Controller = require(c);
+				return new Controller();
+			}
+		}
+
+		console.log("Could not find " + baseName + "Controller or " + altName + "Controller");
+
+		return null;
 	}
 
 }
