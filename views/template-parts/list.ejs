@@ -1,0 +1,71 @@
+<%
+if (data.length > 0) {
+%>
+<div class="table-responsive">
+	<table class="table table-striped">
+		<thead class="thead-dark">
+		<tr>
+			<%var keys = Object.keys(data[0]);
+
+			keys.forEach(function(attribute) {
+				if (attribute === model.primaryKey) {
+					return;
+				}
+			%>
+			<th><%- helpers.inflector.humanize(helpers.inflector.underscore(attribute)) %></th>
+			<% }) %>
+			<th class="text-right">Actions</th>
+		</tr>
+		</thead>
+		<tbody>
+		<%
+		data.forEach(
+		function(row) {
+		%>
+		<tr data-row-id="<%- row[model.primaryKey] %>">
+			<%
+			keys.forEach(function(attribute) {
+				if (attribute !== model.primaryKey) {
+			%>
+			%>
+			<td>
+				<%- helpers.format(model, attribute, row[attribute]) %>
+			</td>
+			<%
+			}
+			});
+
+			%>
+			<td class="actions td-actions text-right" style="width: 150px;">
+				<a class="btn btn-link" href="/admin/<%- slug %>/<%- row[model.primaryKey] %>/view" class="">
+					<i class="material-icons">open_in_new</i>
+				</a>
+				<a class="btn btn-link" href="/admin/<%- slug %>/<%- row[model.primaryKey] %>/edit" class="">
+					<i class="material-icons">edit</i>
+				</a>
+				<form
+					action="<%- global.apiRoot %>/<%- slug %>/<%- row[model.primaryKey] %>"
+					method="delete"
+				>
+					<button type="submit" class="btn btn-link">
+						<i class="material-icons">close</i>
+					</button>
+				</form>
+			</td>
+		</tr>
+		<% }
+		); //end forEach
+		%>
+		</tbody>
+	</table>
+</div>
+
+<%
+}  else { %>
+<div class="row p-4 d-none">
+	<div class="col">
+		<strong>No <%- helpers.inflector.pluralize(name) %> Yet</strong><br/>
+		<a href="/admin/<%- slug %>/create">Create your first</a>
+	</div>
+</div>
+<% } %>

@@ -1,0 +1,11 @@
+<input class="form-control" id="<%- id %>"
+	   name="<%- name %>"
+	   value="<%- value  %>"
+	   type="<%- type %>"
+		<%- required %>
+	   maxlength="<%- maxlength || "" %>"
+	   minlength="<%- minlength || "" %>"
+	   max="<%- max || "" %>"
+	   min="<%- min || "" %>"
+		<%= disabled ? "disabled" : "" %>
+/>

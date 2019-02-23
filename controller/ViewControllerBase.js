@@ -1,7 +1,8 @@
-var inflector = require("inflected");
-var _ = require("lodash");
-var moment = require("moment-timezone");
-var helpers = require("../helper/view/index");
+const inflector = require("inflected");
+const _ = require("lodash");
+const moment = require("moment-timezone");
+const helpers = require("../helper/view/index");
+const fs = require("fs");
 
 module.exports = class ViewControllerBase {
 	constructor() {
@@ -106,7 +107,14 @@ module.exports = class ViewControllerBase {
 			req : req
 		}
 		_.extend(o, obj);
-		res.render(page, o);
+		if (fs.existsSync(global.appRoot + "/src/views/" + page + ".ejs")) {
+			console.log("view override");
+			res.render(page, o);
+		} else {
+			console.log("view core");
+			res.render("../core/views/" + page, o);
+		}
+
 	}
 
 

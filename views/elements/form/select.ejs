@@ -1,0 +1,6 @@
+<select class="form-control" id="<%- id %>" name="<%- name %>"  <%- required %> >
+	<option value="" <%- value === "" ? "selected" : ""%>>Please select</option>
+	<% options.forEach(function(item) {%>
+		<option value="<%- item %>" <%- value === item ? "selected" : "" %>><%- item %></option>
+	<% }) %>
+</select>

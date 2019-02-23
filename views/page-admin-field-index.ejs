@@ -1,0 +1,14 @@
+<%- include ./header-admin %>
+<!-- List all available Schemas ? -->
+<div class="row m-4">
+	<% schemaList.forEach(
+	function(item) {
+	%>
+	<div class="col-md-4 mb-2">
+		<a href="/admin/fields/<%- item.slug %>" class="btn btn-dark btn-block"><%- item.modelName %></a>
+	</div>
+	<%
+	}
+	) %>
+</div>
+<%- include ./footer-admin %>

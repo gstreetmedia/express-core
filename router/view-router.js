@@ -15,10 +15,19 @@ router.get('/', async (req, res, next) => {
 		return res.redirect("/admin");
 	}
 
-	return res.render(
-		'page-login',
-		{}
-	)
+	if (fs.existsSync(global.appRoot + "/views/page-login.ejs")) {
+		return res.render(
+			'page-login',
+			{}
+		)
+	} else {
+		return res.render(
+			'../core/views/page-login',
+			{}
+		)
+	}
+
+
 	return next();
 });
 

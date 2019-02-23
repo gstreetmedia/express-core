@@ -1,0 +1,70 @@
+<div>
+	<% if (!req || !req.xhr && typeof data !== "undefined") { %>
+	<div class="card-header card-header-rose card-header-text">
+		<div class="card-text">
+			<div class="float-right">
+				<% if (action === 'edit') { %>
+				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/view">View</a>
+				<% } else { %>
+				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/edit">Edit</a>
+				<% } %>
+			</div>
+			<h4 class="card-title m-0">View <%- title %></h4>
+		</div>
+	</div>
+	<% } %>
+	<form class='form'
+		  data-endpoint="<%- global.apiRoot %>/<%- slug %><%- action === "edit" ? '/' + data[model.primaryKey] : '' %>"
+		  method="<%- action === "edit" ? "patch" : "post" %>"
+	>
+
+			<%
+				if (action === "edit") {
+					var properties = helpers._.filter(model.fields.adminUpdate, {visible:true});
+				} else {
+					properties = helpers._.filter(model.fields.adminCreate, {visible:true});
+				}
+
+			properties = helpers._.map(properties, "property");
+			%>
+			<div class="row">
+				<div class="col-12 border-bottom ml-1 mt-0 mb-4 ">
+					<h5>Fields</h5>
+				</div>
+			</div>
+
+			<%
+			properties.forEach(
+			function(key) {
+
+				if (action === "edit") {
+					var value = data[key];
+				} else {
+					value = "";
+				}
+
+				switch (key) {
+					case model.primaryKey :
+					case "createdAt" :
+					case "updatedAt" :
+						return;
+				}
+
+				var element = helpers.form(model, key, value);
+			%>
+			<div class="form-group row">
+				<label class="label col-md-3">
+					<%- helpers.inflector.humanize(helpers.inflector.underscore(key)) %>
+				</label>
+				<div class="col-md-9">
+					<%- element %>
+				</div>
+			</div>
+			<%
+			}
+			)
+			%>
+
+
+	</form>
+</div>

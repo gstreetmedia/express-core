@@ -1,0 +1,60 @@
+<%
+
+	var instance = new Date().getTime();
+	var keys = Object.keys(value[0]);
+%>
+<div class="mb-4" style="position: relative">
+	<div id="table_<%- instance %>" class="container-fluid gridded gridded-inline">
+		<div class="inner" style="position: absolute;">
+			<div class="row header m-0">
+				<%
+				keys.forEach(function(attribute) {
+					if (attribute === relationModel.primaryKey) {
+						return;
+					}
+				%>
+				<div class="col-1 border-right border-top p-1"><%- helpers.inflector.humanize(helpers.inflector.underscore(attribute)) %></div>
+				<% }) %>
+				<div class="col-1 border-top text-right p-1 actions">Actions</div>
+			</div>
+			<%
+			value.forEach(
+			function(row) {
+			%>
+			<div class="row m-0 border-top row-striped" data-row-id="<%- row[relationModel.primaryKey] %>" data-bindid="view">
+				<%
+				keys.forEach(function(attribute) {
+				if (attribute !== relationModel.primaryKey) {
+				%>
+				%>
+				<div class="col-1 p-1 border-right">
+					<%- helpers.format(relationModel, attribute, row[attribute]) %>
+				</div>
+				<%
+				}
+				});
+				%>
+				<div class="col-1 p-1 actions td-actions text-center">
+					<button class="btn btn-link edit" data-bindid="edit">
+						<i class="material-icons">edit</i>
+					</button>
+					<button class="btn btn-link delete" data-bindid="delete">
+						<i class="material-icons">close</i>
+					</button>
+				</div>
+			</div>
+			<% }
+			); //end forEach
+			%>
+		</div>
+	</div>
+	<style>
+		#table_<%- instance %> .col-1 {
+			float: left;
+			overflow: hidden;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+
+		}
+	</style>
+</div>

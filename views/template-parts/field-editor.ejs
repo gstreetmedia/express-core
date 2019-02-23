@@ -1,0 +1,46 @@
+<form id="fieldForm" action="/admin/fields/<%= slug %>" method="post">
+<div class="container-fluid">
+	<div class="row">
+		<%
+		let groups = ["adminIndex", "adminRead", "adminCreate", "adminUpdate", "publicIndex", "publicRead", "publicCreate", "publicUpdate"];
+		groups.forEach(function(group){ %>
+		<div class="col-md-3 mt-2">
+			<div class="row" data-field-group="<%= group %>">
+				<div class="col-md-12">
+					<h4><%= group %></h4>
+				</div>
+			</div>
+			<div class="property-group" data-bindid="group">
+				<%
+				console.log(group);
+				fields[group].forEach(
+				function(item) {
+					let key = item.property;
+					let value = item.visible;
+				%>
+				<div class="row mb-1 property-item ml-0 mr-0" data-property-name="<%= key %>" data-bindid="property" >
+					<div class="col-lg-12 p-0">
+						<div class="card">
+							<div class="card-body p-0">
+								<div class="d-inline-flex justify-content-between w-100">
+									<div class="p-2">
+										<%= key %>
+									</div>
+									<div class="switch-group pt-1 pr-2 pb-1">
+										<label class="switch">
+											<input type="checkbox" name="<%= group %>[<%= key %>]" value="1" <%= value ? "checked" : "" %> >
+											<span class="switch-slide round"></span>
+										</label>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<% }); %>
+			</div>
+		</div>
+		<% }); %>
+	</div>
+</div>
+</form>

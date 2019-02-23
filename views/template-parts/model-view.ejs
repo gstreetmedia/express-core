@@ -1,0 +1,66 @@
+<div>
+	<%	if (!req || !req.xhr) { %>
+	<div class="card-header card-header-rose card-header-text">
+		<div class="card-text">
+			<div class="float-right">
+				<% if (action === 'edit') { %>
+				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/view">View</a>
+				<% } else { %>
+				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/edit">Edit</a>
+				<% } %>
+			</div>
+			<h4 class="card-title m-0">View <%- title %></h4>
+		</div>
+	</div>
+	<% } %>
+	<div>
+		<%
+		var properties = _.filter(model.fields.adminRead, {visible:true});
+		properties = _.map(properties, "property");
+		var foreignKeys = model.foreignKeys;
+		%>
+		<div class="row">
+			<div class="col-12 border-bottom ml-1 mt-0 mb-4 ">
+				<h5>Fields</h5>
+			</div>
+		</div>
+		<div class="row">
+		<%
+		properties.forEach(
+			function(key) {
+				var value = data[key];
+		%>
+		<%- include ./view-record-item %>
+		<%
+			}
+		)
+		%>
+		</div> <!-- Close the row -->
+		<%
+		if (model.relations) {
+			var keys = Object.keys(model.relations);
+			keys.forEach(
+				function(key) {
+					if (data[key]) {
+						var value = data[key];
+						var relationModel = model.relations[key].modelClass;
+						if (model.relations[key].relation === "HasMany") {
+					%>
+						<label><%- key %></label>
+						<%- include ./gridded-relation %>	<%
+						} else {
+							%>
+							<div class="row">
+							<%- include ./view-record-item %>
+							</div>
+							<%
+						}
+					}
+				}
+			)
+		} else {
+			}
+		%>
+
+	</div>
+</div>

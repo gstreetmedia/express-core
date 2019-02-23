@@ -188,7 +188,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		//console.log(result);
 		let model = new controller.Model();
 		if (req.params.model) {
-			return res.render(
+			return this.render(
 				'page-admin-field-editor',
 				{
 					schemaList : AdminController.getSchemaList(),
@@ -201,10 +201,12 @@ module.exports = class AdminController extends ViewControllerBase {
 					_ : _,
 					inflector : inflector,
 					action : "fields"
-				}
+				},
+				req,
+				res
 			)
 		} else {
-			return res.render(
+			return this.render(
 				'page-admin-field-index',
 				{
 					schemaList : AdminController.getSchemaList(),
@@ -217,7 +219,9 @@ module.exports = class AdminController extends ViewControllerBase {
 					_ : _,
 					inflector : inflector,
 					action : req.params.model
-				}
+				},
+				req,
+				res
 			)
 		}
 	}

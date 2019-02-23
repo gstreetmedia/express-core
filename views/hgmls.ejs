@@ -1,0 +1,267 @@
+<% if (typeof isLocalHost == "undefined") {
+	var isLocalHost = false;
+} %>
+<!DOCTYPE html>
+<html>
+<head>
+	<title><%= title %></title>
+
+	<link rel="stylesheet" href="/css/bootstrap.css">
+	<link rel="stylesheet" href="/css/font-awesome.css">
+	<script src="/js/jquery.js"></script>
+	<script src="/js/jquery.autocomplete.js"></script>
+	<script src="/js/bootstrap.js"></script>
+	<script src="/js/underscore.js"></script>
+	<style>
+		.autocomplete-suggestions {
+			border: 1px solid #999;
+			background: #FFF;
+			overflow: auto;
+		}
+
+		.autocomplete-suggestion {
+			padding: 2px 5px;
+			white-space: nowrap;
+			overflow: hidden;
+			cursor: pointer
+		}
+
+		.autocomplete-selected {
+			background: #DDD;
+			color: #333
+		}
+
+		.autocomplete-suggestions strong {
+			font-weight: normal;
+			color: #007bff;
+		}
+
+		.autocomplete-group {
+			padding: 2px 5px;
+			background-color: #444;
+			color: #EAEAEA;
+		}
+
+		.autocomplete-group strong {
+			display: block;
+			border-bottom: 1px solid #000;
+		}
+
+		.dest-field-column {
+			position: relative;;
+		}
+
+		.dest-field-column i {
+			position: absolute;
+			right: 25px;
+			top: 10px;
+			z-index: 1;
+			cursor: pointer;
+		}
+	</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top justify-content-between">
+	<a class="navbar-brand" href="/admin">HGMLS Schema Settings</a>
+	<div class="form-inline">
+		<div class="btn btn-info save-button">Save</div>
+	</div>
+</nav>
+
+<div class="pt-2 pb-2 border-bottom"
+	 style="position: fixed;top:50px; background-color: white;z-index: 10;left:0;width:100%">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-md-2 ">
+				Field
+			</div>
+			<div class="col-md-2 text-right">
+				Field Desc
+			</div>
+			<div class="col-md-4 ">
+				Default Value
+			</div>
+			<div class="col-md-2 ">
+				Options
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="container-fluid" style="padding-bottom: 400px;padding-top:90px;">
+
+	<%
+	var getType = function (targetField) {
+		switch (targetField.DataType) {
+			case "Decimal" :
+				return "number";
+				break;
+			case "Int" :
+				return "number";
+				break;
+			case "Boolean" :
+				return "radio";
+				break;
+			case "DateTime" :
+				return "dateTime";
+			case "Date" :
+				return "date";
+		}
+	}
+
+		for(var key in targetMeta.Fields) {
+			var defaultValue = defaults[key] ? defaults[key].default : '';
+			if (defaultValue === "Select One") {
+				defaultValue = null;
+			}
+			var isRequired = defaults[key] ? defaults[key].required : false;
+			var editable = defaults[key] ? defaults[key].editable : false;
+			var system = defaults[key] ? defaults[key].system : false
+	%>
+	<div class="row pb-2 pt-2 data-row border-bottom" data-src-field="<%- key %>">
+
+		<div class="col-md-2">
+			<small class="text-info">(<%= targetMeta.Fields[key].LongName ? targetMeta.Fields[key].SystemName : '' %>)
+			</small>
+		</div>
+		<div class="col-md-2 text-right">
+			<%- targetMeta.Fields[key].LongName || targetMeta.Fields[key].SystemName %>
+		</div>
+		<div class="col-md-4">
+			<% if (targetMeta.Fields[key].Lookup) { %>
+			<select name="<%- key %>"
+					class="form-control" <%- targetMeta.Fields[key].Interpretation == "LookupMulti" ? 'multiple' : '' %>
+					data-default="<%- defaultValue %>"
+			>
+				<option>Select <%- targetMeta.Fields[key].Interpretation == "LookupMulti" ? 'Many' : 'One' %></option>
+				<% for(var innnerKey in targetMeta.Fields[key].Lookup) { %>
+				<option value="<%= innnerKey %>" <%= innnerKey == defaultValue ? 'selected' : '' %>><%= targetMeta.Fields[key].Lookup[innnerKey] %></option>
+				<% } %>
+			</select>
+			<% } else { %>
+			<% var type = getType(targetMeta.Fields[key]); %>
+			<% if (type === "radio") { %>
+			<!--
+			<div class="form-check form-check-inline" style="min-height: 40px">
+				<input class="form-check-input" type="checkbox" name="<%- key %>"
+					   value="" <%= defaultValue == true ? 'checked' : '' %> />
+				<label class="form-check-label">True</label>
+			</div>
+			-->
+			<div class="form-check form-check-inline">
+				<input class="form-check-input" type="radio" name="<%- key %>"
+					   value="true" <%= defaultValue === true ? 'checked' : '' %>>
+				<label class="form-check-label" for="<%- key %>">True</label>
+			</div>
+			<div class="form-check form-check-inline">
+				<input class="form-check-input" type="radio" name="<%- key %>"
+					   value="false" <%= defaultValue === false ? 'checked' : '' %>>
+				<label class="form-check-label" for="<%- key %>">False</label>
+			</div>
+			<div class="form-check form-check-inline">
+				<input class="form-check-input" type="radio" name="<%- key %>"
+					   value="" <%= defaultValue !== false && defaultValue !== true ? 'checked' : '' %>>
+				<label class="form-check-label" for="<%- key %>">Not Set</label>
+			</div>
+			<% } else if(targetMeta.Fields[key].DataType === "Character" && targetMeta.Fields[key].MaximumLength > 100) { %>
+			<textarea class="form-control" name="<%- key %>"><%= defaultValue %></textarea>
+			<% } else { %>
+			<input type="<%- type %>" class="form-control" name="<%- key %>" value="<%= defaultValue %>"/>
+			<% } %>
+			<% } %>
+		</div>
+		<div class="col-md-2">
+			<div class="form-check form-check-inline">
+				<input class="form-check-input" type="checkbox" name="<%- key %>-req" data-required="<%- key %>"
+					   value="true" <%= isRequired == true ? 'checked' : '' %>>
+				<label class="form-check-label">Required</label>
+			</div>
+			<div class="form-check form-check-inline">
+				<input class="form-check-input" type="checkbox" name="<%- key %>-editable" data-editable="<%- key %>"
+					   value="true" <%= editable == true ? 'checked' : '' %>>
+				<label class="form-check-label">Editable</label>
+			</div>
+			<div class="form-check form-check-inline">
+				<input class="form-check-input" type="checkbox" name="<%- key %>-editable" data-system="<%- key %>"
+					   value="true" <%= system == true ? 'checked' : '' %>>
+				<label class="form-check-label">System</label>
+			</div>
+		</div>
+	</div>
+	<% } %>
+</div>
+<script>
+
+	$(document).ready(
+		function () {
+			$(".save-button").on("click",
+				function () {
+					var data = {};
+					$(".data-row").each(
+						function (item) {
+							var fields = $(this).find("[name]");
+							//console.log(fields);
+							fields.each(
+								function () {
+									var field = $(this);
+									var name = field.attr("name");
+									if (field.attr("data-required")) {
+										name = field.attr("data-required");
+										data[name] = data[name] || {
+											default: "",
+										}
+
+										data[name].required = field[0].checked ? true : false;
+									} else if (field.attr("data-editable")) {
+										name = field.attr("data-editable");
+										data[name] = data[name] || {
+											default: "",
+										}
+										data[name].editable = field[0].checked ? true : false;
+									} else if (field.attr("data-system")) {
+										name = field.attr("data-system");
+										data[name] = data[name] || {
+											default: "",
+										}
+										data[name].system = field[0].checked ? true : false;
+									}else {
+										data[name] = data[name] || {
+											default: ""
+										}
+										if (field.attr("type") === "checkbox") {
+											data[name].default = field[0].checked ? true : false;
+										} else if (field.attr("type") === "radio") {
+											if (field[0].checked) {
+												data[name].default = $(field[0]).val() === "true" ? true : $(field[0]).val() === "false" ? false : '';
+											}
+
+										} else {
+											data[name].default = field.val();
+										}
+									}
+								}
+							)
+						}
+					);
+
+					$.ajax(
+						{
+							method: "POST",
+							url: "<%- saveUrl %>",
+							data: JSON.stringify(data),
+							dataType: "json",
+							contentType: "application/json",
+							type: "POST",
+							success: function () {
+
+							}
+						}
+					)
+				}
+			)
+
+		}
+	)
+</script>
+</body>
+</html>

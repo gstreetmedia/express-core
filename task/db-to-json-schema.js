@@ -198,11 +198,7 @@ async function convert(destination, connectionString) {
 			status : "active"
 		};
 
-		let keysSorted = _.clone(keys).sort(function (a, b) {
-			return b.value - a.value;
-		});
-
-		fields = null;
+		let keysSorted = _.clone(keys);
 
 		if (!fields) {
 			keysSorted.forEach(
@@ -218,22 +214,29 @@ async function convert(destination, connectionString) {
 				}
 			);
 		} else {
+			//console.log(keysSorted);
+
 			//TODO need to keep original sort
 			function addKeys(origin, keysSorted) {
 				let order = [];
+
 				keysSorted = _.clone(keysSorted);
 
+				//add existing if they still exist
 				fields[origin].forEach(
 					function(item) {
+						//console.log("checking " + item.property)
 						let index = _.indexOf(keysSorted, item.property);
 						if (index !== -1) {
-							fieldSchema[origin].push(k);
+							//console.log("Adding existing field key =>" + item.property);
+							fieldSchema[origin].push(item);
 							keysSorted.splice(index, 1);
 						}
 					}
 				);
 				keysSorted.forEach(
 					function(key) {
+						//console.log("Adding new field key =>" + key);
 						fieldSchema[origin].push(
 							{
 								property : key,
