@@ -10,8 +10,7 @@ const validator = require("validator");
 module.exports = (value, property) =>{
 	switch (property.type) {
 		case "object" :
-
-			if (_.isString(value)) {
+			if (_.isString(value) && value !== "") {
 				value = JSON.parse(value);
 				if (_.isString(value)) {
 					value = JSON.parse(value);
@@ -20,7 +19,7 @@ module.exports = (value, property) =>{
 			if (_.isObject(value) || _.isArray(value)) {
 				return value;
 			}
-
+			return null;
 			break;
 		case "number" :
 			if (!_.isNumber(value)) {

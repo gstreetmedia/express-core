@@ -66,7 +66,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			}
 		);
 
-		console.log(req.query.select);
+		//console.log(req.query.select);
 
 		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
 			req.query.select.unshift(controller.Model.schema.primaryKey);
@@ -163,6 +163,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		let controller = AdminController.getController(req);
 		let data = await controller.read(req);
 
+
 		return this.render(
 			'page-admin-edit',
 			{
@@ -182,8 +183,8 @@ module.exports = class AdminController extends ViewControllerBase {
 
 	async fields(req, res) {
 		let fm = new FieldModel(req);
-		let modelName = inflector.underscore(req.params.model);
-		let result = await fm.get(inflector.pluralize(modelName), false);
+		let tableName = inflector.underscore(req.params.model);
+		let result = await fm.get(tableName, false);
 		//console.log(result);
 		if (req.params.model) {
 			return res.render(
@@ -192,7 +193,7 @@ module.exports = class AdminController extends ViewControllerBase {
 					schemaList : AdminController.getSchemaList(),
 					title : "Fields",
 					name : inflector.titleize(inflector.dasherize(req.params.model)),
-					slug : inflector.dasherize(inflector.singularize(req.params.model)),
+					slug : inflector.dasherize(tableName),
 					model : fm,
 					fields : result,
 					data : result,
@@ -222,12 +223,12 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 	async fieldsUpdate(req, res) {
-		let modelName = inflector.pluralize(inflector.underscore(req.params.model));
+		let tableName = inflector.underscore(req.params.model);
 
 		let fm = new FieldModel(req);
-		let result = await fm.set(modelName, req.body);
-		if (global.fieldCache[modelName]) {
-			return res.success(global.fieldCache[modelName])
+		let result = await fm.set(tableName, req.body);
+		if (global.fieldCache[tableName]) {
+			return res.success(global.fieldCache[tableName])
 		}
 		return res.success(global.fieldCache);
 	}
@@ -318,6 +319,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		schemaList = list;
 		return schemaList;
 	}
+
 
 	static getModel(req) {
 		const Model = require("../../model/" + inflector.classify(inflector.underscore(req.params.model)) + "Model");

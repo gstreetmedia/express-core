@@ -118,6 +118,12 @@ module.exports = class FieldModel extends ModelBase {
 			}
 		}
 
+		//TODO need to support various tableName styles
+		//1. table_name  - snakecase
+		//2. Table_Name - capital snake case
+		//3. tableName - camel case
+		//4. TableName - capital camel case
+
 		let result = await this.find(
 			{
 				where: {
