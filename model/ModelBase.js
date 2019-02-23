@@ -937,7 +937,7 @@ module.exports = class ModelBase {
 				this.lastError = e;
 				return {
 					error: e,
-					query : sql
+					sql : sql
 				};
 			}
 		} else {
@@ -954,7 +954,7 @@ module.exports = class ModelBase {
 				this.lastError = e;
 				return {
 					error: e,
-					query : sql
+					sql : sql
 				};
 			}
 

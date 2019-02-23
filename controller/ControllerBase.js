@@ -299,6 +299,7 @@ module.exports = class ControllerBase {
 		console.log(m.lastCommand);
 
 		if (results.error) {
+			results.q = query;
 			return res.error(results.error);
 		}
 
