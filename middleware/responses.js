@@ -25,12 +25,16 @@ module.exports = async function (req, res, next) {
 		res.status(200).send(obj);
 	};
 
-	res.created = (e) => {
-		if (e.statusCode) {
+	res.created = (result) => {
+		let now = new Date();
+		let obj = {
+			success:true,
+			results:result,
+			time : now.getTime() - startTime.getTime(),
 
-		} else {
-			res.status(201).send(e);
-		}
+		};
+
+		res.status(201).send(obj)
 	};
 
 	res.error = (e) => {

@@ -33,6 +33,15 @@ router.get("/fields", async (req, res, next) => {
 	}
 );
 
+router.post("/fields/:model", async (req, res, next) => {
+		if (req.checkRole()) {
+			return await c.fieldsUpdate(req, res);
+		}
+		return res.redirect("/");
+	}
+);
+
+
 router.get("/:model", async (req, res, next) => {
 		if (req.checkRole()) {
 			return await c.index(req, res);

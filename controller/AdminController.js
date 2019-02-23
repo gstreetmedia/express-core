@@ -49,20 +49,24 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		const tableName = controller.Model.schema.tableName;
 
-		if (global.fieldCache && global.fieldCache[tableName]) {
-			req.query.select = [];
+		let rawfields;
 
-			let rawfields = global.fieldCache[tableName].adminIndex;
-			let fields = [];
-			for (let k in rawfields) {
-				if (rawfields[k]) {
-					req.query.select.push(k);
+		if (global.fieldCache && global.fieldCache[tableName]) {
+			rawfields = global.fieldCache[tableName].adminIndex;
+		} else {
+			rawfields = controller.Model.fields.adminIndex;
+		}
+
+		req.query.select = req.query.select || [];
+		rawfields.forEach(
+			function(item) {
+				if (item.visible) {
+					req.query.select.push(item.property);
 				}
 			}
-			console.log("from cache");
-		} else {
-			req.query.select = controller.Model.fields.admin.index;
-		}
+		);
+
+		console.log(req.query.select);
 
 		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
 			req.query.select.unshift(controller.Model.schema.primaryKey);
@@ -141,7 +145,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				model : new controller.Model(),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
-				action : "view"
+				action : "view",
+				_ : _
 			},
 			req,
 			res
@@ -167,7 +172,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				model : new controller.Model(),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
-				action : "edit"
+				action : "edit",
+				_ : _
 			},
 			req,
 			res
@@ -176,7 +182,9 @@ module.exports = class AdminController extends ViewControllerBase {
 
 	async fields(req, res) {
 		let fm = new FieldModel(req);
-		let result = await fm.get(req.params.model, false);
+		let modelName = inflector.underscore(req.params.model);
+		let result = await fm.get(inflector.pluralize(modelName), false);
+		//console.log(result);
 		if (req.params.model) {
 			return res.render(
 				'page-admin-field-editor',
@@ -191,7 +199,7 @@ module.exports = class AdminController extends ViewControllerBase {
 					query : req.query,
 					_ : _,
 					inflector : inflector,
-					action : req.params.model
+					action : "fields"
 				}
 			)
 		} else {
@@ -211,9 +219,18 @@ module.exports = class AdminController extends ViewControllerBase {
 				}
 			)
 		}
-
 	}
 
+	async fieldsUpdate(req, res) {
+		let modelName = inflector.pluralize(inflector.underscore(req.params.model));
+
+		let fm = new FieldModel(req);
+		let result = await fm.set(modelName, req.body);
+		if (global.fieldCache[modelName]) {
+			return res.success(global.fieldCache[modelName])
+		}
+		return res.success(global.fieldCache);
+	}
 
 	/**
 	 * Query for 1 to n rows based on input query

@@ -137,7 +137,11 @@ module.exports = class FieldModel extends ModelBase {
 	async set(tableName, data) {
 		let table = await this.get(tableName, false);
 		if (table) {
-			return await this.update(table.id, data);
+			let result = await this.update(table.id, data, true);
+			if (!result.error) {
+				global.fieldCache = global.fieldCache || {};
+				global.fieldCache[tableName] = result;
+			}
 		} else {
 			table = this.create(data);
 			if (table.error) {
