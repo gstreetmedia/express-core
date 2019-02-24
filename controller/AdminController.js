@@ -81,7 +81,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			{
 				title : req.params.model,
 				name : inflector.singularize(inflector.titleize(inflector.dasherize(req.params.model))),
-				slug : inflector.dasherize(req.params.model),
+				slug : inflector.dasherize(inflector.singularize(req.params.model)),
 				model : model,
 				data : data,
 				schemaList : AdminController.getSchemaList(),
@@ -109,7 +109,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			{
 				title : req.params.model,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(req.params.model),
+				slug : inflector.dasherize(inflector.singularize(req.params.model)),
 				model : new controller.Model(),
 				schemaList : AdminController.getSchemaList(),
 				action : "create"
@@ -168,7 +168,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			{
 				title : req.params.model,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(req.params.model),
+				slug : inflector.dasherize(inflector.singularize(req.params.model)),
 				model : new controller.Model(),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
@@ -194,7 +194,7 @@ module.exports = class AdminController extends ViewControllerBase {
 					schemaList : AdminController.getSchemaList(),
 					title : "Fields",
 					name : inflector.titleize(inflector.dasherize(req.params.model)),
-					slug : inflector.dasherize(req.params.model),
+					slug : inflector.dasherize(inflector.singularize(req.params.model)),
 					model : model,
 					fields : model.fields,
 					query : req.query,
@@ -259,9 +259,13 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 	async search(req, res) {
-		let Controller = require("./" + req.params.controller + "Controller");
-		let c = new Controller();
-		return await c.search(req, res);
+		let c = AdminController.getController(req);
+		if (c) {
+			return await c.search(req, res);
+		} else {
+			return res.status(404).send("Unknown Controller");
+		}
+
 	}
 
 	/**
@@ -334,8 +338,6 @@ module.exports = class AdminController extends ViewControllerBase {
 		let baseName = inflector.classify(inflector.underscore(req.params.model));
 		let altName = inflector.singularize(baseName);
 		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
-
-		console.log(c);
 
 		if (fs.existsSync(c + ".js")) {
 			const Controller = require(c);

@@ -870,11 +870,11 @@ module.exports = class ModelBase {
 					} else {
 						delete data[key];
 					}
-					console.log("Invalid => " + key + " " + data[key]);
+					console.log("Invalid 1 => " + key + " " + data[key]);
 				}
 			} else if (validateAgainstSchema(key, data, this.schema) === false) {
 				if (_.indexOf(this.schema.required, key) !== -1 || data[key] !== null) {
-					console.log("Invalid => " + key + " " + data[key]);
+					console.log("Invalid 2 => " + key + " " + data[key]);
 					invalid.push(key);
 				}
 			}

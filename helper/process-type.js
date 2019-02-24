@@ -36,6 +36,11 @@ module.exports = (value, property) =>{
 				}
 				return null;
 			}
+			if (_.isString(value)) {
+				if (value === "") {
+					return null;
+				}
+			}
 			return value;
 			break;
 		case "boolean" :
@@ -46,6 +51,14 @@ module.exports = (value, property) =>{
 			}
 			break;
 		case "string" :
+			if (value === null) {
+				return null;
+			}
+			if (value === "") {
+				return null;
+			}
+			value = _.isString(value) ? decodeURI(value).split("/").join("\/").trim() : value;
+			value = _.isNumber(value) ? "" + value : value;
 			if (property.format) {
 				switch (property.format) {
 					case "date-time" :
@@ -66,11 +79,11 @@ module.exports = (value, property) =>{
 						}
 						break;
 					default :
-						return decodeURI(value).split("/").join("\/").trim();
+						return value;
+
 				}
-			} else {
-				return _.isString(value) ? value.trim() : value;
 			}
+			return value;
 			break;
 	}
 	return value;

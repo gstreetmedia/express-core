@@ -296,7 +296,7 @@ module.exports = class ControllerBase {
 
 		let results = await m.query(query);
 
-		console.log(m.lastCommand);
+		//console.log(m.lastCommand);
 
 		if (results.error) {
 			results.q = query;
