@@ -8,13 +8,6 @@ const validator = require("validator");
  * @returns {*}
  */
 module.exports = (value, property) =>{
-
-	if (value === null && property.allowNull === true) {
-		return null;
-	} else if (value === null) {
-		return property.default;
-	}
-
 	switch (property.type) {
 		case "object" :
 			if (_.isString(value) && value !== "") {
@@ -58,8 +51,11 @@ module.exports = (value, property) =>{
 			}
 			break;
 		case "string" :
-			if (value === '' && property.allowNull === false) {
-				return '';
+			if (value === null) {
+				return null;
+			}
+			if (value === "") {
+				return null;
 			}
 			value = _.isString(value) ? decodeURI(value).split("/").join("\/").trim() : value;
 			value = _.isNumber(value) ? "" + value : value;

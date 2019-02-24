@@ -15,17 +15,12 @@ var emptySchema = {
 	type:        'object'
 };
 
-module.exports = async function( options )
+module.exports = async function( options, pool )
 {
 
-	let pool;
-	if (options.connectionString) {
-		pool = require("../helper/mysql-pool")(options.connectionString)
-	} else {
-		pool = require("../helper/mysql-pool")(process.env.DEFAULT_DB)
-	}
+	let data =  await pool.query("SELECT * FROM information_schema.columns WHERE table_schema = '"+options.tableName+"'");
 
-	let data =  pool.query("select * from information_schema.COLUMNS where TABLE_SCHEMA = '" + connectionString.path[0] + "'");
+	fs.writeFileSync(global.appRoot + "/table.json", JSON.stringify(data));
 
 	let rows = [];
 	data.forEach(
@@ -70,6 +65,12 @@ module.exports = async function( options )
 				} else {
 					schema[tableName].primaryKey = inflector.camelize(column.column_name, false);
 				}
+
+				if (columnName.length === 2) {
+					schema[tableName].primaryKey = columnName.toLowerCase();
+				} else {
+					schema[tableName].primaryKey = inflector.camelize(column.column_name, false);
+				}
 			}
 
 			if ( column.is_nullable === "NO" && column.column_default === null ) {
@@ -92,7 +93,7 @@ module.exports = async function( options )
 var convertColumnType = function( column )
 {
 
-	console.log(column);
+	//console.log(column.extra);
 
 	var schemaProperty = {
 		type: 'null'
@@ -106,8 +107,10 @@ var convertColumnType = function( column )
 	{
 		case 'text':
 		case '"char"':
-		case 'character varying':
+		case "character varying":
 		case "varchar" :
+		case "longtext" :
+		case "mediumtext" :
 		{
 			schemaProperty.type   = 'string';
 		} break;
@@ -201,6 +204,30 @@ var convertColumnType = function( column )
 			//console.log(column);
 		} break;
 	}
+
+	if ("column_default" in column) {
+		switch (column.column_default) {
+			case "CURRENT_TIMESTAMP" :
+				schemaProperty.default = "now";
+				break;
+			default :
+				schemaProperty.default = column.column_default;
+		}
+	}
+
+	if (column.extra === "auto_increment") {
+		schemaProperty.autoIncrement = true;
+	}
+
+	if (column.is_nullable === "YES") {
+		schemaProperty.allowNull = true;
+	} else {
+		schemaProperty.allowNull = false;
+		if (schemaProperty.default === null) {
+			delete schemaProperty.default;
+		}
+	}
+
 
 	return schemaProperty;
 }

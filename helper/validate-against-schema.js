@@ -6,15 +6,23 @@ module.exports = (key, data, schema) => {
 
 	let keyProxy = key.toLowerCase();
 
+	if (data[key] === null && schema.properties[key].allowNull === true) {
+		return true;
+	} else if (data[key] === null) {
+		return false;
+	}
+
 	switch (schema.properties[key].type) {
 		case "string" :
-			if (schema.properties[key].enum) {
-				return _.indexOf(schema.properties[key].enum, data[key]) >= 0;
-			}
 
-			if (!data[key]) {
+			if (schema.properties[key].enum &&
+				_.indexOf(schema.properties[key].enum, data[key]) === -1) {
+				if (data[key] === '') {
+					return true;
+				}
 				return false;
 			}
+
 
 			switch (schema.properties[key].format) {
 				case "uuid" :
@@ -28,8 +36,7 @@ module.exports = (key, data, schema) => {
 				case "date" :
 				case "date-time" :
 					try {
-						let result = moment(data[key]).isValid();
-						return result;
+						return moment(data[key]).isValid();
 					} catch (e) {
 						return false;
 					}

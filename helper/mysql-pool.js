@@ -24,5 +24,5 @@ module.exports = (connectionString) => {
 
 	pools[md5(cs)] = pool;
 
-	module.exports = pool;
+	return pool;
 }

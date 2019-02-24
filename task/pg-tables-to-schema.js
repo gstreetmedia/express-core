@@ -11,28 +11,8 @@ var emptySchema = {
 	type:        'object'
 };
 
-
-
-module.exports = async function( options ) {
-	let pool;
-	if (options.connectionString) {
-		pool = require("../helper/postgres-pool")(options.connectionString)
-	} else {
-		pool = require("../helper/postgres-pool")(process.env.DEFAULT_DB)
-	}
-
-	/*
-	"\t\tisc.table_name,\n" +
-		"\t\tisc.column_name,\n" +
-		"\t\tisc.column_default,\n" +
-		"\t\tisc.is_nullable,\n" +
-		"\t\tisc.character_maximum_length,\n" +
-		"\t\tisc.numeric_precision,\n" +
-		"\t\tisc.datetime_precision,\n" +
-		"\t\tisc.data_type,\n" +
-		"\t\tisc.udt_name,\n" +
-		"\t\tisc.is_updatable,\n" +
-	 */
+module.exports = async function( options, pool ) {
+	
 	let data =  await pool.query("Select\n" +
 		" isc.*,\n" +
 		//" kcu.*,\n" +
@@ -72,8 +52,6 @@ module.exports = async function( options ) {
 		"  cols.table_schema = 'public';");
 
 	descriptions = descriptions.rows;
-
-	//fs.writeFileSync("./descriptions-" + new Date().getTime() + ".json", JSON.stringify(descriptions));
 
 	let schema = {};
 
@@ -334,6 +312,29 @@ var convertColumnType = function( column, enums )
 			//console.log(column);
 			schemaProperty.type = column.data_type;
 		} break;
+	}
+
+	if ("column_default" in column) {
+		switch (column.column_default) {
+			case "CURRENT_TIMESTAMP" :
+				schemaProperty.default = "now";
+				break;
+			default :
+				schemaProperty.default = column.column_default;
+		}
+	}
+
+	if (column.extra === "auto_increment") {
+		schemaProperty.autoIncrement = true;
+	}
+
+	if (column.is_nullable === "YES") {
+		schemaProperty.allowNull = true;
+	} else {
+		schemaProperty.allowNull = false;
+		if (schemaProperty.default === null) {
+			delete schemaProperty.default;
+		}
 	}
 
 	return schemaProperty;

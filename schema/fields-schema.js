@@ -2,7 +2,6 @@ module.exports = {
 	$schema: "http://json-schema.org/draft-06/schema#",
 	$id: "_fields.json",
 	title: "Fields",
-	dataSource: "nymls_aggregation",
 	tableName: "_fields",
 	description: "Generated: Tue Feb 12 2019 12:16:22 GMT-0800 (Pacific Standard Time)",
 	primaryKey: "id",

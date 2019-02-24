@@ -227,12 +227,13 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 	async fieldsUpdate(req, res) {
-		let tableName = inflector.underscore(req.params.model);
+		let controller = AdminController.getController(req);
+		let model = new controller.Model();
 
 		let fm = new FieldModel(req);
-		let result = await fm.set(tableName, req.body);
-		if (global.fieldCache[tableName]) {
-			return res.success(global.fieldCache[tableName])
+		let result = await fm.set(model.tableName, req.body);
+		if (global.fieldCache[model.tableName]) {
+			return res.success(global.fieldCache[model.tableName])
 		}
 		return res.success(global.fieldCache);
 	}

@@ -12,9 +12,9 @@ const FieldModel = require("../model/FieldModel")
 const stt = require('spaces-to-tabs');
 const stringify = require("stringify-object");
 
-let sourceBase = path.resolve(__dirname  + "/../../");
+let sourceBase = path.resolve(__dirname + "/../../");
 
-let schemaBase = sourceBase  + "/schema";
+let schemaBase = sourceBase + "/schema";
 //console.log(schemaBase);
 if (!fs.existsSync(schemaBase)) {
 	fs.mkdirSync(schemaBase);
@@ -51,7 +51,9 @@ if (!fs.existsSync(routerBase)) {
 }
 
 
-async function convert(destination, connectionString) {
+async function convert(destination, connectionString, options) {
+
+	options = options || {};
 
 	let schemaModel = new SchemaModel();
 	//schemaModel.createTable(); //TODO do this only once
@@ -71,29 +73,33 @@ async function convert(destination, connectionString) {
 	for (let i = 0; i < connectionString.length; i++) {
 
 		let cs = connectionString[i];
-
-		//console.log(cs);
+		let pool;
 
 		if (cs.indexOf("postgresql") === 0) {
-			//console.log("postgres");
 			converter = require("./pg-tables-to-schema");
+			pool = require("../helper/postgres-pool")(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
-			//console.log("mysql");
 			converter = require("./mysql-tables-to-schema");
-		} else {
-			//console.log("wtf");
-		}
+			pool = require("../helper/mysql-pool")(connectionString[i]);
+		} else if (cs.indexOf("mssql")) {
+			converter = require("./mssql-tables-to-schema");
+			pool = require("../helper/mysql-pool")(connectionString[i]);
+		} //TODO elastic?
 
-		let schema = await converter({
-			"baseUrl": '',
-			"indent": 2,
-			connectionString : cs
-		});
 
 		cs = connectionStringParser(cs);
 
+		let schema = await converter(
+			_.extend({
+				baseUrl: '',
+				indent: 2,
+				tableName: cs.path[0],
+				connectionString: cs
+			}, options), pool);
+
+
 		schema.forEach(
-			function(item) {
+			function (item) {
 				item.dataSource = cs.path[0];
 				schemas.push(item);
 			}
@@ -113,6 +119,19 @@ async function convert(destination, connectionString) {
 		if (item.tableName.indexOf("_") === 0) { //private tables
 			continue;
 		}
+
+		let name = item.tableName;
+		if (options.removePrefix) {
+			if (_.isString(options.removePrefix)) {
+				options.removePrefix = [options.removePrefix]
+			}
+			options.removePrefix.forEach(
+				function(item) {
+					name = name.split(item).join("");
+				}
+			)
+		}
+		item.title = inflector.titleize(name);
 
 		//console.log(item.tableName);
 
@@ -171,12 +190,15 @@ async function convert(destination, connectionString) {
 		keys = filtered;
 
 		item.properties = properties;
-		let schemaName = schemaBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-schema";
-		let validationPath = validationBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-validation.js";
-		let fieldPath = fieldBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-fields.js";
-		let modelPath = modelBase + "/" + inflector.classify(item.tableName) + "Model.js";
-		let controllerPath = controllerBase + "/" + inflector.classify(item.tableName) + "Controller.js";
-		let routerPath = routerBase + "/" + inflector.dasherize(item.tableName).toLowerCase() + "-router.js";
+
+
+
+		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
+		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
+		let fieldPath = fieldBase + "/" + inflector.dasherize(name).toLowerCase() + "-fields.js";
+		let modelPath = modelBase + "/" + inflector.classify(name) + "Model.js";
+		let controllerPath = controllerBase + "/" + inflector.classify(name) + "Controller.js";
+		let routerPath = routerBase + "/" + inflector.dasherize(name).toLowerCase() + "-router.js";
 
 		let tableName = item.tableName;
 		//TODO need to remove schemas that no longer exist
@@ -184,33 +206,57 @@ async function convert(destination, connectionString) {
 		let fields = await fieldModel.get(tableName);
 
 		let fieldSchema = {
-			title : inflector.titleize(item.tableName),
-			tableName : item.tableName,
-			dataSource : item.dataSource,
-			adminIndex : [],
-			adminCreate : [],
-			adminRead : [],
-			adminUpdate : [],
-			publicIndex : [],
-			publicCreate : [],
-			publicRead : [],
-			publicUpdate : [],
-			status : "active"
+			title: inflector.titleize(item.tableName),
+			tableName: item.tableName,
+			dataSource: item.dataSource,
+			adminIndex: [],
+			adminCreate: [],
+			adminRead: [],
+			adminUpdate: [],
+			publicIndex: [],
+			publicCreate: [],
+			publicRead: [],
+			publicUpdate: [],
+			status: "active"
 		};
 
 		let keysSorted = _.clone(keys);
 
 		if (!fields) {
 			keysSorted.forEach(
-				function(k) {
-					fieldSchema.adminIndex.push({property: k, visible:true});
-					fieldSchema.adminCreate.push({property: k, visible:true});
-					fieldSchema.adminRead.push({property: k, visible:true});
-					fieldSchema.adminUpdate.push({property: k, visible:true});
-					fieldSchema.publicIndex.push({property: k, visible:true});
-					fieldSchema.publicCreate.push({property: k, visible:true});
-					fieldSchema.publicRead.push({property: k, visible:true});
-					fieldSchema.publicUpdate.push({property: k, visible:true});
+				function (k) {
+					fieldSchema.adminIndex.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.adminCreate.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.adminRead.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.adminUpdate.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.publicIndex.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.publicCreate.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.publicRead.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.publicUpdate.push({
+						property: k,
+						visible: true
+					});
 				}
 			);
 		} else {
@@ -224,7 +270,7 @@ async function convert(destination, connectionString) {
 
 				//add existing if they still exist
 				fields[origin].forEach(
-					function(item) {
+					function (item) {
 						//console.log("checking " + item.property)
 						let index = _.indexOf(keysSorted, item.property);
 						if (index !== -1) {
@@ -235,17 +281,18 @@ async function convert(destination, connectionString) {
 					}
 				);
 				keysSorted.forEach(
-					function(key) {
+					function (key) {
 						//console.log("Adding new field key =>" + key);
 						fieldSchema[origin].push(
 							{
-								property : key,
-								visible : true
+								property: key,
+								visible: true
 							}
 						)
 					}
 				);
 			}
+
 			addKeys("adminIndex", keysSorted);
 			addKeys("adminCreate", keysSorted);
 			addKeys("adminRead", keysSorted);
@@ -272,7 +319,7 @@ async function convert(destination, connectionString) {
 				singleQuotes: false
 			}), 4) + ";");
 
-		if (!fs.existsSync(validationPath)) {
+		if (options.overwrite || !fs.existsSync(validationPath)) {
 			let s = "let validator = require(\"validator\");\n" +
 				"let _ = require(\"lodash\");\n\n" +
 				"let validation = {\n" +
@@ -290,7 +337,7 @@ async function convert(destination, connectionString) {
 			fs.writeFileSync(validationPath, s);
 		}
 
-		if (!fs.existsSync(fieldPath)) {
+		if (options.overwrite || !fs.existsSync(fieldPath)) {
 			let s = 'exports = {\n';
 			s += "\tadminIndex : " + JSON.stringify(fieldSchema.adminIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
 			s += "\tadminCreate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
@@ -304,13 +351,13 @@ async function convert(destination, connectionString) {
 			fs.writeFileSync(fieldPath, s);
 		}
 
-		if (!fs.existsSync(modelPath)) {
+		if (options.overwrite || !fs.existsSync(modelPath)) {
 			let s = "const ModelBase = require('../core/model/ModelBase');\n" +
 				"const _ = require('lodash');\n" +
-				"const schema = require('../schema/" + inflector.dasherize(item.tableName).toLowerCase() + "-schema');\n" +
-				"const validation = require('../schema/validation/" + inflector.dasherize(item.tableName).toLowerCase() + "-validation');\n" +
-				"const fields = require('../schema/fields/" + inflector.dasherize(item.tableName).toLowerCase() + "-fields');\n\n" +
-				"module.exports = class " + inflector.classify(item.tableName) + "Model extends ModelBase {\n\n" +
+				"const schema = require('../schema/" + inflector.dasherize(name).toLowerCase() + "-schema');\n" +
+				"const validation = require('../schema/validation/" + inflector.dasherize(name).toLowerCase() + "-validation');\n" +
+				"const fields = require('../schema/fields/" + inflector.dasherize(name).toLowerCase() + "-fields');\n\n" +
+				"module.exports = class " + inflector.classify(name) + "Model extends ModelBase {\n\n" +
 				"\tconstructor(req) {\n" +
 				"\t\tsuper(schema, validation, fields, req);\n" +
 				"\t}\n\n" +
@@ -330,11 +377,11 @@ async function convert(destination, connectionString) {
 			fs.writeFileSync(modelPath, s);
 		}
 
-		if (!fs.existsSync(controllerPath)) {
+		if (options.overwrite || !fs.existsSync(controllerPath)) {
 			let s = "const ControllerBase = require('../core/controller/ControllerBase');\n" +
 				"const _ = require('lodash');\n" +
-				"const Model = require('../model/" + inflector.classify(item.tableName) + "Model');\n\n" +
-				"module.exports = class " + inflector.classify(item.tableName) + "Controller extends ControllerBase {\n\n" +
+				"const Model = require('../model/" + inflector.classify(name) + "Model');\n\n" +
+				"module.exports = class " + inflector.classify(name) + "Controller extends ControllerBase {\n\n" +
 				"\tconstructor() {\n" +
 				"\t\tsuper(Model);\n" +
 				"\t}\n\n" +
@@ -350,10 +397,10 @@ async function convert(destination, connectionString) {
 			fs.writeFileSync(controllerPath, s);
 		}
 
-		if (!fs.existsSync(routerPath)) {
+		if (options.overwrite || !fs.existsSync(routerPath)) {
 			let s = "let router = require('express').Router();\n" +
 				"let authentication = require('../core/middleware/authentication');\n" +
-				"const Controller = require('../controller/" + inflector.classify(item.tableName) + "Controller');\n" +
+				"const Controller = require('../controller/" + inflector.classify(name) + "Controller');\n" +
 				"let c = new Controller()\n\n" +
 				"router.use(authentication);\n\n" +
 				"router.use(async function(req, res, next){\n\treq.allowRole('api-user');\n\t//add other roles as needed, or call req.addRole('some-role') in individual endpoints \n\treturn next();\n});\n\n" +
@@ -394,7 +441,7 @@ async function convert(destination, connectionString) {
 			fs.writeFileSync(routerPath, s);
 		}
 
-		routers.push(item.tableName);
+		routers.push(name);
 		//}
 		//);
 	}
@@ -428,6 +475,7 @@ async function convert(destination, connectionString) {
 
 	fs.writeFileSync("./src/router/app-router.js", s);
 
+	console.log("done");
 	return "done";
 }
 

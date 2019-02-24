@@ -1,5 +1,6 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
+const inflector = require("inflected");
 const schema = require('../schema/schemas-schema');
 const validation = require('../schema/validation/schemas-validation');
 const fields = require('../schema/fields/schemas-fields');
@@ -7,6 +8,8 @@ const cache = require("../helper/cache-manager");
 const md5 = require("md5");
 const connectionStringParser = require("connection-string");
 let schemaModel;
+let knex = require("knex");
+let fs = require("fs");
 
 module.exports = class SchemaModel extends ModelBase {
 
@@ -61,51 +64,65 @@ module.exports = class SchemaModel extends ModelBase {
 		}
 
 		let strings = [];
+		let count = 0;
 
 		connectionStrings.forEach(
 			function (item) {
 				let cs = connectionStringParser(item);
 				cs.connectionString = item;
 				strings.push(cs);
-				//console.log();
 			}
 		);
 
-		let results = await this.find({where: {dataSource: {"!=": null}}});
-		//console.log(results);
+		let hasTable = await this.hasTable();
+		if (hasTable) {
 
-		let count = 0;
-		results.forEach(
-			function (item) {
-				strings.forEach(
-					function (cs) {
+			let results = await this.find({where: {dataSource: {"!=": null}}});
 
-						if (cs.path[0] === item.dataSource) {
-							global.schemaCache = global.schemaCache || {};
-							global.schemaCache[item.tableName] = item;
-							count++;
+			results.forEach(
+				function (item) {
+					strings.forEach(
+						function (cs) {
+							if (cs.path[0] === item.dataSource) {
+								global.schemaCache = global.schemaCache || {};
+								global.schemaCache[item.tableName] = item;
+								count++;
+							}
 						}
+					)
+				}
+			);
+		} else {
+			console.log("poo 2");
+			let files = fs.readdirSync(global.appRoot + '/src/schema');
+			files.forEach(
+				function(file) {
+					if (file.indexOf(".js") === -1) {
+						return;
 					}
-				)
-			}
-		);
+					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
+					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/fields/' + file);
+					count++;
+				}
+			);
+		}
+
 		console.log("Loaded " + count + " schemas");
 	}
 
 	async hasTable() {
+		//TODO can this be done with knex.
 		if (this.tableExists === null) {
-			let result = await this.execute(
-				'SELECT EXISTS (\n' +
-				'    SELECT 1\n' +
-				'    FROM   information_schema.tables\n' +
-				'    WHERE  table_schema = \'public\'\n' +
-				'           AND    table_name = \'_schemas\'\n' +
-				');'
-			)
-
-			this.tableExists = result[0].exists;
-
-			//console.log("this.tableExists => " + this.tableExists);
+			let builder = this.queryBuilder;
+			let query = knex(
+				{
+					client: this.queryBuilder.client,
+				}
+			);
+			let exists = await this.execute(query.schema.hasTable("_schemas"));
+			//console.log(exists);
+			//console.log(this.lastCommand.toString());
+			this.tableExists = exists.length > 0;
 		}
 		return this.tableExists;
 	}
@@ -140,18 +157,22 @@ module.exports = class SchemaModel extends ModelBase {
 		if (table) {
 			return await this.update(table.id, data);
 		} else {
-			table = this.create(data);
-			if (table.error) {
-				console.log("schema set error " + table.error);
-			} else {
-				console.log(tableName + " created");
-				await cache.set("schema_" + tableName, table);
+			let hasTable = await this.hasTable();
+			if (hasTable) {
+				table = await this.create(data);
+				if (table.error) {
+					console.log("schema set error " + table.error);
+				} else {
+					console.log(tableName + " created");
+					await cache.set("schema_" + tableName, table);
+				}
+				return table;
 			}
-			return table;
 		}
 	}
 
 	async createTable() {
+		//TODO need to do this for mssql and mysql as well
 		await this.execute(
 			'drop table _schemas;\n' +
 			'create table "_schemas"\n' +

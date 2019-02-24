@@ -1,11 +1,15 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
+const inflector = require("inflected");
 const schema = require('../schema/fields-schema');
 const validation = require('../schema/validation/fields-validation');
 const fields = require('../schema/fields/fields-fields');
 const cache = require("../helper/cache-manager");
 const md5 = require("md5");
 const connectionStringParser = require("connection-string");
+const fs = require("fs");
+const knex = require("knex");
+
 
 module.exports = class FieldModel extends ModelBase {
 
@@ -55,66 +59,83 @@ module.exports = class FieldModel extends ModelBase {
 	}
 
 	async loadFields(connectionStrings) {
+
+		global.fieldCache = global.fieldCache || {};
+
 		if (!_.isArray(connectionStrings)) {
 			connectionStrings = [connectionStrings];
 		}
 
 		let strings = [];
+		let count = 0;
 
 		connectionStrings.forEach(
 			function (item) {
 				let cs = connectionStringParser(item);
 				cs.connectionString = item;
 				strings.push(cs);
-				//console.log();
 			}
 		);
 
-		let results = await this.find({where: {dataSource: {"!=": null}}});
-		//console.log(results);
+		let hasTable = await this.hasTable();
 
-		let count = 0;
-		results.forEach(
-			function (item) {
-				strings.forEach(
-					function (cs) {
+		if (hasTable) {
+			let results = await this.find({where: {dataSource: {"!=": null}}});
 
-						if (cs.path[0] === item.dataSource) {
-							global.fieldCache = global.fieldCache || {};
-							global.fieldCache[item.tableName] = item;
-							count++;
+			results.forEach(
+				function (item) {
+					strings.forEach(
+						function (cs) {
+							if (cs.path[0] === item.dataSource) {
+								global.fieldCache[item.tableName] = item;
+								count++;
+							}
 						}
+					)
+				}
+			);
+		} else {
+			let files = fs.readdirSync(global.appRoot + '/src/schema/fields');
+			console.log(files);
+			files.forEach(
+				function(file) {
+					if (file.indexOf(".js") === -1) {
+						return;
 					}
-				)
-			}
-		);
+					let tableName = inflector.dasherize(file.split("-fields.js").join(""));
+					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/fields/' + file);
+					count++;
+				}
+			);
+		}
 		console.log("Loaded " + count + " fields");
+		return true;
+
 	}
 
 	async hasTable() {
+		//TODO can this be done with knex.
 		if (this.tableExists === null) {
-			let result = await this.execute(
-				'SELECT EXISTS (\n' +
-				'    SELECT 1\n' +
-				'    FROM   information_schema.tables\n' +
-				'    WHERE  table_schema = \'public\'\n' +
-				'           AND    table_name = \'_fields\'\n' +
-				');'
-			)
-
-			this.tableExists = result[0].exists;
-
-			//console.log("this.tableExists => " + this.tableExists);
+			let builder = this.queryBuilder;
+			let query = knex(
+				{
+					client: this.queryBuilder.client,
+				}
+			);
+			let exists = await this.execute(query.schema.hasTable("_fields"));
+			//console.log(exists);
+			//console.log(this.lastCommand.toString());
+			this.tableExists = exists.length > 0;
 		}
 		return this.tableExists;
 	}
 
 	async get(tableName, fromCache) {
 
+		global.fieldCache = global.fieldCache || {};
 		if (fromCache !== false) {
-			let result = await cache.get("fields_" + tableName);
-			if (result) {
-				return result;
+			if (global.fieldCache[tableName]) {
+				return global.fieldCache[tableName];
 			}
 		}
 
@@ -124,20 +145,29 @@ module.exports = class FieldModel extends ModelBase {
 		//3. tableName - camel case
 		//4. TableName - capital camel case
 
-		let result = await this.find(
-			{
-				where: {
-					tableName: tableName
+		let hasTable = await this.hasTable();
+
+		if (hasTable) {
+			let result = await this.find(
+				{
+					where: {
+						tableName: tableName
+					}
 				}
+			);
+
+			if (result.length === 1) {
+				global.fieldCache[tableName] = result[0];
+				return global.fieldCache[tableName]
 			}
-		);
-
-		if (result.length === 1) {
-			await cache.get("fields_" + tableName, result[0]);
-			return result[0];
+			return null;
+		} else {
+			let path = global.appRoot + "/src/schemas/fields/" + inflector.dasherize(tableName);
+			if (fs.existsSync(path + ".js")) {
+				global.fieldCache[tableName] = require(path);
+			}
+			//if (fs.existsSync(global.appRoot + "/src/schemas/fields/" ))
 		}
-		return null;
-
 	}
 
 	async set(tableName, data) {
@@ -149,17 +179,23 @@ module.exports = class FieldModel extends ModelBase {
 				global.fieldCache[tableName] = result;
 			}
 		} else {
-			table = this.create(data);
-			if (table.error) {
-				console.log("fields set error " + table.error);
-			} else {
-				await cache.set("fields_" + tableName, table);
+			let hasTable = await this.hasTable();
+			if (hasTable) {
+				table = this.create(data);
+				if (table.error) {
+					console.log("fields set error " + table.error);
+				} else {
+					await cache.set("fields_" + tableName, table);
+				}
+				return table;
 			}
-			return table;
 		}
 	}
 
 	async createTable() {
+
+		//TODO mysql and mssql will need to use text for storage, which means, we'll also have to JSON.parse
+
 		await this.execute(
 			"-- auto-generated definition\n" +
 			"create table \"_fields\"\n" +

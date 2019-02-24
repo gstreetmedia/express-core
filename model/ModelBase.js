@@ -86,11 +86,11 @@ module.exports = class ModelBase {
 
 		let builder;
 
-		if (this.connectionString.indexOf("postgres") === 0) {
+		if (this.connectionString.indexOf("postgresql://") !== -1) {
 			builder = require("../helper/query-to-pgsql");
-		} else if (this.connectionString.indexOf("mysql") === 0) {
+		} else if (this.connectionString.indexOf("mysql://") !== -1) {
 			builder = require("../helper/query-to-mysql");
-		} else if (this.connectionString.indexOf("mssql") === 0) {
+		} else if (this.connectionString.indexOf("mssql://") !== -1) {
 			builder = require("../helper/query-to-mssql");
 		}
 
@@ -568,6 +568,10 @@ module.exports = class ModelBase {
 						case "uuid" :
 							data[this.primaryKey] = uuid.v4();
 					}
+				case "number" :
+					if (!this.properties[this.primaryKey].autoIncrement) {
+						//TODO shouldn't we get the next
+					}
 			}
 
 		}
@@ -810,7 +814,11 @@ module.exports = class ModelBase {
 
 			for (let key in data) {
 				if (!data[key] && this.properties[key].default) {
-					data[key] = this.properties[key].default;
+					if (this.properties[key].default === "now") {
+						data[key] = now();
+					} else {
+						data[key] = this.properties[key].default;
+					}
 					keys.push(key);
 				} else if (data[key]) {
 					keys.push(key);
@@ -856,8 +864,6 @@ module.exports = class ModelBase {
 		for (let key in data) {
 
 			if (!this.properties[key]) {
-				//console.log(this.tableName);
-				//console.log(this.properties);
 				console.log("validate => removing " + key);
 				delete data[key];
 				continue;
@@ -873,8 +879,11 @@ module.exports = class ModelBase {
 					console.log("Invalid 1 => " + key + " " + data[key]);
 				}
 			} else if (validateAgainstSchema(key, data, this.schema) === false) {
-				if (_.indexOf(this.schema.required, key) !== -1 || data[key] !== null) {
+				if (data[key] === null && this.properties[key].allowNull === false) {
 					console.log("Invalid 2 => " + key + " " + data[key]);
+					invalid.push(key);
+				} else if (_.indexOf(this.schema.required, key) !== -1 || data[key] !== null) {
+					console.log("Invalid 2.1 => " + key + " " + data[key]);
 					invalid.push(key);
 				}
 			}

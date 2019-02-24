@@ -13,57 +13,10 @@ var emptySchema = {
 
 
 
-module.exports = async function( options ) {
-	let pool;
-	if (options.connectionString) {
-		pool = require("../helper/postgres-pool")(options.connectionString)
-	} else {
-		pool = require("../helper/postgres-pool")(process.env.DEFAULT_DB)
-	}
+module.exports = async function( options, pool ) {
 
-	let data =  await pool.query("Select\n" +
-		"\t\tisc.table_name,\n" +
-		"\t\tisc.column_name,\n" +
-		"\t\tisc.column_default,\n" +
-		"\t\tisc.is_nullable,\n" +
-		"\t\tisc.character_maximum_length,\n" +
-		"\t\tisc.numeric_precision,\n" +
-		"\t\tisc.datetime_precision,\n" +
-		"\t\tisc.data_type,\n" +
-		"\t\tisc.udt_name,\n" +
-		"\t\tisc.is_updatable,\n" +
-		"    tc.constraint_type\n" +
-		"\t\tFrom information_schema.columns as isc\n" +
-		"\t\tLEFT JOIN information_schema.key_column_usage as kcu on kcu.table_name = isc.table_name and kcu.column_name = isc.column_name\n" +
-		"\t\tLEFT JOIN information_schema.table_constraints as tc on tc.constraint_name = kcu.constraint_name\n" +
-		"\t\twhere isc.table_schema ='public'");
 
-	let enums = await pool.query("SELECT\n" +
-		"  t.typname as key,\n" +
-		"  e.enumlabel as value\n" +
-		"FROM pg_enum e\n" +
-		"JOIN pg_type t ON e.enumtypid = t.oid");
-
-	enums = enums.rows;
-
-	let descriptions = await pool.query("SELECT\n" +
-		"  cols.table_name,\n" +
-		"  cols.column_name,\n" +
-		"  (\n" +
-		"    SELECT\n" +
-		"      pg_catalog.col_description(c.oid, cols.ordinal_position::int)\n" +
-		"    FROM\n" +
-		"      pg_catalog.pg_class c\n" +
-		"    WHERE\n" +
-		"      c.oid = (SELECT ('\"' || cols.table_name || '\"')::regclass::oid)\n" +
-		"      AND c.relname = cols.table_name\n" +
-		"  ) AS column_comment\n" +
-		"FROM\n" +
-		"  information_schema.columns cols\n" +
-		"WHERE\n" +
-		"  cols.table_schema = 'public';");
-
-	descriptions = descriptions.rows;
+	let data =  await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_catalog = '"+options.tableName+"'");
 
 	let schema = {};
 
