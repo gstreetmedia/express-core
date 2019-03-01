@@ -63,6 +63,7 @@ module.exports = class SchemaModel extends ModelBase {
 			connectionStrings = [connectionStrings];
 		}
 
+
 		let strings = [];
 		let count = 0;
 
@@ -93,7 +94,6 @@ module.exports = class SchemaModel extends ModelBase {
 				}
 			);
 		} else {
-			console.log("poo 2");
 			let files = fs.readdirSync(global.appRoot + '/src/schema');
 			files.forEach(
 				function(file) {
@@ -101,7 +101,7 @@ module.exports = class SchemaModel extends ModelBase {
 						return;
 					}
 					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/fields/' + file);
+					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/' + file);
 					count++;
 				}
 			);
@@ -120,8 +120,8 @@ module.exports = class SchemaModel extends ModelBase {
 				}
 			);
 			let exists = await this.execute(query.schema.hasTable("_schemas"));
+			//console.log("Schema has table");
 			//console.log(exists);
-			//console.log(this.lastCommand.toString());
 			this.tableExists = exists.length > 0;
 		}
 		return this.tableExists;
