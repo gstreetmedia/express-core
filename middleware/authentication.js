@@ -219,11 +219,17 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			}
 
 			if (req.headers['application-key']) {
-				await Authentication.applicationKey(req);
+				let keyResult = await Authentication.applicationKey(req);
+				if (keyResult !== true) {
+					console.log("keyResult => " + keyResult);
+				}
 			}
 
 			if (req.header['authorization']) {
-				await Authentication.bearerToken(req);
+				let authResult = await Authentication.bearerToken(req);
+				if (authResult !== true) {
+					console.log("authResult => " + authResult);
+				}
 			}
 
 			return;
