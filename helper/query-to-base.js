@@ -222,7 +222,7 @@ module.exports = class QueryToPgSql {
 
 		if (this.primaryKey) {
 			if (!data[this.primaryKey]) {
-				if (this.properties[this.primaryKey].type === "string" && properties[this.primaryKey].format === "uuid") {
+				if (this.properties[this.primaryKey].type === "string" && this.properties[this.primaryKey].format === "uuid") {
 					data[this.primaryKey] = uuid.v4();
 				}
 			}
@@ -241,7 +241,11 @@ module.exports = class QueryToPgSql {
 		}
 
 		if (required.length > 0) {
-			throw new Error("insert Missing required => " + required);
+			console.log(data);
+			return {
+				error : required,
+				message : "Missing or Invalid Fields"
+			}
 		}
 
 		queryBuilder.insert(translation);

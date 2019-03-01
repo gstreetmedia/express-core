@@ -177,6 +177,10 @@ module.exports = class ModelBase {
 
 		let command = this.queryBuilder.insert(params);
 
+		if (command.error) {
+			return command;
+		}
+
 		let result = await this.execute(command);
 
 		if (result.error) {
@@ -561,6 +565,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	checkPrimaryKey(data) {
+		console.log(this.properties[this.primaryKey]);
 		if (!data[this.primaryKey]) {
 			switch (this.properties[this.primaryKey].type) {
 				case "string" :
