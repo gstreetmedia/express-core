@@ -123,8 +123,8 @@ module.exports = class FieldModel extends ModelBase {
 				}
 			);
 			let exists = await this.execute(query.schema.hasTable("_fields"));
+			//console.log("Fields has table");
 			//console.log(exists);
-			//console.log(this.lastCommand.toString());
 			this.tableExists = exists.length > 0;
 		}
 		return this.tableExists;

@@ -15,7 +15,8 @@ router.get('/', async (req, res, next) => {
 		return res.redirect("/admin");
 	}
 
-	if (fs.existsSync(global.appRoot + "/views/page-login.ejs")) {
+	if (fs.existsSync(global.appRoot + "/src/views/page-login.ejs")) {
+		console.log("Render local login")
 		return res.render(
 			'page-login',
 			{}
