@@ -103,13 +103,8 @@ module.exports = class SchemaModel extends ModelBase {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-<<<<<<< HEAD
-					let schema = require("../../schema/" + file);
-					global.schemaCache[schema.tableName] = schema;
-=======
 					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
 					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/' + file);
->>>>>>> ba46ad2003539c546bf4889545c3e4f1b696b774
 					count++;
 				}
 			);
