@@ -105,7 +105,7 @@ module.exports = class QueryToPgSql {
 		if (!query.select) {
 			for (let key in this.properties) {
 				//note: must wrap in this.knexRaw or it will be passed to the wrapIdentifier function
-				queryBuilder.select(this.knexRaw('"' + this.tableName + '"."' + this.properties[key].columnName + '" as "' + key + '"'));
+				queryBuilder.select(this.buildSelect(this.tableName,this.properties[key].columnName,key));
 			}
 		} else if (query.select) {
 			query.select = typeof query.select === "string" ? query.select.split(',') : query.select;
@@ -113,7 +113,7 @@ module.exports = class QueryToPgSql {
 				let key = query.select[i];
 				if (this.properties[key]) {
 					//note: must wrap in this.knexRaw or it will be passed to the wrapIdentifier function
-					queryBuilder.select(this.knexRaw('"' + this.tableName + '"."' + this.properties[key].columnName + '" as "' + key + '"'));
+					queryBuilder.select(this.buildSelect(this.tableName,this.properties[key].columnName,key));
 				} else if (key.indexOf('as') !== -1) {
 					//allow bypass of column names and assume the developer knows what they are doing
 					queryBuilder.select(this.knexRaw(key));
@@ -158,6 +158,10 @@ module.exports = class QueryToPgSql {
 		//console.log(queryBuilder.toString());
 
 		return queryBuilder;
+	}
+
+	buildSelect (tablename, columnName, key) {
+		return this.knexRaw('"' + this.tableName + '"."' + this.properties[key].columnName + '" as "' + key + '"');
 	}
 
 	/**
@@ -241,7 +245,7 @@ module.exports = class QueryToPgSql {
 		}
 
 		if (required.length > 0) {
-			throw new Error("insert Missing required => " + required);
+			throw new Error(this.schema.tableName + " insert Missing required => " + required);
 		}
 
 		queryBuilder.insert(translation);
@@ -811,6 +815,7 @@ module.exports = class QueryToPgSql {
 	 * @returns {Array}
 	 */
 	processArrayType(list, property) {
+		let context = this;
 		if (!_.isArray(list)) {
 			list = list.split(",");
 		}

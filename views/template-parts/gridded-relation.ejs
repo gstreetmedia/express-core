@@ -5,7 +5,7 @@
 %>
 <div class="mb-4" style="position: relative">
 	<div id="table_<%- instance %>" class="container-fluid gridded gridded-inline">
-		<div class="inner" style="position: absolute;">
+		<div class="inner" style="min-width:100%;position: absolute">
 			<div class="row header m-0">
 				<%
 				keys.forEach(function(attribute) {
@@ -13,7 +13,7 @@
 						return;
 					}
 				%>
-				<div class="col-1 border-right border-top p-1"><%- helpers.inflector.humanize(helpers.inflector.underscore(attribute)) %></div>
+				<div class="col-1 border-right border-top p-1"><%- helpers.inflector.titleize(helpers.inflector.underscore(attribute)) %></div>
 				<% }) %>
 				<div class="col-1 border-top text-right p-1 actions">Actions</div>
 			</div>
@@ -50,6 +50,8 @@
 	</div>
 	<style>
 		#table_<%- instance %> .col-1 {
+			min-width: <%- keys.length <= 8 ? 100 / (keys.length + 1) + "%" : '150px'%> !important;
+			max-width: <%- keys.length <= 8 ? 100 / (keys.length + 1) + "%" : '150px'%> !important;
 			float: left;
 			overflow: hidden;
 			white-space: nowrap;

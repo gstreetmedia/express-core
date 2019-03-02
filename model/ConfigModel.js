@@ -40,4 +40,19 @@ module.exports = class ConfigModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
+	get relations() {
+		let Token = require("../../model/TokenModel");
+
+		return {
+			config: {
+				relation: "HasMany",
+				modelClass: Token,
+				join: {
+					from: "id",
+					to: "configId"
+				}
+			}
+		}
+	}
+
 }

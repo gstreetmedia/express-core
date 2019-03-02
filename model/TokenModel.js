@@ -43,7 +43,7 @@ module.exports = class TokenModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
-	get relationMappings() {
+	get relations() {
 		let Config = require("../../model/ConfigModel");
 
 		return {

@@ -2,7 +2,7 @@ const ViewControllerBase = require('./ViewControllerBase');
 const ControllerBase = require("./ControllerBase");
 const _ = require('lodash');
 const fs = require('fs');
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 let helpers = require("../helper/view/index");
 let FieldModel = require("../model/FieldModel");
 let schemaList;
@@ -43,11 +43,13 @@ module.exports = class AdminController extends ViewControllerBase {
 	async index(req, res) {
 
 		let controller = AdminController.getController(req);
+
 		if (!controller) {
 			return res.status(404).send("Unknown Controller");
 		}
 
-		const tableName = controller.Model.schema.tableName;
+		let model = new controller.Model();
+		const tableName = model.tableName;
 
 		let rawfields;
 
@@ -58,6 +60,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		}
 
 		req.query.select = req.query.select || [];
+
 		rawfields.forEach(
 			function(item) {
 				if (item.visible) {
@@ -73,8 +76,6 @@ module.exports = class AdminController extends ViewControllerBase {
 		req.query.limit = req.query.limit || 50;
 		req.query.sort = req.query.sort ? req.query.sort : req.order || "name ASC";
 		let data = await controller.query(req);
-
-		let model = new controller.Model();
 
 		return this.render(
 			'page-admin-list',

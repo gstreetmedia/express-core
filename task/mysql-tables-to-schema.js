@@ -1,5 +1,5 @@
 var _ = require( 'lodash' );
-var inflector = require("inflected");
+const inflector = require("../helper/inflector");
 var fs = require("fs");
 const connctionStringParser = require("connection-string");
 let connectionString = connctionStringParser(process.env.DEFAULT_DB);
@@ -48,11 +48,14 @@ module.exports = async function( options, pool )
 					$schema:              'http://json-schema.org/draft-06/schema#',
 					$id:                  options.baseUrl + tableName + '.json',
 					title:                inflector.classify(inflector.singularize(tableName)),
+					dataSource: null,
 					tableName:            tableName,
 					description:          'Generated: ' + new Date(),
+					primaryKey : null,
 					properties:           {},
 					required:             [],
-					type:                 'object',
+					readOnly:             [],
+					type:                    'object',
 					additionalProperties: options.additionalProperties === undefined ? false : !!options.additionalProperties,
 				}
 			}

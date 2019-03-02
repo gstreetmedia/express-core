@@ -2,7 +2,7 @@ require('dotenv').config();
 const md5 = require("md5");
 const fs = require('fs');
 const path = require("path");
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 const _ = require("lodash");
 const connectionStringParser = require("connection-string");
 const SchemaModel = require("../model/SchemaModel");
@@ -70,9 +70,11 @@ async function convert(destination, connectionString, options) {
 		connectionString = [connectionString];
 	}
 
+	let cs;
+
 	for (let i = 0; i < connectionString.length; i++) {
 
-		let cs = connectionString[i];
+		cs = connectionString[i];
 		let pool;
 
 		if (cs.indexOf("postgresql") === 0) {
@@ -110,30 +112,38 @@ async function convert(destination, connectionString, options) {
 	// Schema's is an array of json-schema objects
 	//
 	let routers = [];
+	let schemaHash = {};
 
 	for (let q = 0; q < schemas.length; q++) {
-		//schemas.forEach(
-		//async function (item) {
 		let item = schemas[q];
 
 		if (item.tableName.indexOf("_") === 0) { //private tables
-			continue;
+			//continue;
 		}
 
 		let name = item.tableName;
+
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
 				options.removePrefix = [options.removePrefix]
 			}
 			options.removePrefix.forEach(
 				function(item) {
-					name = name.split(item).join("");
+					let tempName = name.split(item).join("");
+					if (!schemaHash[tempName]) {
+						name = tempName;
+					}
 				}
 			)
 		}
-		item.title = inflector.titleize(name);
 
-		//console.log(item.tableName);
+		if (schemaHash[name]) {
+			name += name + "-" + cs.path[0]
+		}
+
+		schemaHash[name] = item;
+
+		item.title = inflector.titleize(name);
 
 		let keys = [];
 		let properties = {};
@@ -190,8 +200,6 @@ async function convert(destination, connectionString, options) {
 		keys = filtered;
 
 		item.properties = properties;
-
-
 
 		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
 		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
@@ -338,7 +346,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		if (options.overwrite || !fs.existsSync(fieldPath)) {
-			let s = 'exports = {\n';
+			let s = 'module.exports = {\n';
 			s += "\tadminIndex : " + JSON.stringify(fieldSchema.adminIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
 			s += "\tadminCreate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
 			s += "\tadminRead : " + JSON.stringify(fieldSchema.adminRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";

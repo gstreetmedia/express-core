@@ -1,6 +1,6 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 const schema = require('../schema/schemas-schema');
 const validation = require('../schema/validation/schemas-validation');
 const fields = require('../schema/fields/schemas-fields');
@@ -59,6 +59,9 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async loadSchemas(connectionStrings) {
+
+		global.schemaCache = global.schemaCache || {};
+
 		if (!_.isArray(connectionStrings)) {
 			connectionStrings = [connectionStrings];
 		}
@@ -84,7 +87,7 @@ module.exports = class SchemaModel extends ModelBase {
 					strings.forEach(
 						function (cs) {
 							if (cs.path[0] === item.dataSource) {
-								global.schemaCache = global.schemaCache || {};
+
 								global.schemaCache[item.tableName] = item;
 								count++;
 							}
@@ -100,8 +103,8 @@ module.exports = class SchemaModel extends ModelBase {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/fields/' + file);
+					let schema = require("../../schema/" + file);
+					global.schemaCache[schema.tableName] = schema;
 					count++;
 				}
 			);

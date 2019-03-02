@@ -1,6 +1,6 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 const schema = require('../schema/fields-schema');
 const validation = require('../schema/validation/fields-validation');
 const fields = require('../schema/fields/fields-fields');
@@ -96,14 +96,14 @@ module.exports = class FieldModel extends ModelBase {
 			);
 		} else {
 			let files = fs.readdirSync(global.appRoot + '/src/schema/fields');
-			console.log(files);
 			files.forEach(
 				function(file) {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let tableName = inflector.dasherize(file.split("-fields.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/fields/' + file);
+					let tableName = inflector.underscore(file.split("-fields.js").join(""));
+
+					global.fieldCache[tableName] = require("../../schema/fields/" + file);
 					count++;
 				}
 			);

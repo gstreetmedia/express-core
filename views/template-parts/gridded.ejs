@@ -4,15 +4,15 @@ if (data.length > 0) {
 	var keys = Object.keys(data[0]);
 %>
 <div id="table_<%- instance %>" class="container-fluid gridded">
-	<div style="width:<%- keys.length <= 8 ? "100%;margin-right:17px;" : (keys.length) * 150 + "px" %>;position: absolute;">
+	<div style="min-width:100%;width:<%- keys.length <= 8 ? "100%;margin-right:17px;" : (keys.length + 1) * 150 + "px" %>;position: absolute;">
 		<div class="row header m-0">
 			<%
 			keys.forEach(function(attribute) {
 				if (attribute === model.primaryKey) {
-					return;
+					//return;
 				}
 			%>
-			<div class="col-1 border-right border-top p-1"><%- helpers.inflector.humanize(helpers.inflector.underscore(attribute)) %></div>
+			<div class="col-1 border-right border-top p-1"><%- helpers.inflector.titleize(helpers.inflector.underscore(attribute)) %></div>
 			<% }) %>
 			<div class="col-1 border-top text-right p-1">Actions</div>
 		</div>
@@ -23,14 +23,14 @@ if (data.length > 0) {
 		<div class="row m-0 border-top row-striped" data-row-id="<%- row[model.primaryKey] %>" data-bindid="view">
 			<%
 			keys.forEach(function(attribute) {
-			if (attribute !== model.primaryKey) {
+			//if (attribute !== model.primaryKey) {
 			%>
 			%>
 			<div class="col-1 p-1 border-right">
 				<%- helpers.format(model, attribute, row[attribute]) %>
 			</div>
 			<%
-			}
+			//}
 			});
 			%>
 			<div class="col-1 p-1 actions td-actions text-right">
@@ -49,8 +49,8 @@ if (data.length > 0) {
 </div>
 <style>
 	#table_<%- instance %> .col-1 {
-		min-width: <%- keys.length <= 8 ? 100 / (keys.length) + "%" : '150px'%> !important;
-		max-width: <%- keys.length <= 8 ? 100 / (keys.length) + "%" : '150px'%> !important;
+		min-width: <%- keys.length <= 8 ? 100 / (keys.length + 1) + "%" : '150px'%> !important;
+		max-width: <%- keys.length <= 8 ? 100 / (keys.length + 1) + "%" : '150px'%> !important;
 		float: left;
 		overflow: hidden;
 		white-space: nowrap;

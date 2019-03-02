@@ -2,7 +2,7 @@ let moment = require("moment-timezone");
 let now = require("../helper/now");
 let uuid = require("node-uuid");
 let _ = require("lodash");
-let inflector = require("inflected");
+const inflector = require("../helper/inflector");
 let processType = require("../helper/process-type");
 let validateAgainstSchema = require("../helper/validate-against-schema");
 let md5 = require("md5");
@@ -17,15 +17,23 @@ module.exports = class ModelBase {
 	 * or req.account.id etc.
 	 */
 	constructor(schema, validation, fields, req) {
-		this.schema = schema;
-		this.validation = validation;
-		this.fields = fields; //TODO move to _fields table
+		this.validation = validation; //TODO honestly, do we really need this?
 		this.req = req;
 
-		if (global.fieldCache) {
-			if (global.fieldCache[this.schema.tableName]) {
-				this.fields = global.fieldCache[this.schema.tableName];
-			}
+		if (global.schemaCache && global.schemaCache[schema.tableName]) {
+			this.schema = global.schemaCache[schema.tableName];
+		} else {
+			this.schema = schema;
+		}
+
+		if (global.fieldCache && global.fieldCache[schema.tableName]) {
+			this.fields = global.fieldCache[schema.tableName];
+		} else {
+			this.fields = fields; //TODO move to _fields table
+		}
+
+		if (req && req.connectionString) {
+			this._connectionString = req.connectionString;
 		}
 	}
 
@@ -42,15 +50,27 @@ module.exports = class ModelBase {
 	}
 
 	get connectionString() {
+
+		if (this._connectionString) {
+			return this._connectionString;
+		}
+
 		let dataSource = this.dataSource || this.schema.dataSource;
+
+		//Allow for generic naming like DEFAULT_DB
+		if (process.env[this.schema.dataSource]) {
+			this._connectionString = process.env[this.schema.dataSource];
+		}
+
 		for (let key in process.env) {
 			if (_.isString(process.env[key])) {
 				if (process.env[key].indexOf(dataSource) !== -1) {
-					return process.env[key];
+					this._connectionString = process.env[key];
 				}
 			}
 		}
-		return process.env.DEFAULT_DB;
+
+		return this._connectionString || process.env.DEFAULT_DB;
 	}
 
 	/**
@@ -72,7 +92,6 @@ module.exports = class ModelBase {
 	 * @returns {module.QueryToSql|*}
 	 */
 	get queryBuilder() {
-
 		if (this._builder) {
 			return this._builder;
 		}
@@ -82,7 +101,6 @@ module.exports = class ModelBase {
 				this.schema = global.schemaCache[this.schema.tableName];
 			}
 		}
-
 
 		let builder;
 
@@ -143,8 +161,9 @@ module.exports = class ModelBase {
 
 		this.checkPrimaryKey(data);
 
-		if (this.properties.createdAt) {
-			data.createdAt = now();
+		//TODO need some timestamp field by model
+		if (this.properties[this.createdAt]) {
+			data[this.createdAt] = now();
 		}
 
 		let params = this.convertDataTypes(data);
@@ -203,7 +222,10 @@ module.exports = class ModelBase {
 		let exists = await this.exists(id);
 
 		if (exists) {
-			data.updatedAt = now();
+
+			if (this.properties[this.updatedAt]) {
+				data[this.updatedAt] = now();
+			}
 
 			let params = this.convertDataTypes(data);
 
@@ -607,6 +629,7 @@ module.exports = class ModelBase {
 			//results[0].join = query.join;
 		}
 
+
 		let join = _.clone(query.join);
 
 		if (_.isString(join)) {
@@ -638,7 +661,6 @@ module.exports = class ModelBase {
 			//console.log("Condition 3");
 		}
 
-		//console.log(join);
 
 		for (let key in join) {
 			if (relations[key]) {
@@ -840,9 +862,8 @@ module.exports = class ModelBase {
 			return true;
 		} else {
 			let missing = [];
-
 			for (let key in data) {
-				if (!data[key] && _.indexOf(this.schema.required, key) !== -1) {
+				if (data[key] === null && _.indexOf(this.schema.required, key) !== -1) {
 					missing.push(key);
 				}
 			}
@@ -947,7 +968,7 @@ module.exports = class ModelBase {
 				this.lastError = e;
 				return {
 					error: e,
-					sql : sql
+					sql: sql
 				};
 			}
 		} else {
@@ -964,7 +985,7 @@ module.exports = class ModelBase {
 				this.lastError = e;
 				return {
 					error: e,
-					sql : sql
+					sql: sql
 				};
 			}
 
@@ -1091,5 +1112,20 @@ module.exports = class ModelBase {
 		return;
 	}
 
+	/**
+	 * Override as needed to set the updatedAt column (if this table even has one). If this is complex, consider using beforeUpdate
+	 * @returns {string}
+	 */
+	get updatedAt() {
+		return "updatedAt";
+	}
+
+	/**
+	 * Override as needed to set the createdAt column (if this table even has one). If this is complex, consider using beforeCreate
+	 * @returns {string}
+	 */
+	get createdAt() {
+		return "createdAt";
+	}
 
 }

@@ -157,7 +157,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 								token: token,
 								expiresAt: {">": now()}
 							},
-							join: ['user']
+							join: '*'
 						}
 					);
 				} else {
@@ -167,10 +167,10 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 					return true;
 				}
 
-				if (!session) {
+
+				if (!session || session.error) {
 					return "Invalid Session";
 				}
-
 
 				req.addRole(session.user.role);
 				req.jwt = token;
@@ -236,7 +236,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			next();
 		} catch (e) {
 			console.log(e);
-			a.error("Unknown Server Error", 500);
+			res.error("Unknown Server Error", 500);
 		}
 	}
 } else {
