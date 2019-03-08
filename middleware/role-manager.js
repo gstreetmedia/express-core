@@ -86,7 +86,12 @@ module.exports = function (req, res, next) {
 	 * @returns {boolean}
 	 */
 	req.hasRole = function(role) {
-		return _.indexOf(req.currentRoles, role) === -1 ? false : true;
+		if (!_.isArray(role)) {
+			role = [role];
+		}
+		console.log("intersection");
+		console.log(_.intersection(req.currentRoles, role));
+		return _.intersection(req.currentRoles, role).length > 0;
 	};
 
 	next();

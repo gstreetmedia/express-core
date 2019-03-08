@@ -2,23 +2,30 @@ const ejs = require("ejs");
 const fs = require("fs");
 const moment = require("moment");
 const _ = require("lodash");
+const now = require("../now");
 
 const selectTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/select.ejs", 'utf-8'));
 const radioTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/radio.ejs", 'utf-8'));
 const checkboxTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/checkbox.ejs", 'utf-8'));
-const textAreaTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/textArea.ejs", 'utf-8'));
+const textAreaTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/text-area.ejs", 'utf-8'));
 const inputTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/input.ejs", 'utf-8'));
+const jsonEditorTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/json-editor.ejs", 'utf-8'));
+const textEditorTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/text-editor.ejs", 'utf-8'));
 
 function findStringType(attribute, attr) {
 
 	if (attribute.enum) {
 		attr.options = attribute.enum;
-		attr.type = attribute.enum.length > 3 ? "select" : "radio";
+		attr.type = attribute.enum.length > 4 ? "select" : "radio";
 		return;
 	}
 
+	if (attribute.maxLength > 1000) {
+		attr.type = "text-editor";
+		return;
+	}
 	if (attribute.maxLength > 255) {
-		attr.type = "textArea";
+		attr.type = "text-area";
 		return;
 	}
 
@@ -96,12 +103,20 @@ function createElement(attr) {
 	switch (attr.type) {
 		case "select" :
 			return selectTemplate(attr);
+		case "select-multi" :
+			return selectTemplate(attr, true);
 		case "radio" :
 			return radioTemplate(attr);
 		case "checkbox" :
-			return checkboxTemplate(attr);
-		case "textArea" :
+		return checkboxTemplate(attr);
+		case "checkbox-multi" :
+			return checkboxTemplate(attr, true);
+		case "text-area" :
 			return textAreaTemplate(attr);
+		case "text-editor" :
+			return textEditorTemplate(attr);
+		case "json-editor" :
+			return jsonEditorTemplate(attr);
 		default :
 			return inputTemplate(attr);
 	}
@@ -113,6 +128,18 @@ module.exports = function (model, key, value) {
 	if (!attribute) {
 		console.log("Cannot find attribute for key => " + key);
 		return null;
+	}
+
+	if (value === null || value === undefined) {
+		switch (attribute.default) {
+			case "now" :
+				value = now();
+				break;
+			default :
+				if(attribute.default) {
+					value = attribute.default.split("{").join("{").split("}").join("");
+				}
+		}
 	}
 
 	let attr = {
@@ -127,7 +154,8 @@ module.exports = function (model, key, value) {
 		min: attribute.minLength || null,
 		name: key,
 		id: key + "Field",
-		options: null,
+		options: attribute.enum || null,
+		multiple : false,
 		disabled: false
 	};
 
@@ -145,14 +173,19 @@ module.exports = function (model, key, value) {
 			attr.type = "number";
 			break;
 		case "array" :
-			attr.value = JSON.stringify(value);
-			attr.dataType = 'json';
-			attr.type = "textArea";
+			attr.value = value ? value.join(",") : '';
+			attr.dataType = 'array';
+			if (attribute.enum) {
+				attr.type = attribute.enum.length > 4 ? "select-multi" : "checkbox";
+			} else {
+				attr.type = "text";
+			}
+			attr.multiple = true;
 			break;
 		case "object" :
 			attr.value = JSON.stringify(value);
-			attr.dataType = 'json';
-			attr.type = "textArea";
+			attr.dataType = 'string';
+			attr.type = "json-editor";
 			break;
 		case "boolean" :
 			attr.type = "radio";
@@ -162,13 +195,9 @@ module.exports = function (model, key, value) {
 	}
 
 	if (attr.type === "date" && typeof attr.value === "object") {
-		//console.log("format value");
 		attr.value = moment(attr.value).format("YYYY-MM-DD");
-		//console.log(attr.value);
 	} else if (attr.type === "datetime-local" && typeof attr.value === "object") {
-		//console.log("format value");
 		attr.value = moment(attr.value).format("YYYY-MM-DDTHH:mm:ss");
-		//console.log(attr.value);
 	}
 
 	if (key === model.primaryKey) {

@@ -1,11 +1,14 @@
 let moment = require("moment-timezone");
-let now = require("../helper/now");
-let uuid = require("node-uuid");
-let _ = require("lodash");
+const now = require("../helper/now");
+const uuid = require("node-uuid");
+const _ = require("lodash");
 const inflector = require("../helper/inflector");
-let processType = require("../helper/process-type");
-let validateAgainstSchema = require("../helper/validate-against-schema");
-let md5 = require("md5");
+const processType = require("../helper/process-type");
+const validateAgainstSchema = require("../helper/validate-against-schema");
+const md5 = require("md5");
+let connectionStringParser = require("connection-string");
+const getSchema = require("../helper/get-schema");
+const getFields = require("../helper/get-fields");
 
 module.exports = class ModelBase {
 
@@ -16,29 +19,68 @@ module.exports = class ModelBase {
 	 * @param req - the express request (or other object). looking for the request context really. req.role = "api-user"
 	 * or req.account.id etc.
 	 */
-	constructor(schema, validation, fields, req) {
-		this.validation = validation; //TODO honestly, do we really need this?
+	constructor(req) {
 		this.req = req;
-
-		if (global.schemaCache && global.schemaCache[schema.tableName]) {
-			this.schema = global.schemaCache[schema.tableName];
-		} else {
-			this.schema = schema;
-		}
-
-		if (global.fieldCache && global.fieldCache[schema.tableName]) {
-			this.fields = global.fieldCache[schema.tableName];
-		} else {
-			this.fields = fields; //TODO move to _fields table
-		}
-
 		if (req && req.connectionString) {
 			this._connectionString = req.connectionString;
 		}
 	}
 
+	static getFields(tableName) {
+		if (global.fieldCache && global.fieldCache[tableName]) {
+			return global.fieldCache[tableName]
+		}
+		return require('../../schema/fields/' + tableName + '-fields');
+	}
+
+	static getSchema(tableName) {
+		if (global.schemaCache && global.schemaCache[tableName]) {
+			return global.schemaCache[tableName]
+		}
+		return require('../../schema/' + tableName + '-schema');
+	}
+
+	set tableName(value) {
+		this._tableName = value;
+	}
+
 	get tableName() {
-		return this.schema.tableName;
+		if (this._tableName) {
+			return this._tableName;
+		}
+		let name = this.constructor.name.split("Model").join("");
+		this._tableName = inflector.underscore(inflector.pluralize(name));
+		return this._tableName;
+	}
+
+	get schema() {
+		if (global.schemaCache[this.tableName]) {
+			return global.schemaCache[this.tableName]
+		}
+		if (this._schema) {
+			return this._schema;
+		}
+		this._schema = require('../../schema/' + this.tableName + '-schema');
+		return this._schema;
+	}
+
+	set schema(_value) {
+		this._schema = value;
+	}
+
+	get fields() {
+		if (global.fieldCache[this.tableName]) {
+			return global.fieldCache[this.tableName]
+		}
+		if (this._fields) {
+			return this._fields;
+		}
+		this._fields = require('../../schema/fields/' + this.tableName + '-fields');
+		return this._fields;
+	}
+
+	set fields(_value) {
+		this._fields = value;
 	}
 
 	get properties() {
@@ -62,13 +104,29 @@ module.exports = class ModelBase {
 			this._connectionString = process.env[this.schema.dataSource];
 		}
 
+		//TODO Convert this to use a connection string parser
+
 		for (let key in process.env) {
-			if (_.isString(process.env[key])) {
-				if (process.env[key].indexOf(dataSource) !== -1) {
-					this._connectionString = process.env[key];
-				}
+			if (process.env[key].indexOf("postgresql://") === -1 &&
+				process.env[key].indexOf("mysql://") === -1 &&
+				process.env[key].indexOf("mssql://") === -1) {
+				continue;
+			}
+
+			let cs = connectionStringParser(process.env[key]);
+			if (!cs) {
+				console.log("Unknown connection string type");
+				continue;
+			}
+
+			let path = cs.path && cs.path.length > 0 ? cs.path[0] : null;
+
+			if (path.indexOf(dataSource) !== -1) {
+				this._connectionString = process.env[key];
+				break;
 			}
 		}
+
 
 		return this._connectionString || process.env.DEFAULT_DB;
 	}
@@ -78,13 +136,18 @@ module.exports = class ModelBase {
 	 * @returns {Pool}
 	 */
 	get pool() {
-		if (this.connectionString.indexOf("postgres") === 0) {
+		if (this.connectionString.indexOf("postgresql://") === 0) {
 			this.db = "pg";
 			return require("../helper/postgres-pool")(this.connectionString);
-		} else if (this.connectionString.indexOf("mysql") === 0) {
+		} else if (this.connectionString.indexOf("mysql://") === 0) {
 			this.db = "mysql"
 			return require("../helper/mysql-pool")(this.connectionString);
+		} else if (this.connectionString.indexOf("mssql://") === 0) {
+			this.db = "mssql"
+			return require("../helper/mssql-pool")(this.connectionString);
 		}
+
+		//TODO Elastic, Redis
 	}
 
 	/**
@@ -96,12 +159,6 @@ module.exports = class ModelBase {
 			return this._builder;
 		}
 
-		if (global.schemaCache) {
-			if (global.schemaCache[this.schema.tableName]) {
-				this.schema = global.schemaCache[this.schema.tableName];
-			}
-		}
-
 		let builder;
 
 		if (this.connectionString.indexOf("postgresql://") !== -1) {
@@ -110,6 +167,11 @@ module.exports = class ModelBase {
 			builder = require("../helper/query-to-mysql");
 		} else if (this.connectionString.indexOf("mssql://") !== -1) {
 			builder = require("../helper/query-to-mssql");
+		}
+
+		if (!builder) {
+			console.log("Could not determine connection type ");
+			//console.log(this.connectionString);
 		}
 
 		this._builder = new builder(this.schema);
@@ -196,6 +258,10 @@ module.exports = class ModelBase {
 
 		let command = this.queryBuilder.insert(params);
 
+		if (command.error) {
+			return command;
+		}
+
 		let result = await this.execute(command);
 
 		if (result.error) {
@@ -244,6 +310,8 @@ module.exports = class ModelBase {
 
 			let invalid = this.validate(params);
 
+			//console.log(invalid);
+
 			if (invalid !== true) {
 				return {
 					error: {
@@ -253,6 +321,8 @@ module.exports = class ModelBase {
 					}
 				};
 			}
+
+			//console.log(params);
 
 			let query = {};
 			query[this.primaryKey] = id;
@@ -661,7 +731,6 @@ module.exports = class ModelBase {
 			//console.log("Condition 3");
 		}
 
-
 		for (let key in join) {
 			if (relations[key]) {
 
@@ -728,7 +797,14 @@ module.exports = class ModelBase {
 
 						break;
 					case "HasMany" :
-						m = new item.modelClass(this.req);
+						try {
+							m = new item.modelClass(this.req);
+						} catch (e) {
+							console.log("Could not complete join");
+							console.log(item);
+							continue;
+						}
+
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
 						list = await m.find(join[key]);
@@ -766,7 +842,14 @@ module.exports = class ModelBase {
 						break;
 				}
 			} else if (foreignKeys[key]) {
-				let m = new foreignKeys[key].modelClass(this.req);
+				let m;
+				try {
+					m = new foreignKeys[key].modelClass(this.req);
+				} catch (e) {
+					console.log("foreignKey Issue " + key +  " within " + this.tableName);
+					console.log(foreignKeys[key]);
+				}
+
 				let idList = [];
 				results.forEach(
 					function (item) {
@@ -818,6 +901,8 @@ module.exports = class ModelBase {
 		for (let key in data) {
 			if (this.properties[key]) {
 				params[key] = processType(data[key], this.properties[key]);
+			} else {
+				//console.log("unknown key " + key);
 			}
 		}
 		return params;
@@ -890,16 +975,7 @@ module.exports = class ModelBase {
 				continue;
 			}
 
-			if (this.validation[key] && this.validation[key].validate) {
-				if (this.validation[key].validate(key, data, this.schema) === false) {
-					if (_.indexOf(this.schema.required, key) !== -1) {
-						invalid.push(key);
-					} else {
-						delete data[key];
-					}
-					console.log("Invalid 1 => " + key + " " + data[key]);
-				}
-			} else if (validateAgainstSchema(key, data, this.schema) === false) {
+			if (validateAgainstSchema(key, data, this.schema) === false) {
 				if (data[key] === null && this.properties[key].allowNull === false) {
 					console.log("Invalid 2 => " + key + " " + data[key]);
 					invalid.push(key);

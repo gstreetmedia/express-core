@@ -1,18 +1,15 @@
 <%
 if (data.length > 0) {
 	var instance = new Date().getTime();
-	var keys = Object.keys(data[0]);
+	var keys = model.fields.adminIndex || Object.keys(data[0]);
+	keys = _.filter(keys, {visible:true});
+	keys = _.map(keys, "property")
 %>
 <div id="table_<%- instance %>" class="container-fluid gridded">
 	<div style="min-width:100%;width:<%- keys.length <= 8 ? "100%;margin-right:17px;" : (keys.length + 1) * 150 + "px" %>;position: absolute;">
 		<div class="row header m-0">
-			<%
-			keys.forEach(function(attribute) {
-				if (attribute === model.primaryKey) {
-					//return;
-				}
-			%>
-			<div class="col-1 border-right border-top p-1"><%- helpers.inflector.titleize(helpers.inflector.underscore(attribute)) %></div>
+			<% keys.forEach(function(attribute) {%>
+			<div class="col-1 border-right border-top p-1"><%- helpers.inflector.capitalize(helpers.inflector.underscore(attribute)) %></div>
 			<% }) %>
 			<div class="col-1 border-top text-right p-1">Actions</div>
 		</div>

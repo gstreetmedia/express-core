@@ -327,23 +327,6 @@ async function convert(destination, connectionString, options) {
 				singleQuotes: false
 			}), 4) + ";");
 
-		if (options.overwrite || !fs.existsSync(validationPath)) {
-			let s = "let validator = require(\"validator\");\n" +
-				"let _ = require(\"lodash\");\n\n" +
-				"let validation = {\n" +
-				"/*\n" +
-				"\tsomeProperty : {\n" +
-				"\t\tvalidate: (key, data, schema) => {\n" +
-				"\t\t\t//return true or false for some condition\n" +
-				"\t\t\treturn true;\n" +
-				"\t\t},\n" +
-				"\t\tdefault : 'some default value'\n" +
-				"\t}\n" +
-				"*/\n"
-			"};"
-			s += "};\n\nmodule.exports = validation;";
-			fs.writeFileSync(validationPath, s);
-		}
 
 		if (options.overwrite || !fs.existsSync(fieldPath)) {
 			let s = 'module.exports = {\n';
@@ -360,18 +343,22 @@ async function convert(destination, connectionString, options) {
 		}
 
 		if (options.overwrite || !fs.existsSync(modelPath)) {
+
+			let ClassName = inflector.classify(name) + "Model";
+
 			let s = "const ModelBase = require('../core/model/ModelBase');\n" +
 				"const _ = require('lodash');\n" +
-				"const schema = require('../schema/" + inflector.dasherize(name).toLowerCase() + "-schema');\n" +
-				"const validation = require('../schema/validation/" + inflector.dasherize(name).toLowerCase() + "-validation');\n" +
-				"const fields = require('../schema/fields/" + inflector.dasherize(name).toLowerCase() + "-fields');\n\n" +
-				"module.exports = class " + inflector.classify(name) + "Model extends ModelBase {\n\n" +
+				//"const schema = require('../schema/" + inflector.dasherize(name).toLowerCase() + "-schema');\n" +
+				//"const validation = require('../schema/validation/" + inflector.dasherize(name).toLowerCase() + "-validation');\n" +
+				//"const fields = require('../schema/fields/" + inflector.dasherize(name).toLowerCase() + "-fields');\n\n" +
+				"module.exports = class " + ClassName + " extends ModelBase {\n\n" +
 				"\tconstructor(req) {\n" +
-				"\t\tsuper(schema, validation, fields, req);\n" +
+				"\t\tsuper(req);\n" +
 				"\t}\n\n" +
-				"\tstatic get schema() { return schema; }\n\n" +
-				"\tstatic get validation() { return validation; }\n\n" +
-				"\tstatic get fields() { return fields; }\n\n" +
+				"\tget tableName() { return "+ClassName+".tableName; }\n\n" +
+				"\tstatic get tableName() { return '"+name+"'; }\n\n" +
+				"\tstatic get schema() { return ModelBase.getSchema(" + ClassName + ".tableName); }\n\n" +
+				"\tstatic get fields() { return ModelBase.getFields(" + ClassName + ".tableName); }\n\n" +
 				"\tasync index(key, value){\n\t\treturn await super.index(key, value);\n\t}\n\n" +
 				"\tasync create(data){\n\t\treturn await super.create(data);\n\t}\n\n" +
 				"\tasync read(id, query){\n\t\treturn await super.read(id, query);\n\t}\n\n" +
@@ -381,6 +368,10 @@ async function convert(destination, connectionString, options) {
 				"\tget relations(){\n\t\treturn {};\n\t}\n\n" +
 				"\tget foreignKeys(){\n\t\treturn {};\n\t}\n\n" +
 				"}";
+
+			//console.log(s);
+			//throw new Error("Stop!!!!!!!!!!!!!!!");
+			//return;
 
 			fs.writeFileSync(modelPath, s);
 		}

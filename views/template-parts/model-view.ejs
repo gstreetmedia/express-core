@@ -1,17 +1,13 @@
 <div>
 	<%	if (!req || !req.xhr) { %>
-	<div class="card-header card-header-rose card-header-text">
-		<div class="card-text">
-			<div class="float-right">
-				<% if (action === 'edit') { %>
-				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/view">View</a>
-				<% } else { %>
-				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/edit">Edit</a>
-				<% } %>
-			</div>
-			<h4 class="card-title m-0">View <%- title %></h4>
-		</div>
+	<div class="float-right">
+		<% if (action === 'edit') { %>
+		<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/view">View</a>
+		<% } else { %>
+		<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/edit">Edit</a>
+		<% } %>
 	</div>
+	<h4 class="card-title m-0  pb-4">View <%- title %></h4>
 	<% } %>
 	<div> <!-- Start the row -->
 <%
@@ -45,11 +41,12 @@
 						var value = data[key];
 						var relationModel = model.relations[key].modelClass;
 						if (model.relations[key].relation === "HasMany") {
+								var relationKeys = _.filter(relationModel.fields.adminIndex, {visible:true});
+								relationKeys = _.map(relationKeys, "property");
 					%>
 						<h5><%- helpers.inflector.titleize(key) %></h5>
-						<%- include ./gridded-relation %>	<%
-						} else {
-							%>
+						<%- include ./gridded-relation %>
+						<% } else {	%>
 						<h5><%- helpers.inflector.titleize(key) %></h5><hr/>
 						<div class="row">
 							<%

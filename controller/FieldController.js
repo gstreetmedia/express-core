@@ -1,10 +1,13 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
-const Model = require('../model/FieldModel');
+
 
 module.exports = class FieldController extends ControllerBase {
 
-	constructor() {
+	constructor(Model) {
+		if(!Model) {
+			Model = require('../model/FieldModel');
+		}
 		super(Model);
 	}
 

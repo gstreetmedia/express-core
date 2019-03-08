@@ -1,6 +1,5 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
-const Model = require('../model/UserModel');
 const hashPassword = require("../helper/hash-password");
 const SessionModel = require("../model/SessionModel");
 const now = require("../helper/now");
@@ -8,7 +7,10 @@ const moment = require("moment-timezone");
 
 module.exports = class UserController extends ControllerBase {
 
-	constructor() {
+	constructor(Model) {
+		if(!Model) {
+			Model = require('../model/UserModel');
+		}
 		super(Model);
 	}
 
@@ -38,7 +40,7 @@ module.exports = class UserController extends ControllerBase {
 
 	async login(req, res) {
 
-		let m = new Model(req);
+		let m = new this.Model(req);
 
 		console.log(req.body);
 
@@ -69,7 +71,7 @@ module.exports = class UserController extends ControllerBase {
 			return res.invalid("Missing Token");
 		}
 
-		let m = new Model(req);
+		let m = new this.Model(req);
 		let result = await m.logout(req.jwt);
 
 		res.clearCookie('token');

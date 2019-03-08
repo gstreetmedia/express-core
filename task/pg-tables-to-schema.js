@@ -99,7 +99,7 @@ module.exports = async function( options, pool ) {
 
 			if (column.constraint_type === "PRIMARY KEY") {
 				if (schema[tableName].primaryKey) {
-					console.log(tableName + " primary key already set to " + schema[tableName].primaryKey);
+					//console.log(tableName + " primary key already set to " + schema[tableName].primaryKey);
 				}
 				if (columnName.length === 2) {
 					schema[tableName].primaryKey = columnName.toLowerCase();
@@ -161,6 +161,11 @@ var convertColumnType = function( column, enums )
 	if (column.character_maximum_length) {
 		schemaProperty.maxLength = column.character_maximum_length;
 	}
+
+	var defaultValue;
+	if ("column_default" in column) {
+		defaultValue = column.column_default;
+	}
 	
 	switch( column.data_type )
 	{
@@ -178,6 +183,9 @@ var convertColumnType = function( column, enums )
 					schemaProperty.enum = _.map(list, "value");
 				}
 			}
+			if (column.data_type === "text") {
+				schemaProperty.maxLength = column.character_maximum_length = 1000000
+			}
 
 		} break;
 
@@ -193,15 +201,38 @@ var convertColumnType = function( column, enums )
 			switch (column.udt_name) {
 				case "_text" :
 				case "_varchar" :
+				case 'character varying' :
+
 					schemaProperty.format = "string";
+					let list = _.filter(enums, {key: column.table_name + "_" + column.column_name});
+
+
+					if (list.length > 0) {
+						schemaProperty.enum = _.map(list, "value");
+					} else {
+						list = _.filter(enums, {key: column.column_name});
+						if (list.length > 0) {
+							schemaProperty.enum = _.map(list, "value");
+						}
+					}
+
 					break;
 				case "_int4" :
 					schemaProperty.format = "integer";
+					break;
 				case "_numeric" :
 				case "_float8" :
 					schemaProperty.format = "number";
+					break;
+				case "_uuid" :
+					schemaProperty.format = "uuid";
+					break;
 				default :
 					schemaProperty.format = column.udt_name;
+			}
+
+			if (defaultValue) {
+				schemaProperty.default = defaultValue.split("{").join("").split("}").join("").split(",");
 			}
 
 			break;
@@ -211,6 +242,9 @@ var convertColumnType = function( column, enums )
 		{
 			schemaProperty.type   = 'string';
 			schemaProperty.format = 'date';
+			if (defaultValue === "CURRENT_TIMESTAMP") {
+				schemaProperty.default = "now";
+			}
 		} break;
 
 		case 'timestamp with time zone':
@@ -219,11 +253,16 @@ var convertColumnType = function( column, enums )
 		{
 			schemaProperty.type   = 'string';
 			schemaProperty.format = 'date-time';
+			if (defaultValue === "CURRENT_TIMESTAMP") {
+				schemaProperty.default = "now";
+			}
 		} break;
 
 		case 'boolean':
 		{
 			schemaProperty.type = 'boolean';
+			schemaProperty.default = defaultValue === "true" || defaultValue === true
+
 		} break;
 
 		case 'real':
@@ -314,14 +353,8 @@ var convertColumnType = function( column, enums )
 		} break;
 	}
 
-	if ("column_default" in column) {
-		switch (column.column_default) {
-			case "CURRENT_TIMESTAMP" :
-				schemaProperty.default = "now";
-				break;
-			default :
-				schemaProperty.default = column.column_default;
-		}
+	if (defaultValue && !"default" in schemaProperty) {
+		schemaProperty.default = defaultValue;
 	}
 
 	if (column.extra === "auto_increment") {

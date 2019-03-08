@@ -66,7 +66,6 @@ module.exports = (key, data, schema) => {
 
 			}
 		case "number" :
-
 			if (isNaN(data[key])) {
 				return false;
 			}

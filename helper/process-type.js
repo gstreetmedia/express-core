@@ -8,7 +8,6 @@ const validator = require("validator");
  * @returns {*}
  */
 module.exports = (value, property) =>{
-
 	if (value === null && property.allowNull === true) {
 		return null;
 	} else if (value === null) {
@@ -58,6 +57,7 @@ module.exports = (value, property) =>{
 			}
 			break;
 		case "string" :
+
 			if (value === '' && property.allowNull === false) {
 				return '';
 			}

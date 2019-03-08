@@ -1,8 +1,6 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../../schema/sessions-schema');
-const validation = require('../../schema/validation/sessions-validation');
-const fields = require('../../schema/fields/sessions-fields');
+
 const getIpAddress = require("../helper/get-ip-address");
 const jwt = require('jsonwebtoken');
 const moment = require("moment");
@@ -12,19 +10,29 @@ const uuid = require("node-uuid");
 module.exports = class SessionModel extends ModelBase {
 
 	constructor(req) {
-		super(schema, validation, fields, req);
+		super(req);
+	}
+
+	get tableName() {
+		return SessionModel.tableName;
+	}
+
+	static get tableName() {
+		return "sessions";
 	}
 
 	static get schema() {
-		return schema;
-	}
-
-	static get validation() {
-		return validation;
+		if (global.schemaCache[SessionModel.tableName]) {
+			return global.schemaCache[SessionModel.tableName]
+		}
+		return require('../../schema/sessions-schema');
 	}
 
 	static get fields() {
-		return fields;
+		if (global.fieldCache[SessionModel.tableName]) {
+			return global.fieldCache[SessionModel.tableName];
+		}
+		return require('../../schema/fields/sessions-fields');
 	}
 
 	async index(query) {
@@ -137,6 +145,7 @@ module.exports = class SessionModel extends ModelBase {
 
 
 	get relations() {
+		return {};
 		const UserModel = require("./UserModel");
 		return {
 			user : {

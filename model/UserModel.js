@@ -1,9 +1,5 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../../schema/users-schema');
-const validation = require('../../schema/validation/users-validation');
-const fields = require('../../schema/fields/users-fields');
-
 const hashPassword = require("../helper/hash-password");
 const SessionModel = require("./SessionModel");
 const now = require('../helper/now');
@@ -11,14 +7,30 @@ const now = require('../helper/now');
 module.exports = class UserModel extends ModelBase {
 
 	constructor(req) {
-		super(schema, validation, fields, req);
+		super(req);
 	}
 
-	static get schema() { return schema; }
+	get tableName() {
+		return UserModel.tableName;
+	}
 
-	static get validation() { return validation; }
+	static get tableName() {
+		return "users";
+	}
 
-	static get fields() { return fields; }
+	static get schema() {
+		if (global.schemaCache[schema.tableName]) {
+			return global.schemaCache[schema.tableName]
+		}
+		return require('../../schema/users-schema');
+	}
+
+	static get fields() {
+		if (global.fieldCache[schema.tableName]) {
+			return global.fieldCache[schema.tableName];
+		}
+		return require('../../schema/fields/users-fields');
+	}
 
 	async index(query){
 		return await super.index(query);
