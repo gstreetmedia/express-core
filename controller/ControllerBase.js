@@ -60,7 +60,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async create(req, res) {
-		//console.log("ControllerBase::create");
+
 		try {
 			let result = await new this.Model(req).create(req.body);
 			if (res) {
@@ -123,7 +123,7 @@ module.exports = class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async update(req, res) {
-		//console.log("ControllerBase:update");
+
 		try {
 			let result;
 			if (req.query.where) {
@@ -190,6 +190,8 @@ module.exports = class ControllerBase {
 	 */
 	async query(req, res) {
 
+		console.log("ControllerBase::query");
+
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
 			if (res) {
@@ -199,29 +201,26 @@ module.exports = class ControllerBase {
 			}
 		}
 
-		try {
-			let m = new this.Model(req);
-			let count = await m.count(req.query);
-			if (count > 500) {
-				req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
-				req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
-				req.limit = req.query.limit;
-				req.offset = req.query.offset;
+		let m = new this.Model(req);
+		let count = await m.count(req.query);
+		if (count > 500) {
+			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+			req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
+			req.limit = req.query.limit;
+			req.offset = req.query.offset;
+		}
+		req.count = parseInt(count);
+		let result = await m.query(req.query);
+
+		//console.log(m.lastCommand.toString());
+
+		if (res) {
+			if (result.error) {
+				return res.error(result);
 			}
-			req.count = parseInt(count);
-			let result = await m.query(req.query);
-			if (res) {
-				return res.success(result);
-			} else {
-				return result;
-			}
-		} catch (e) {
-			console.log(e);
-			if (res) {
-				return res.invalid(e);
-			} else {
-				return false;
-			}
+			return res.success(result);
+		} else {
+			return result;
 		}
 	}
 
@@ -372,10 +371,12 @@ module.exports = class ControllerBase {
 
 
 	testQuery(req, res) {
+
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
 				let result = jsonlint.parse(req.query.where);
 			} catch (e) {
+				console.log(e);
 				return {
 					error : true,
 					message : e.toString(),
@@ -386,20 +387,48 @@ module.exports = class ControllerBase {
 		}
 
 		if (req.query && req.query.join && typeof req.query.join === "string") {
-			if (req.query.join === "*") {
+			if (req.query.join !== "*") {
+				return req.query;
+				try {
+					let result = jsonlint.parse(req.query.join);
+				} catch (e) {
+
+					return {
+						error : true,
+						message : e.toString(),
+						reason : "Malformed JSON Join"
+					}
+				}
+				req.query.join = JSON.parse(req.query.join);
+			}
+		}
+
+		console.log(typeof req.query.select);
+
+		if (req.query && req.query.select && typeof req.query.select === "string") {
+
+			if (req.query.select === "*") {  //select all
 				return req.query;
 			}
-			try {
-				let result = jsonlint.parse(req.query.join);
-			} catch (e) {
-				return {
-					error : true,
-					message : e.toString(),
-					reason : "Malformed JSON Join"
+			if (req.query.select.indexOf("[") === 0) { //json style = ["field1","field2","field3"]
+				try {
+					let result = jsonlint.parse(req.query.select);
+					req.query.select = JSON.parse(req.query.select);
+				} catch (e) {
+
+					return {
+						error : true,
+						message : e.toString(),
+						reason : "Malformed JSON Select"
+					}
 				}
+			} else {
+				req.query.select = req.query.select.split(",");  //comma sepparated field1,field2,field3
 			}
-			req.query.join = JSON.parse(req.query.join);
+
+
 		}
+
 		return req.query;
 	}
 

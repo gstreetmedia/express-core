@@ -1,8 +1,7 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 const schema = require('../schema/schemas-schema');
-const validation = require('../schema/validation/schemas-validation');
 const fields = require('../schema/fields/schemas-fields');
 const cache = require("../helper/cache-manager");
 const md5 = require("md5");
@@ -14,7 +13,7 @@ let fs = require("fs");
 module.exports = class SchemaModel extends ModelBase {
 
 	constructor(req) {
-		super(schema, validation, fields, req);
+		super(req);
 		this.tableExists = null;
 	}
 
@@ -22,16 +21,34 @@ module.exports = class SchemaModel extends ModelBase {
 		return process.env.DEFAULT_DB;
 	}
 
-	static get schema() {
-		return schema;
+	get tableName() {
+		return SchemaModel.tableName;
 	}
 
-	static get validation() {
-		return validation;
+	static get tableName() {
+		return "_schemas";
+	}
+
+	static get schema() {
+		if (global.schemaCache && global.schemaCache[SchemaModel.tableName]) {
+			return global.schemaCache[SchemaModel.tableName]
+		}
+		return require('../schema/schemas-schema');
 	}
 
 	static get fields() {
-		return fields;
+		if (global.fieldCache && global.fieldCache[SchemaModel.tableName]) {
+			return global.fieldCache[SchemaModel.tableName];
+		}
+		return require('../schema/fields/schemas-fields');
+	}
+
+	get schema() {
+		return SchemaModel.schema;
+	}
+
+	get fields() {
+		return SchemaModel.fields;
 	}
 
 	async index(key, value) {
@@ -59,6 +76,9 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async loadSchemas(connectionStrings) {
+
+		global.schemaCache = global.schemaCache || {};
+
 		if (!_.isArray(connectionStrings)) {
 			connectionStrings = [connectionStrings];
 		}
@@ -85,7 +105,7 @@ module.exports = class SchemaModel extends ModelBase {
 					strings.forEach(
 						function (cs) {
 							if (cs.path[0] === item.dataSource) {
-								global.schemaCache = global.schemaCache || {};
+
 								global.schemaCache[item.tableName] = item;
 								count++;
 							}

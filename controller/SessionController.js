@@ -1,10 +1,13 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
-const Model = require('../model/SessionModel');
+
 
 module.exports = class SessionController extends ControllerBase {
 
-	constructor() {
+	constructor(Model) {
+		if(!Model) {
+			Model = require('../model/SessionModel');
+		}
 		super(Model);
 	}
 

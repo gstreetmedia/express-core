@@ -354,16 +354,25 @@ module.exports = class QueryToPgSql extends QueryBase{
 
 				break;
 			case "array" :
+				//TODO figure out a way to check in the types of each array item
+				if (!value) {
+					return value;
+				}
 				if (isInsertOrUpdate) {
-					if (property.format === "string") {
-						//console.log(value);
-						return this.raw("ARRAY['" + value.join("','") + "']");
-					} else {
-						return this.raw("ARRAY[" + value.join(",") + "]");
+					switch (property.format) {
+						case "string" :
+							return this.raw("ARRAY['" + value.join("','") + "']");
+							break;
+						case "uuid" :
+							return this.raw("ARRAY['" + value.join("','") + "']::uuid[]");
+							break;
+						default :
+							return this.raw("ARRAY[" + value.join(",") + "]");
+
 					}
 				}
 				if (_.isArray(value)) {
-					if (property.format === "string") {
+					if (property.format === "string" || property.format === "uuid") {
 						return "('" + value.join("','") + "')";
 					} else {
 						return "(" + value.join(",") + ")";

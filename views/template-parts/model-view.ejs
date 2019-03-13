@@ -1,41 +1,37 @@
 <div>
 	<%	if (!req || !req.xhr) { %>
-	<div class="card-header card-header-rose card-header-text">
-		<div class="card-text">
-			<div class="float-right">
-				<% if (action === 'edit') { %>
-				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/view">View</a>
-				<% } else { %>
-				<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/edit">Edit</a>
-				<% } %>
-			</div>
-			<h4 class="card-title m-0">View <%- title %></h4>
-		</div>
+	<div class="float-right">
+		<% if (action === 'edit') { %>
+		<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/view">View</a>
+		<% } else { %>
+		<a href="/admin/<%- slug %>/<%- data[model.primaryKey] %>/edit">Edit</a>
+		<% } %>
 	</div>
+	<h4 class="card-title m-0  pb-4">View <%- title %></h4>
 	<% } %>
-	<div>
-		<%
-		var properties = _.filter(model.fields.adminRead, {visible:true});
-		properties = _.map(properties, "property");
-		var foreignKeys = model.foreignKeys;
-		%>
+	<div> <!-- Start the row -->
+<%
+	var properties = _.filter(model.fields.adminRead, {visible:true});
+	properties = _.map(properties, "property");
+	var foreignKeys = model.foreignKeys;
+%>
 		<div class="row">
 			<div class="col-12 border-bottom ml-1 mt-0 mb-4 ">
 				<h5>Fields</h5>
 			</div>
 		</div>
 		<div class="row">
-		<%
-		properties.forEach(
-			function(key) {
-				var value = data[key];
-		%>
+<%
+	properties.forEach(
+		function(key) {
+			var value = data[key];
+%>
 		<%- include ./view-record-item %>
-		<%
-			}
-		)
-		%>
-		</div> <!-- Close the row -->
+<%
+		}
+	);
+%>
+	</div> <!-- Close the row -->
 		<%
 		if (model.relations) {
 			var keys = Object.keys(model.relations);
@@ -45,14 +41,29 @@
 						var value = data[key];
 						var relationModel = model.relations[key].modelClass;
 						if (model.relations[key].relation === "HasMany") {
+								var relationKeys = _.filter(relationModel.fields.adminIndex, {visible:true});
+								relationKeys = _.map(relationKeys, "property");
 					%>
-						<label><%- key %></label>
-						<%- include ./gridded-relation %>	<%
-						} else {
+						<h5><%- helpers.inflector.titleize(key) %></h5>
+						<%- include ./gridded-relation %>
+						<% } else {	%>
+						<h5><%- helpers.inflector.titleize(key) %></h5><hr/>
+						<div class="row">
+							<%
+								var properties = _.filter(relationModel.fields.adminRead, {visible:true});
+								properties = _.map(properties, "property");
+								var foreignKeys = relationModel.foreignKeys;
+								var relationValues = value;
 							%>
-							<div class="row">
+							<%
+								properties.forEach(
+									function(key) {
+									var value = relationValues[key];
+
+							%>
 							<%- include ./view-record-item %>
-							</div>
+							<%	});	%>
+						</div>
 							<%
 						}
 					}

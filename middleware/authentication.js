@@ -148,6 +148,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 
 				//Check the memory cache for this Session. Go to the DB if not found
 				let session = await cache.get(cacheKey); //Try Cache first
+				let isShouldCache = false;
 
 				if (!session) {
 					session = await Session.findOne(
@@ -157,30 +158,35 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 								token: token,
 								expiresAt: {">": now()}
 							},
-							join: ['user']
+							join: '*'
 						}
 					);
-				} else {
-					req.user = session.user;
-					req.jwt = token;
-					req.addRole(session.user.role);
-					return true;
+					if (session.error) {
+						return session;
+					}
+					if (session.foreignKeys.userId) {
+						session.user = session.foreignKeys.userId;
+						delete session.foreignKeys;
+					}
+					isShouldCache = true;
 				}
 
-				if (!session) {
+				if (!session || session.error) {
 					return "Invalid Session";
 				}
 
-
 				req.addRole(session.user.role);
-				req.jwt = token;
-				req.user = session.user;
 
 				let args = {
-					user: req.user
+					user: session.user,
+					token : token
 				};
 
-				await cache.set(cacheKey, args);
+				_.extend(req, args);
+
+				if (isShouldCache) {
+					await cache.set(cacheKey, args);
+				}
 			}
 
 			return true;
@@ -219,11 +225,17 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			}
 
 			if (req.headers['application-key']) {
-				await Authentication.applicationKey(req);
+				let keyResult = await Authentication.applicationKey(req);
+				if (keyResult !== true) {
+					console.log("keyResult => " + keyResult);
+				}
 			}
 
 			if (req.header['authorization']) {
-				await Authentication.bearerToken(req);
+				let authResult = await Authentication.bearerToken(req);
+				if (authResult !== true) {
+					console.log("authResult => " + authResult);
+				}
 			}
 
 			return;
@@ -236,7 +248,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			next();
 		} catch (e) {
 			console.log(e);
-			a.error("Unknown Server Error", 500);
+			res.error("Unknown Server Error", 500);
 		}
 	}
 } else {

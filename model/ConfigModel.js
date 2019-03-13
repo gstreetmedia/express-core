@@ -1,20 +1,33 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../../schema/config-schema');
-const validation = require('../../schema/validation/config-validation');
-const fields = require('../../schema/fields/config-fields');
 
 module.exports = class ConfigModel extends ModelBase {
 
 	constructor(req) {
-		super(schema, validation, fields, req);
+		super(req);
 	}
 
-	static get schema() { return schema; }
+	get tableName() {
+		return ConfigModel.tableName;
+	}
 
-	static get validation() { return validation; }
+	static get tableName() {
+		return "config";
+	}
 
-	static get fields() { return fields; }
+	static get schema() {
+		if (global.schemaCache[schema.tableName]) {
+			return global.schemaCache[schema.tableName]
+		}
+		return require('../../schema/config-schema');
+	}
+
+	static get fields() {
+		if (global.fieldCache[schema.tableName]) {
+			return global.fieldCache[schema.tableName];
+		}
+		return require('../../schema/fields/config-fields');
+	}
 
 	async index(query){
 		return await super.index(query);
@@ -38,6 +51,21 @@ module.exports = class ConfigModel extends ModelBase {
 
 	async destroy(id){
 		return await super.destroy(id);
+	}
+
+	get relations() {
+		let Token = require("../../model/TokenModel");
+
+		return {
+			config: {
+				relation: "HasMany",
+				modelClass: Token,
+				join: {
+					from: "id",
+					to: "configId"
+				}
+			}
+		}
 	}
 
 }

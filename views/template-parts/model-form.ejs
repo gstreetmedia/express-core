@@ -52,9 +52,9 @@
 
 				var element = helpers.form(model, key, value);
 			%>
-			<div class="form-group row">
+			<div class="form-group row clearfix">
 				<label class="label col-md-3">
-					<%- helpers.inflector.humanize(helpers.inflector.underscore(key)) %>
+					<%- helpers.inflector.camelize(helpers.inflector.underscore(key)) %>
 				</label>
 				<div class="col-md-9">
 					<%- element %>

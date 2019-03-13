@@ -1,21 +1,36 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const schema = require('../../schema/tokens-schema');
-const validation = require('../../schema/validation/tokens-validation');
 const fields = require('../../schema/fields/tokens-fields');
 const uuid = require("node-uuid");
 
 module.exports = class TokenModel extends ModelBase {
 
 	constructor(req) {
-		super(schema, validation, fields, req);
+		super(req);
 	}
 
-	static get schema() { return schema; }
+	get tableName() {
+		return TokenModel.tableName;
+	}
 
-	static get validation() { return validation; }
+	static get tableName() {
+		return "tokens";
+	}
 
-	static get fields() { return fields; }
+	static get schema() {
+		if (global.schemaCache[TokenModel.tableName]) {
+			return global.schemaCache[TokenModel.tableName]
+		}
+		return require('../../schema/tokens-schema');
+	}
+
+	static get fields() {
+		if (global.fieldCache[TokenModel.tableName]) {
+			return global.fieldCache[TokenModel.tableName];
+		}
+		return require('../../schema/fields/tokens-fields');
+	}
 
 	async index(query){
 		return await super.index(query);
@@ -43,7 +58,7 @@ module.exports = class TokenModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
-	get relationMappings() {
+	get relations() {
 		let Config = require("../../model/ConfigModel");
 
 		return {

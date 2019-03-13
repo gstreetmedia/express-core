@@ -1,10 +1,12 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
-const Model = require('../model/TokenModel');
 
 module.exports = class TokenController extends ControllerBase {
 
-	constructor() {
+	constructor(Model) {
+		if(!Model) {
+			Model = require('../model/TokenModel');
+		}
 		super(Model);
 	}
 

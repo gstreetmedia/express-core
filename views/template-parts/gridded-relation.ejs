@@ -1,19 +1,16 @@
 <%
 
-	var instance = new Date().getTime();
-	var keys = Object.keys(value[0]);
+	var instance = Math.round(Math.random()*10000);
+
 %>
 <div class="mb-4" style="position: relative">
-	<div id="table_<%- instance %>" class="container-fluid gridded gridded-inline">
-		<div class="inner" style="position: absolute;">
+	<div id="table_<%- instance %>" class="container-fluid gridded gridded-inline gridded-relation">
+		<div class="inner" style="min-width:100%;position: absolute">
 			<div class="row header m-0">
 				<%
-				keys.forEach(function(attribute) {
-					if (attribute === relationModel.primaryKey) {
-						return;
-					}
+				relationKeys.forEach(function(attribute) {
 				%>
-				<div class="col-1 border-right border-top p-1"><%- helpers.inflector.humanize(helpers.inflector.underscore(attribute)) %></div>
+				<div class="col-1 border-right border-top p-1"><%- helpers.inflector.titleize(helpers.inflector.underscore(attribute)) %></div>
 				<% }) %>
 				<div class="col-1 border-top text-right p-1 actions">Actions</div>
 			</div>
@@ -23,7 +20,7 @@
 			%>
 			<div class="row m-0 border-top row-striped" data-row-id="<%- row[relationModel.primaryKey] %>" data-bindid="view">
 				<%
-				keys.forEach(function(attribute) {
+				relationKeys.forEach(function(attribute) {
 				if (attribute !== relationModel.primaryKey) {
 				%>
 				%>
@@ -50,6 +47,8 @@
 	</div>
 	<style>
 		#table_<%- instance %> .col-1 {
+			min-width: <%- relationKeys.length <= 8 ? 100 / (relationKeys.length + 1) + "%" : '150px'%> !important;
+			max-width: <%- relationKeys.length <= 8 ? 100 / (relationKeys.length + 1) + "%" : '150px'%> !important;
 			float: left;
 			overflow: hidden;
 			white-space: nowrap;

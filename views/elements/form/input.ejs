@@ -8,4 +8,6 @@
 	   max="<%- max || "" %>"
 	   min="<%- min || "" %>"
 		<%= disabled ? "disabled" : "" %>
+	   placeholder="<%- dataType === "array" ? "Comma seperated values" : "" %>"
+	   data-type="<%- dataType %>"
 />

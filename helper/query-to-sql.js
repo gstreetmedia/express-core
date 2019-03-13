@@ -779,7 +779,7 @@ module.exports = class QueryToSql {
 			case "array" :
 				if (isInsertOrUpdate) {
 					if (property.format === "string") {
-						console.log(value);
+						//console.log(value);
 						return knex.raw("ARRAY['" + value.join("','") + "']");
 					} else {
 						return knex.raw("ARRAY[" + value.join(",") + "]");

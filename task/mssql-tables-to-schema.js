@@ -1,5 +1,5 @@
 var _ = require( 'lodash' );
-var inflector = require("inflected");
+const inflector = require("../helper/inflector");
 var fs = require("fs");
 
 var emptySchema = {

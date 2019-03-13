@@ -15,12 +15,9 @@ module.exports = function(model, key, value) {
 		return value;
 	}
 
-	let properties = model.properties || model.schema.properties;
 
-	if (!properties[key]) {
-		console.log("Missing Key for " + key);
-		return value;
-	}
+	let properties = model.schema.properties;
+
 
 	switch (properties[key].type) {
 		case "number" :

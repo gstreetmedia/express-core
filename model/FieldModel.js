@@ -1,8 +1,7 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 const schema = require('../schema/fields-schema');
-const validation = require('../schema/validation/fields-validation');
 const fields = require('../schema/fields/fields-fields');
 const cache = require("../helper/cache-manager");
 const md5 = require("md5");
@@ -14,7 +13,7 @@ const knex = require("knex");
 module.exports = class FieldModel extends ModelBase {
 
 	constructor(req) {
-		super(schema, validation, fields, req);
+		super(req);
 		this.tableExists = null;
 	}
 
@@ -22,16 +21,34 @@ module.exports = class FieldModel extends ModelBase {
 		return process.env.DEFAULT_DB;
 	}
 
-	static get schema() {
-		return schema;
+	get tableName() {
+		return FieldModel.tableName;
 	}
 
-	static get validation() {
-		return validation;
+	static get tableName() {
+		return "_fields";
+	}
+
+	static get schema() {
+		if (global.schemaCache && global.schemaCache[FieldModel.tableName]) {
+			return global.schemaCache[FieldModel.tableName]
+		}
+		return require('../schema/fields-schema');
 	}
 
 	static get fields() {
-		return fields;
+		if (global.fieldCache && global.fieldCache[FieldModel.tableName]) {
+			return global.fieldCache[FieldModel.tableName];
+		}
+		return require('../schema/fields/fields-fields');
+	}
+
+	get schema() {
+		return FieldModel.schema;
+	}
+
+	get fields() {
+		return FieldModel.fields;
 	}
 
 	async index(key, value) {
@@ -96,14 +113,14 @@ module.exports = class FieldModel extends ModelBase {
 			);
 		} else {
 			let files = fs.readdirSync(global.appRoot + '/src/schema/fields');
-			console.log(files);
 			files.forEach(
 				function(file) {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let tableName = inflector.dasherize(file.split("-fields.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/fields/' + file);
+					let tableName = inflector.underscore(file.split("-fields.js").join(""));
+
+					global.fieldCache[tableName] = require("../../schema/fields/" + file);
 					count++;
 				}
 			);

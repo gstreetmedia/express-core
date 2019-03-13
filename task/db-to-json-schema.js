@@ -2,7 +2,7 @@ require('dotenv').config();
 const md5 = require("md5");
 const fs = require('fs');
 const path = require("path");
-const inflector = require("inflected");
+const inflector = require("../helper/inflector");
 const _ = require("lodash");
 const connectionStringParser = require("connection-string");
 const SchemaModel = require("../model/SchemaModel");
@@ -70,9 +70,11 @@ async function convert(destination, connectionString, options) {
 		connectionString = [connectionString];
 	}
 
+	let cs;
+
 	for (let i = 0; i < connectionString.length; i++) {
 
-		let cs = connectionString[i];
+		cs = connectionString[i];
 		let pool;
 
 		if (cs.indexOf("postgresql") === 0) {
@@ -110,30 +112,38 @@ async function convert(destination, connectionString, options) {
 	// Schema's is an array of json-schema objects
 	//
 	let routers = [];
+	let schemaHash = {};
 
 	for (let q = 0; q < schemas.length; q++) {
-		//schemas.forEach(
-		//async function (item) {
 		let item = schemas[q];
 
 		if (item.tableName.indexOf("_") === 0) { //private tables
-			continue;
+			//continue;
 		}
 
 		let name = item.tableName;
+
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
 				options.removePrefix = [options.removePrefix]
 			}
 			options.removePrefix.forEach(
 				function(item) {
-					name = name.split(item).join("");
+					let tempName = name.split(item).join("");
+					if (!schemaHash[tempName]) {
+						name = tempName;
+					}
 				}
 			)
 		}
-		item.title = inflector.titleize(name);
 
-		//console.log(item.tableName);
+		if (schemaHash[name]) {
+			name += name + "-" + cs.path[0]
+		}
+
+		schemaHash[name] = item;
+
+		item.title = inflector.titleize(name);
 
 		let keys = [];
 		let properties = {};
@@ -190,8 +200,6 @@ async function convert(destination, connectionString, options) {
 		keys = filtered;
 
 		item.properties = properties;
-
-
 
 		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
 		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
@@ -319,26 +327,9 @@ async function convert(destination, connectionString, options) {
 				singleQuotes: false
 			}), 4) + ";");
 
-		if (options.overwrite || !fs.existsSync(validationPath)) {
-			let s = "let validator = require(\"validator\");\n" +
-				"let _ = require(\"lodash\");\n\n" +
-				"let validation = {\n" +
-				"/*\n" +
-				"\tsomeProperty : {\n" +
-				"\t\tvalidate: (key, data, schema) => {\n" +
-				"\t\t\t//return true or false for some condition\n" +
-				"\t\t\treturn true;\n" +
-				"\t\t},\n" +
-				"\t\tdefault : 'some default value'\n" +
-				"\t}\n" +
-				"*/\n"
-			"};"
-			s += "};\n\nmodule.exports = validation;";
-			fs.writeFileSync(validationPath, s);
-		}
 
 		if (options.overwrite || !fs.existsSync(fieldPath)) {
-			let s = 'exports = {\n';
+			let s = 'module.exports = {\n';
 			s += "\tadminIndex : " + JSON.stringify(fieldSchema.adminIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
 			s += "\tadminCreate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
 			s += "\tadminRead : " + JSON.stringify(fieldSchema.adminRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
@@ -352,18 +343,22 @@ async function convert(destination, connectionString, options) {
 		}
 
 		if (options.overwrite || !fs.existsSync(modelPath)) {
+
+			let ClassName = inflector.classify(name) + "Model";
+
 			let s = "const ModelBase = require('../core/model/ModelBase');\n" +
 				"const _ = require('lodash');\n" +
-				"const schema = require('../schema/" + inflector.dasherize(name).toLowerCase() + "-schema');\n" +
-				"const validation = require('../schema/validation/" + inflector.dasherize(name).toLowerCase() + "-validation');\n" +
-				"const fields = require('../schema/fields/" + inflector.dasherize(name).toLowerCase() + "-fields');\n\n" +
-				"module.exports = class " + inflector.classify(name) + "Model extends ModelBase {\n\n" +
+				//"const schema = require('../schema/" + inflector.dasherize(name).toLowerCase() + "-schema');\n" +
+				//"const validation = require('../schema/validation/" + inflector.dasherize(name).toLowerCase() + "-validation');\n" +
+				//"const fields = require('../schema/fields/" + inflector.dasherize(name).toLowerCase() + "-fields');\n\n" +
+				"module.exports = class " + ClassName + " extends ModelBase {\n\n" +
 				"\tconstructor(req) {\n" +
-				"\t\tsuper(schema, validation, fields, req);\n" +
+				"\t\tsuper(req);\n" +
 				"\t}\n\n" +
-				"\tstatic get schema() { return schema; }\n\n" +
-				"\tstatic get validation() { return validation; }\n\n" +
-				"\tstatic get fields() { return fields; }\n\n" +
+				"\tget tableName() { return "+ClassName+".tableName; }\n\n" +
+				"\tstatic get tableName() { return '"+name+"'; }\n\n" +
+				"\tstatic get schema() { return ModelBase.getSchema(" + ClassName + ".tableName); }\n\n" +
+				"\tstatic get fields() { return ModelBase.getFields(" + ClassName + ".tableName); }\n\n" +
 				"\tasync index(key, value){\n\t\treturn await super.index(key, value);\n\t}\n\n" +
 				"\tasync create(data){\n\t\treturn await super.create(data);\n\t}\n\n" +
 				"\tasync read(id, query){\n\t\treturn await super.read(id, query);\n\t}\n\n" +
@@ -373,6 +368,10 @@ async function convert(destination, connectionString, options) {
 				"\tget relations(){\n\t\treturn {};\n\t}\n\n" +
 				"\tget foreignKeys(){\n\t\treturn {};\n\t}\n\n" +
 				"}";
+
+			//console.log(s);
+			//throw new Error("Stop!!!!!!!!!!!!!!!");
+			//return;
 
 			fs.writeFileSync(modelPath, s);
 		}
