@@ -214,7 +214,7 @@ module.exports = class ControllerBase {
 		req.count = parseInt(count);
 		let result = await m.query(req.query);
 
-		console.log(m.lastCommand.toString());
+		//console.log(m.lastCommand.toString());
 
 		if (res) {
 			if (result.error) {
@@ -409,19 +409,26 @@ module.exports = class ControllerBase {
 
 		if (req.query && req.query.select && typeof req.query.select === "string") {
 
-			if (req.query.select === "*") {
+			if (req.query.select === "*") {  //select all
 				return req.query;
 			}
-			try {
-				let result = jsonlint.parse(req.query.select);
-			} catch (e) {
-				return {
-					error : true,
-					message : e.toString(),
-					reason : "Malformed JSON Select"
+			if (req.query.select.indexOf("[") === 0) { //json style = ["field1","field2","field3"]
+				try {
+					let result = jsonlint.parse(req.query.select);
+					req.query.select = JSON.parse(req.query.select);
+				} catch (e) {
+
+					return {
+						error : true,
+						message : e.toString(),
+						reason : "Malformed JSON Select"
+					}
 				}
+			} else {
+				req.query.select = req.query.select.split(",");  //comma sepparated field1,field2,field3
 			}
-			req.query.select = JSON.parse(req.query.select);
+
+
 		}
 
 		return req.query;

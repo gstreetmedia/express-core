@@ -148,6 +148,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 
 				//Check the memory cache for this Session. Go to the DB if not found
 				let session = await cache.get(cacheKey); //Try Cache first
+				let isShouldCache = false;
 
 				if (!session) {
 					session = await Session.findOne(
@@ -160,27 +161,32 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 							join: '*'
 						}
 					);
-				} else {
-					req.user = session.user;
-					req.jwt = token;
-					req.addRole(session.user.role);
-					return true;
+					if (session.error) {
+						return session;
+					}
+					if (session.foreignKeys.userId) {
+						session.user = session.foreignKeys.userId;
+						delete session.foreignKeys;
+					}
+					isShouldCache = true;
 				}
-
 
 				if (!session || session.error) {
 					return "Invalid Session";
 				}
 
 				req.addRole(session.user.role);
-				req.jwt = token;
-				req.user = session.user;
 
 				let args = {
-					user: req.user
+					user: session.user,
+					token : token
 				};
 
-				await cache.set(cacheKey, args);
+				_.extend(req, args);
+
+				if (isShouldCache) {
+					await cache.set(cacheKey, args);
+				}
 			}
 
 			return true;

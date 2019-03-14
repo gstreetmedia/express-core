@@ -108,10 +108,10 @@ module.exports = class ViewControllerBase {
 		}
 		_.extend(o, obj);
 		if (fs.existsSync(global.appRoot + "/src/views/" + page + ".ejs")) {
-			console.log("view override");
+			//console.log("view override");
 			res.render(page, o);
 		} else {
-			console.log("view core");
+			//console.log("view core");
 			res.render("../core/views/" + page, o);
 		}
 

@@ -12,21 +12,21 @@ module.exports = class ConfigModel extends ModelBase {
 	}
 
 	static get tableName() {
-		return "configs";
+		return "config";
 	}
 
 	static get schema() {
 		if (global.schemaCache[schema.tableName]) {
 			return global.schemaCache[schema.tableName]
 		}
-		return require('../../schema/configs-schema');
+		return require('../../schema/config-schema');
 	}
 
 	static get fields() {
 		if (global.fieldCache[schema.tableName]) {
 			return global.fieldCache[schema.tableName];
 		}
-		return require('../../schema/fields/configs-fields');
+		return require('../../schema/fields/config-fields');
 	}
 
 	async index(query){

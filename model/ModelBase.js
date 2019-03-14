@@ -54,13 +54,13 @@ module.exports = class ModelBase {
 	}
 
 	get schema() {
-		if (global.schemaCache[this.tableName]) {
+		if (global.schemaCache && global.schemaCache[this.tableName]) {
 			return global.schemaCache[this.tableName]
 		}
 		if (this._schema) {
 			return this._schema;
 		}
-		this._schema = require('../../schema/' + this.tableName + '-schema');
+		this._schema = require('../../schema/' + inflector.dasherize(this.tableName) + '-schema');
 		return this._schema;
 	}
 
@@ -69,13 +69,13 @@ module.exports = class ModelBase {
 	}
 
 	get fields() {
-		if (global.fieldCache[this.tableName]) {
+		if (global.fieldCache && global.fieldCache[this.tableName]) {
 			return global.fieldCache[this.tableName]
 		}
 		if (this._fields) {
 			return this._fields;
 		}
-		this._fields = require('../../schema/fields/' + this.tableName + '-fields');
+		this._fields = require('../../schema/fields/' + inflector.dasherize(this.tableName) + '-fields');
 		return this._fields;
 	}
 
@@ -535,6 +535,9 @@ module.exports = class ModelBase {
 	async destroyWhere(query) {
 		console.log("ModelBase::destroyWhere");
 		let command = this.queryBuilder.delete(query);
+
+		return command.toString();
+
 		let result = await this.execute(command);
 		return result;
 	}
@@ -653,6 +656,7 @@ module.exports = class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	checkPrimaryKey(data) {
+		//console.log(this.properties[this.primaryKey]);
 		if (!data[this.primaryKey]) {
 			switch (this.properties[this.primaryKey].type) {
 				case "string" :
