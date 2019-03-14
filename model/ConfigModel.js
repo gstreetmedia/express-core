@@ -15,19 +15,9 @@ module.exports = class ConfigModel extends ModelBase {
 		return "config";
 	}
 
-	static get schema() {
-		if (global.schemaCache[schema.tableName]) {
-			return global.schemaCache[schema.tableName]
-		}
-		return require('../../schema/config-schema');
-	}
+	static get schema() { return ModelBase.getSchema(ConfigModel.tableName); }
 
-	static get fields() {
-		if (global.fieldCache[schema.tableName]) {
-			return global.fieldCache[schema.tableName];
-		}
-		return require('../../schema/fields/config-fields');
-	}
+	static get fields() { return ModelBase.getFields(ConfigModel.tableName); }
 
 	async index(query){
 		return await super.index(query);

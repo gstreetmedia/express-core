@@ -18,19 +18,9 @@ module.exports = class UserModel extends ModelBase {
 		return "users";
 	}
 
-	static get schema() {
-		if (global.schemaCache[schema.tableName]) {
-			return global.schemaCache[schema.tableName]
-		}
-		return require('../../schema/users-schema');
-	}
+	static get schema() { return ModelBase.getSchema(UserModel.tableName); }
 
-	static get fields() {
-		if (global.fieldCache[schema.tableName]) {
-			return global.fieldCache[schema.tableName];
-		}
-		return require('../../schema/fields/users-fields');
-	}
+	static get fields() { return ModelBase.getFields(UserModel.tableName); }
 
 	async index(query){
 		return await super.index(query);

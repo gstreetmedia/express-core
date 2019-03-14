@@ -56,6 +56,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (global.fieldCache && global.fieldCache[tableName]) {
 			rawfields = global.fieldCache[tableName].adminIndex;
 		} else {
+			console.log("or here");
 			rawfields = controller.Model.fields.adminIndex;
 		}
 

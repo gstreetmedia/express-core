@@ -21,19 +21,9 @@ module.exports = class SessionModel extends ModelBase {
 		return "sessions";
 	}
 
-	static get schema() {
-		if (global.schemaCache[SessionModel.tableName]) {
-			return global.schemaCache[SessionModel.tableName]
-		}
-		return require('../../schema/sessions-schema');
-	}
+	static get schema() { return ModelBase.getSchema(SessionModel.tableName); }
 
-	static get fields() {
-		if (global.fieldCache[SessionModel.tableName]) {
-			return global.fieldCache[SessionModel.tableName];
-		}
-		return require('../../schema/fields/sessions-fields');
-	}
+	static get fields() { return ModelBase.getFields(SessionModel.tableName); }
 
 	async index(query) {
 		return await super.index(query);

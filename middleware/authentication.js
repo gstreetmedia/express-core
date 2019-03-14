@@ -161,10 +161,10 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 							join: '*'
 						}
 					);
-					if (session.error) {
+					if (session && session.error) {
 						return session;
 					}
-					if (session.foreignKeys.userId) {
+					if (session && session.foreignKeys.userId) {
 						session.user = session.foreignKeys.userId;
 						delete session.foreignKeys;
 					}
