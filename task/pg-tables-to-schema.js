@@ -121,6 +121,7 @@ module.exports = async function( options, pool ) {
 				schema[tableName].readOnly.push( columnName );
 			}
 
+			/*
 			if (column.column_default !== null) {
 				let def = column.column_default;
 				//console.log(def);
@@ -139,6 +140,7 @@ module.exports = async function( options, pool ) {
 
 				}
 			}
+			*/
 		}
 	);
 
@@ -232,7 +234,9 @@ var convertColumnType = function( column, enums )
 			}
 
 			if (defaultValue) {
-				schemaProperty.default = defaultValue.split("{").join("").split("}").join("").split(",");
+				let prop = defaultValue.split("::")[0].split("'").join("");
+				schemaProperty.default = prop.split("{").join("").split("}").join("").split(",");
+				console.log("right here " + schemaProperty.default);
 			}
 
 			break;
@@ -354,6 +358,7 @@ var convertColumnType = function( column, enums )
 	}
 
 	if (defaultValue && !"default" in schemaProperty) {
+		console.log('setting default ' + defaultValue);
 		schemaProperty.default = defaultValue;
 	}
 
@@ -369,6 +374,10 @@ var convertColumnType = function( column, enums )
 			delete schemaProperty.default;
 		}
 	}
+
+
+
+	console.log(column.column_name + " => " + schemaProperty.default);
 
 	return schemaProperty;
 }

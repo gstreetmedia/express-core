@@ -1,10 +1,12 @@
 let jsonlint = require("jsonlint");
 let validateAgainstSchema = require("../helper/validate-against-schema");
 let _ = require("lodash");
+let cache = require("../helper/cache-manager");
 
 module.exports = class ControllerBase {
 	constructor(Model) {
 		this.Model = Model;
+		this.cache = cache;
 	}
 
 	/**
@@ -424,6 +426,5 @@ module.exports = class ControllerBase {
 
 		return req.query;
 	}
-
 
 }

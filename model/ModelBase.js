@@ -772,7 +772,11 @@ module.exports = class ModelBase {
 						m = new item.modelClass(this.req);
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
+						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
+							join[key].select.push(joinTo);
+						}
 						list = await m.find(join[key]);
+
 
 						if (list.error) {
 							//console.log(list.error);
@@ -807,6 +811,12 @@ module.exports = class ModelBase {
 
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
+						//must select the targetJoin key
+						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
+							join[key].select.push(joinTo);
+						}
+
+
 						list = await m.find(join[key]);
 
 						if (list.error) {
@@ -835,6 +845,8 @@ module.exports = class ModelBase {
 								} catch (e) {
 									console.log("Could not join " + key + " for " + this.tableName);
 									console.log("joinTo => " + joinTo);
+									//console.log(join[key].select);
+									//console.log(m.lastCommand.toString());
 								}
 							}
 						}
@@ -857,16 +869,22 @@ module.exports = class ModelBase {
 							idList.push(item[key]);
 						}
 					}
-				)
+				);
+
 				if (idList.length > 0) {
 					let primaryKey = foreignKeys[key].to || m.primaryKey;
-					let list = await m.query(
-						{
-							where: {
-								[primaryKey]: {"in": idList}
-							}
+					let q = {
+						where: {
+							[primaryKey]: {"in": idList}
 						}
-					);
+					};
+					if (join[key].select) {
+						q.select = join[key].select;
+					}
+					if (join[key].join) {
+						q.join = join[key].join;
+					}
+					let list = await m.query(q);
 					if (!list.error) {
 						list.forEach(
 							function (item) {

@@ -67,12 +67,12 @@ module.exports = class UserController extends ControllerBase {
 	}
 
 	async logout(req, res) {
-		if (!req.jwt) {
+		if (!req.jwt && !req.token) {
 			return res.invalid("Missing Token");
 		}
 
 		let m = new this.Model(req);
-		let result = await m.logout(req.jwt);
+		let result = await m.logout(req.jwt ? req.jwt : req.token);
 
 		res.clearCookie('token');
 		res.clearCookie('application-key');

@@ -358,6 +358,9 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (!value) {
 					return value;
 				}
+				if (value === '') {
+					return null;
+				}
 				if (isInsertOrUpdate) {
 					switch (property.format) {
 						case "string" :
@@ -426,7 +429,8 @@ module.exports = class QueryToPgSql extends QueryBase{
 							}
 							return value;
 						default :
-							return this.decodeQuery(value).trim();
+							//return this.decodeQuery(value).trim();
+							return value.trim();
 					}
 				} else {
 					return _.isString(value) ? value.trim() : value;

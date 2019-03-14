@@ -61,7 +61,7 @@ module.exports = (value, property) =>{
 			if (value === '' && property.allowNull === false) {
 				return '';
 			}
-			value = _.isString(value) ? decodeURI(value).split("/").join("\/").trim() : value;
+			value = _.isString(value) ? value.trim() : value;
 			value = _.isNumber(value) ? "" + value : value;
 			if (property.format) {
 				switch (property.format) {

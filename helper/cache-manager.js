@@ -23,7 +23,7 @@ if (process.env.CACHE_REDIS) {
 	manager = cacheManager.caching(config);
 }
 
-exports.set = async function(key, value, ttl) {
+exports.set = async (key, value, ttl) => {
 	return await manager.set(
 		cachePrefix + "_" + key, value,
 		{
@@ -32,8 +32,12 @@ exports.set = async function(key, value, ttl) {
 	);
 } ;
 
-exports.get = async function(key) {
+exports.get = async (key) => {
 	return await manager.get(
 		cachePrefix + "_" + key
 	);
+}
+
+exports.reset = async () => {
+	return await manager.reset
 }
