@@ -88,7 +88,7 @@ module.exports = class SessionModel extends ModelBase {
 				}
 			}
 
-			let maxSessions = (process.env.MAX_SESSIONS || 1);
+			let maxSessions = (process.env.MAX_USER_SESSIONS || 1);
 
 			while (validSessions.length > maxSessions - 1) {
 				await this.destroy(validSessions[0].id);
