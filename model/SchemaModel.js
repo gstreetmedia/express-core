@@ -149,10 +149,10 @@ module.exports = class SchemaModel extends ModelBase {
 
 	async get(tableName, fromCache) {
 
+		global.schemaCache = global.schemaCache || {};
 		if (fromCache !== false) {
-			let result = await cache.get("schema_" + tableName);
-			if (result) {
-				return result;
+			if (global.schemaCache[tableName]) {
+				return global.schemaCache[tableName];
 			}
 		}
 
@@ -165,7 +165,7 @@ module.exports = class SchemaModel extends ModelBase {
 		);
 
 		if (result.length === 1) {
-			await cache.get("schema_" + tableName, result[0]);
+			global.schemaCache[tableName] = result[0];
 			return result[0];
 		}
 		return null;

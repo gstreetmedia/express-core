@@ -236,7 +236,7 @@ var convertColumnType = function( column, enums )
 			if (defaultValue) {
 				let prop = defaultValue.split("::")[0].split("'").join("");
 				schemaProperty.default = prop.split("{").join("").split("}").join("").split(",");
-				console.log("right here " + schemaProperty.default);
+				//console.log("right here " + schemaProperty.default);
 			}
 
 			break;
@@ -358,7 +358,7 @@ var convertColumnType = function( column, enums )
 	}
 
 	if (defaultValue && !"default" in schemaProperty) {
-		console.log('setting default ' + defaultValue);
+		//console.log('setting default ' + defaultValue);
 		schemaProperty.default = defaultValue;
 	}
 
@@ -377,7 +377,7 @@ var convertColumnType = function( column, enums )
 
 
 
-	console.log(column.column_name + " => " + schemaProperty.default);
+	//console.log(column.column_name + " => " + schemaProperty.default);
 
 	return schemaProperty;
 }
