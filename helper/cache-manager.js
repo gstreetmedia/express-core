@@ -7,6 +7,7 @@ let cachePrefix = process.env.CACHE_PREFIX || "core";
 let setFunction;
 let getFunction;
 let resetFunction;
+let destroyFunction;
 
 if (process.env.CACHE_REDIS) {
 	console.log("redis " + process.env.CACHE_REDIS);
@@ -54,14 +55,27 @@ if (process.env.CACHE_REDIS) {
 				}
 			});
 		});
-	}
+	};
 
+	destroyFunction = (key) => {
+		return new Promise(function (resolve, reject) {
+			manager.del(function (err, result) {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(result);
+				}
+			});
+		});
+	};
 
 } else {
 	config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
 	manager = cacheManager.caching(config);
 	setFunction = manager.set;
 	getFunction = manager.get;
+	destroyFunction = manager.del;
+	resetFunction = manager.reset;
 }
 
 exports.set = async (key, value, ttl) => {
@@ -85,3 +99,7 @@ exports.reset = async() => {
 	console.log("reset");
 	return await resetFunction();
 };
+
+exports.del = async(key) => {
+	return await destroyFunction("memory_" + cachePrefix + "_" + key);
+}
