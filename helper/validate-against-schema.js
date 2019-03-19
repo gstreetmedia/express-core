@@ -82,6 +82,8 @@ module.exports = (key, data, schema) => {
 			switch (schema.properties[key].format) {
 				case "array" :
 					return _.isArray(data[key]);
+				case "geometry" :
+					return true;
 				default :
 					return _.isObject(data[key]);
 			}

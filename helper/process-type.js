@@ -16,8 +16,19 @@ module.exports = (value, property) =>{
 
 	switch (property.type) {
 		case "object" :
+			switch (property.format) {
+				case "geometry" :
+					return value;
+			}
 			if (_.isString(value) && value !== "") {
-				value = JSON.parse(value);
+				try {
+					value = JSON.parse(value);
+				} catch (e) {
+					console.log("Could not parse JSON for " + property.columnName);
+					console.log(value);
+					return null;
+				}
+
 				if (_.isString(value)) {
 					value = JSON.parse(value);
 				}

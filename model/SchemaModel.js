@@ -100,12 +100,13 @@ module.exports = class SchemaModel extends ModelBase {
 
 			let results = await this.find({where: {dataSource: {"!=": null}}});
 
+			//TODO we really need to have a key that is datasource_tablename;
+
 			results.forEach(
 				function (item) {
 					strings.forEach(
 						function (cs) {
 							if (cs.path[0] === item.dataSource) {
-
 								global.schemaCache[item.tableName] = item;
 								count++;
 							}
