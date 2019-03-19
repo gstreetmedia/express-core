@@ -11,7 +11,12 @@ module.exports = (value, property) =>{
 	if (value === null && property.allowNull === true) {
 		return null;
 	} else if (value === null) {
-		return property.default;
+		if (property.default) {
+			return property.default;
+		} else {
+			return '';
+		}
+
 	}
 
 	switch (property.type) {
@@ -71,6 +76,13 @@ module.exports = (value, property) =>{
 
 			if (value === '' && property.allowNull === false) {
 				return '';
+			}
+			if (value === undefined || value === "undefined") {
+				if (property.allowNull === false) {
+					return '';
+				} else {
+					return null;
+				}
 			}
 			value = _.isString(value) ? value.trim() : value;
 			value = _.isNumber(value) ? "" + value : value;

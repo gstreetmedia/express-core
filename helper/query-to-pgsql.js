@@ -180,15 +180,19 @@ module.exports = class QueryToPgSql extends QueryBase{
 	processArrayColumn(key, compare, value, sqlBuilder, isOr) {
 
 		let context = this;
+		let property = this.properties[key];
+
 
 		let columnName;
-		if (this.properties[key] && this.properties[key].columnName) {
-			columnName = this.properties[key].columnName;
+		if (property && property.columnName) {
+			columnName = this.castColumn(this.tableName, property);
 		} else {
 			return;
 		}
 
-		let columnType = this.properties[key].type;
+		console.log(value);
+
+		let processedValue = this.processArrayType(value, property);
 
 		let c = {
 			where : "where",
@@ -221,35 +225,35 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			case "gt" :
 			case ">" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " > " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.where](this.raw(columnName + " > " + processedValue));
 				break;
 			case "gte" :
 			case ">=" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " >= " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.where](this.raw(columnName + " >= " + processedValue));
 				break;
 			case "lt" :
 			case "<" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " < " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.where](this.raw(columnName + " < " + processedValue));
 				break;
 			case "lte" :
 			case "<=" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " <= " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.where](this.raw(columnName + " <= " + processedValue));
 				break;
 			case "in" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " @> " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.where](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "nin" :
-				sqlBuilder[c.whereNot](this.raw(this.tableName + "." + columnName + " @> " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.whereNot](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "=" :
 			case "==" :
 			case "eq" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
-				sqlBuilder[c.whereNot](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key])));
+				sqlBuilder[c.whereNot](this.raw(columnName + " = " + processedValue));
 				break;
 				break;
 			case "or" :
@@ -283,13 +287,24 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			default :
 				if (value === null) {
-					sqlBuilder.whereNull(this.raw(this.tableName + "." + columnName, this.processType(value, this.properties[key])));
+					sqlBuilder.whereNull(this.raw(columnName, processedValue));
 				} else {
-					sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key])));
+					sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
 				}
 		}
 	}
 
+
+	castColumn(tableName, property) {
+		switch (property.format) {
+			case "integer" :
+				return '"'+tableName+'"."' + property.columnName + '"::int[]';
+			case "number" :
+				return '"'+tableName+'"."' + property.columnName + '"::decimal[]';
+			default :
+				return '"'+tableName+'"."' + property.columnName + '"::text[]';
+		}
+	}
 
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
@@ -343,22 +358,22 @@ module.exports = class QueryToPgSql extends QueryBase{
 
 					}
 				}
-				if (_.isArray(value)) {
+				if (!_.isArray(value)) {
 					value = [value];
 				}
 				switch (property.format) {
 					case "uuid" :
 					case "string" :
-						return this.raw("ARRAY['" + value.join("','") + "']::text");
+						return this.raw("ARRAY['" + value.join("','") + "']::text[]");
 						break;
 					case "integer" :
-						return this.raw("ARRAY['" + value.join("','") + "']::int");
+						return this.raw("ARRAY['" + value.join("','") + "']::int[]");
 						break;
 					case "number" :
-						return this.raw("ARRAY['" + value.join("','") + "']::decimal");
+						return this.raw("ARRAY['" + value.join("','") + "']::decimal[]");
 						break;
 					default :
-						return this.raw("ARRAY[" + value.join(",") + "]");
+						return this.raw("ARRAY[" + value.join(",") + "]::text[]");
 
 				}
 			case "number" :
