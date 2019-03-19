@@ -467,7 +467,6 @@ module.exports = class QueryToPgSql {
 
 				let isOr = compare === "or" ? true : false;
 
-
 				queryBuilder.where(
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {

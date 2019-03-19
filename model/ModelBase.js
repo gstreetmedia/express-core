@@ -1037,6 +1037,7 @@ module.exports = class ModelBase {
 		try {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
+			console.log(e);
 			return {
 				error: e,
 				message: "Error converting command to string"
