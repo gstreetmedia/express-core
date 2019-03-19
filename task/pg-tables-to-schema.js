@@ -204,6 +204,7 @@ var convertColumnType = function( column, enums )
 				case "_text" :
 				case "_varchar" :
 				case 'character varying' :
+				case '_bpchar' :
 
 					schemaProperty.format = "string";
 					let list = _.filter(enums, {key: column.table_name + "_" + column.column_name});
