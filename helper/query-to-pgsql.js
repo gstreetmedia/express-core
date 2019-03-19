@@ -221,35 +221,35 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			case "gt" :
 			case ">" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " > " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " > " + this.processType(value, this.properties[key])));
 				break;
 			case "gte" :
 			case ">=" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " >= " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " >= " + this.processType(value, this.properties[key])));
 				break;
 			case "lt" :
 			case "<" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " < " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " < " + this.processType(value, this.properties[key])));
 				break;
 			case "lte" :
 			case "<=" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " <= " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " <= " + this.processType(value, this.properties[key])));
 				break;
 			case "in" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " @> " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " @> " + this.processType(value, this.properties[key])));
 				break;
 			case "nin" :
-				sqlBuilder[c.whereNot](this.raw(this.tableName + "." + columnName + " @> " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.whereNot](this.raw(this.tableName + "." + columnName + " @> " + this.processType(value, this.properties[key])));
 				break;
 			case "=" :
 			case "==" :
 			case "eq" :
-				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key])));
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
-				sqlBuilder[c.whereNot](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key]));
+				sqlBuilder[c.whereNot](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key])));
 				break;
 				break;
 			case "or" :
@@ -283,9 +283,9 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			default :
 				if (value === null) {
-					sqlBuilder.whereNull(this.tableName + "." + columnName, this.processType(value, this.properties[key]));
+					sqlBuilder.whereNull(this.raw(this.tableName + "." + columnName, this.processType(value, this.properties[key])));
 				} else {
-					sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key]));
+					sqlBuilder[c.where](this.raw(this.tableName + "." + columnName + " = " + this.processType(value, this.properties[key])));
 				}
 		}
 	}
