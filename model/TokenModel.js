@@ -18,19 +18,9 @@ module.exports = class TokenModel extends ModelBase {
 		return "tokens";
 	}
 
-	static get schema() {
-		if (global.schemaCache[TokenModel.tableName]) {
-			return global.schemaCache[TokenModel.tableName]
-		}
-		return require('../../schema/tokens-schema');
-	}
+	static get schema() { return ModelBase.getSchema(TokenModel.tableName); }
 
-	static get fields() {
-		if (global.fieldCache[TokenModel.tableName]) {
-			return global.fieldCache[TokenModel.tableName];
-		}
-		return require('../../schema/fields/tokens-fields');
-	}
+	static get fields() { return ModelBase.getFields(TokenModel.tableName); }
 
 	async index(query){
 		return await super.index(query);

@@ -89,8 +89,8 @@ module.exports = function (req, res, next) {
 		if (!_.isArray(role)) {
 			role = [role];
 		}
-		console.log("intersection");
-		console.log(_.intersection(req.currentRoles, role));
+		//console.log("intersection");
+		//console.log(_.intersection(req.currentRoles, role));
 		return _.intersection(req.currentRoles, role).length > 0;
 	};
 

@@ -48,9 +48,12 @@ module.exports = class ModelBase {
 		if (this._tableName) {
 			return this._tableName;
 		}
+		//return this.schema.tableName;
+
 		let name = this.constructor.name.split("Model").join("");
 		this._tableName = inflector.underscore(inflector.pluralize(name));
 		return this._tableName;
+
 	}
 
 	get schema() {
@@ -1034,6 +1037,7 @@ module.exports = class ModelBase {
 		try {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
+			console.log(e);
 			return {
 				error: e,
 				message: "Error converting command to string"

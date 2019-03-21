@@ -113,8 +113,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "eq" :
 				if (value === null) {
 					sqlBuilder.whereNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					sqlBuilder.whereIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
 				} else {
 					sqlBuilder.where(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
 				}
@@ -125,8 +123,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "ne" :
 				if (value === null) {
 					sqlBuilder.whereNotNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					sqlBuilder.whereNotIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
 				} else {
 					sqlBuilder.whereNot(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
 				}
@@ -181,18 +177,42 @@ module.exports = class QueryToPgSql extends QueryBase{
 	 * @param value
 	 * @param sqlBuilder
 	 */
-	processArrayColumn(key, compare, value, sqlBuilder) {
+	processArrayColumn(key, compare, value, sqlBuilder, isOr) {
 
 		let context = this;
+		let property = this.properties[key];
+
 
 		let columnName;
-		if (this.properties[key] && this.properties[key].columnName) {
-			columnName = this.properties[key].columnName;
+		if (property && property.columnName) {
+			columnName = this.castColumn(this.tableName, property);
 		} else {
 			return;
 		}
 
-		let columnType = this.properties[key].type;
+		console.log(value);
+
+		let processedValue = this.processArrayType(value, property);
+
+		let c = {
+			where : "where",
+			whereIn : "whereIn",
+			whereNotIn : "whereNotIn",
+			whereNull : "whereNull",
+			whereNot : "whereNot",
+			whereNotNull : "whereNotNull"
+		}
+
+		if (isOr) {
+			c = {
+				where : "orWhere",
+				whereIn : "orWhereIn",
+				whereNotIn : "orWhereNotIn",
+				whereNull : "orWhereNull",
+				whereNot : "orWhereNot",
+				whereNotNull : "orWhereNotNull"
+			}
+		}
 
 		switch (compare) {
 			case "inside" :
@@ -205,76 +225,35 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			case "gt" :
 			case ">" :
-				sqlBuilder.where(this.raw(this.processType(val, this.properties[key]) + " > ANY(" + columnName + ")"));
+				sqlBuilder[c.where](this.raw(columnName + " > " + processedValue));
 				break;
 			case "gte" :
 			case ">=" :
-				sqlBuilder.where(this.raw(this.processType(val, this.properties[key]) + " >= ANY(" + columnName + ")"));
+				sqlBuilder[c.where](this.raw(columnName + " >= " + processedValue));
 				break;
 			case "lt" :
 			case "<" :
-				sqlBuilder.where(this.raw(this.processType(val, this.properties[key]) + " < ANY(" + columnName + ")"));
+				sqlBuilder[c.where](this.raw(columnName + " < " + processedValue));
 				break;
 			case "lte" :
 			case "<=" :
-				sqlBuilder.where(this.raw(this.processType(val, this.properties[key]) + " <= ANY(" + columnName + ")"));
+				sqlBuilder[c.where](this.raw(columnName + " <= " + processedValue));
 				break;
 			case "in" :
-				sqlBuilder.where(
-					(builder) => {
-						value.forEach(
-							function (val) {
-								builder.orWhere(context.knexRaw(context.processType(val, this.properties[key]) + " = ANY(" + columnName + ")"));
-							}
-						)
-					}
-				)
-
+				sqlBuilder[c.where](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "nin" :
-				sqlBuilder.where(
-					(builder) => {
-						value.forEach(
-							function (val) {
-								builder.where(context.knexRaw(context.processType(val, this.properties[key]) + " != ANY(" + columnName + ")"));
-							}
-						)
-					}
-				)
+				sqlBuilder[c.whereNot](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "=" :
 			case "==" :
 			case "eq" :
-				if (_.isArray(value)) {
-					sqlBuilder.where(
-						(builder) => {
-							value.forEach(
-								function (val) {
-									builder.orWhere(context.knexRaw(context.processType(val, this.properties[key]) + " = ANY(" + columnName + ")"));
-								}
-							)
-						}
-					)
-				} else {
-					sqlBuilder.where(this.raw(this.processType(value, this.properties[key]) + " = ANY(" + columnName + ")"));
-				}
+				sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
-				if (_.isArray(value)) {
-					sqlBuilder.where(
-						(builder) => {
-							value.forEach(
-								function (val) {
-									builder.where(context.knexRaw(context.processType(val, this.properties[key]) + " != ANY(" + columnName + ")"));
-								}
-							)
-						}
-					)
-				} else {
-					sqlBuilder.where(this.raw(this.processType(value, this.properties[key]) + " = ANY(" + columnName + ")"));
-				}
+				sqlBuilder[c.whereNot](this.raw(columnName + " = " + processedValue));
 				break;
 				break;
 			case "or" :
@@ -308,19 +287,24 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			default :
 				if (value === null) {
-					sqlBuilder.whereNull(this.tableName + "." + columnName, this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					value.forEach(
-						function (val) {
-							sqlBuilder.orWhere(context.knexRaw(context.processType(val, this.properties[key]) + " != ANY(" + columnName + ")"));
-						}
-					)
+					sqlBuilder.whereNull(this.raw(columnName, processedValue));
 				} else {
-					sqlBuilder.where(knex.raw(this.processType(value, this.properties[key]) + " = ANY(" + columnName + ")"));
+					sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
 				}
 		}
 	}
 
+
+	castColumn(tableName, property) {
+		switch (property.format) {
+			case "integer" :
+				return '"'+tableName+'"."' + property.columnName + '"::int[]';
+			case "number" :
+				return '"'+tableName+'"."' + property.columnName + '"::decimal[]';
+			default :
+				return '"'+tableName+'"."' + property.columnName + '"::text[]';
+		}
+	}
 
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
@@ -374,18 +358,23 @@ module.exports = class QueryToPgSql extends QueryBase{
 
 					}
 				}
-				if (_.isArray(value)) {
-					if (property.format === "string" || property.format === "uuid") {
-						return "('" + value.join("','") + "')";
-					} else {
-						return "(" + value.join(",") + ")";
-					}
-				} else {
-					if (property.format === "string") {
-						return "'" + value + "'";
-					} else {
-						return value;
-					}
+				if (!_.isArray(value)) {
+					value = [value];
+				}
+				switch (property.format) {
+					case "uuid" :
+					case "string" :
+						return this.raw("ARRAY['" + value.join("','") + "']::text[]");
+						break;
+					case "integer" :
+						return this.raw("ARRAY['" + value.join("','") + "']::int[]");
+						break;
+					case "number" :
+						return this.raw("ARRAY['" + value.join("','") + "']::decimal[]");
+						break;
+					default :
+						return this.raw("ARRAY[" + value.join(",") + "]::text[]");
+
 				}
 			case "number" :
 				if (!_.isNumber(value)) {

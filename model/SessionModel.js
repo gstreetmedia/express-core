@@ -21,19 +21,9 @@ module.exports = class SessionModel extends ModelBase {
 		return "sessions";
 	}
 
-	static get schema() {
-		if (global.schemaCache[SessionModel.tableName]) {
-			return global.schemaCache[SessionModel.tableName]
-		}
-		return require('../../schema/sessions-schema');
-	}
+	static get schema() { return ModelBase.getSchema(SessionModel.tableName); }
 
-	static get fields() {
-		if (global.fieldCache[SessionModel.tableName]) {
-			return global.fieldCache[SessionModel.tableName];
-		}
-		return require('../../schema/fields/sessions-fields');
-	}
+	static get fields() { return ModelBase.getFields(SessionModel.tableName); }
 
 	async index(query) {
 		return await super.index(query);
@@ -59,61 +49,75 @@ module.exports = class SessionModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
+	/**
+	 * Scrub extra session for this user
+	 * @param userId
+	 * @returns {Promise<void>}
+	 */
+	async houseKeeping(userId) {
+		let now = new moment().tz("UTC");
+
+		let sessions = await this.find(
+			{
+				where : {
+					userId: userId
+				},
+				sort : "expiresAt asc"
+			}
+		);
+
+		let token = null;
+
+		if (sessions.length > 0) {
+			let validSessions = [];
+			for (let i = 0; i < sessions.length; i++) {
+				let decoded;
+
+				try {
+					decoded = jwt.verify(sessions[i].token, process.env.JWT_TOKEN_SECRET);
+				} catch (e) {
+					decoded = null;
+				}
+
+				let expiresAt = moment(sessions[i].expiresAt);
+
+				if (decoded && expiresAt.isAfter(now)) {
+					validSessions.push(sessions[i]);
+				} else {
+					let result = await this.destroy(sessions[i].id);
+				}
+			}
+
+			let maxSessions = (process.env.CORE_MAX_USER_SESSIONS || 1);
+
+			while (validSessions.length > maxSessions - 1) {
+				await this.destroy(validSessions[0].id);
+				validSessions.shift();
+			}
+		}
+	}
+
+	/**
+	 * Get a session token for this user record
+	 * @param userRecord - can be anything, but should include at least the user.id
+	 * @param req
+	 * @param maxAge
+	 * @returns {Promise<*>}
+	 */
 	async getToken(userRecord, req, maxAge) {
 		let userId = userRecord.id;
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
 
-		let sessions = await this.find(
-			{
-				where : {
-					userId: {"=" : userRecord.id}
-				},
-				limit : 1
-			}
-		);
-
-		if (sessions.length > 0) {
-			let decoded;
-			try {
-				decoded = jwt.verify(this.token, process.env.JWT_TOKEN_SECRET);
-			} catch (e) {
-				decoded = null;
-			}
-			if (decoded) {
-				console.log("recycling token");
-				await this.update(
-						{
-							userId: userId,
-							userAgent: userAgent,
-							ipAddress: ipAddress
-						},
-						{
-							expiresAt: moment().add('30', 'days').format("YYYY-MM-DD HH:mm:ss.SSS"),
-						}
-					);
-				return this.token;
-			} else {
-				for (let i = 0; i < sessions.length; i++) {
-					if (sessions[i].token === this.token) {
-						console.log("removing expired token");
-						try {
-							await this.destroy(
-									{
-										token: this.token
-									}
-								)
-						} catch (e) {
-							console.log("Error removing expired");
-						}
-						break;
-					}
-				}
-			}
+		if (!userRecord || !userRecord.id) {
+			return {
+				error : "Missing User Record or valid id"
+			};
 		}
 
-		// If no sessions then create new
-		var obj = _.cloneDeep(userRecord);
+		await this.houseKeeping(userRecord.id);
+
+		let obj = _.cloneDeep(userRecord);
 		obj.ipAddress = ipAddress;
 		obj.userAgent = userAgent;
 
@@ -130,33 +134,23 @@ module.exports = class SessionModel extends ModelBase {
 		);
 
 		await this.create(
-				{
-					id: uuid.v4(),
-					userId: userId,
-					token: token,
-					expiresAt: moment().add(30, 'days').format("YYYY-MM-DD HH:mm:ss.SSS"),
-					userAgent: userAgent,
-					ipAddress: ipAddress
-				}
-			);
+			{
+				id: uuid.v4(),
+				userId: userId,
+				token: token,
+				expiresAt: moment().add(30, 'days').format("YYYY-MM-DD HH:mm:ss.SSS"),
+				userAgent: userAgent,
+				ipAddress: ipAddress
+			}
+		);
 		// All done.
 		return token;
 	}
 
 
 	get relations() {
-		return {};
-		const UserModel = require("./UserModel");
-		return {
-			user : {
-				relation : "HasOne",
-				modelClass: UserModel,
-				join: {
-					from: "userId",
-					to: "id"
-				}
-			}
-		}
+
+
 	}
 
 	get foreignKeys () {
