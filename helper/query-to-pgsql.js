@@ -294,7 +294,8 @@ module.exports = class QueryToPgSql extends QueryBase{
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
 	 * @param value
-	 * @param {Object} property - a single json schema property
+	 * @param property
+	 * @param isInsertOrUpdate
 	 * @returns {*}
 	 */
 	processType(value, property, isInsertOrUpdate) {
