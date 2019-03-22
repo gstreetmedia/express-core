@@ -11,13 +11,29 @@ module.exports = (value, property) =>{
 	if (value === null && property.allowNull === true) {
 		return null;
 	} else if (value === null) {
-		return property.default;
+		if (property.default) {
+			return property.default;
+		} else {
+			return '';
+		}
+
 	}
 
 	switch (property.type) {
 		case "object" :
+			switch (property.format) {
+				case "geometry" :
+					return value;
+			}
 			if (_.isString(value) && value !== "") {
-				value = JSON.parse(value);
+				try {
+					value = JSON.parse(value);
+				} catch (e) {
+					console.log("Could not parse JSON for " + property.columnName);
+					console.log(value);
+					return null;
+				}
+
 				if (_.isString(value)) {
 					value = JSON.parse(value);
 				}
@@ -60,6 +76,13 @@ module.exports = (value, property) =>{
 
 			if (value === '' && property.allowNull === false) {
 				return '';
+			}
+			if (value === undefined || value === "undefined") {
+				if (property.allowNull === false) {
+					return '';
+				} else {
+					return null;
+				}
 			}
 			value = _.isString(value) ? value.trim() : value;
 			value = _.isNumber(value) ? "" + value : value;

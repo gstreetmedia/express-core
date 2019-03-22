@@ -63,9 +63,8 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			let configuration = await cache.get("configuration_" + key);
 
 			if (configuration) {
-				req.token = configuration.token;
-				req.config = configuration.config;
-				req.addRole("api-user");
+				_.extend(req, configuration);
+				req.addRole(configuration.token.role || "api-user");
 				return true;
 			}
 
@@ -75,7 +74,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 						key: req.headers['application-key'],
 						secret: req.headers['application-secret']
 					},
-					join: ['config']
+					join: "*"
 				}
 			);
 
@@ -93,17 +92,29 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 				}
 			}
 
-			req.config = token.config;
-			req.token = token;
-			//delete token.config;
-			req.addRole(token.role || "api-user");
+			let obj = {
+				token : null
+			}
 
-			await cache.set("configuration_" + key,
-				{
-					token: req.token,
-					config: req.config
+			let relations = Object.keys(Token.relations);
+
+			relations.forEach(
+				function(key) {
+					if (token[key]) {
+						console.log("surfacing relation " + key);
+						obj[key] = token[key];
+						delete token[key];
+					}
 				}
 			);
+
+			obj.token = token;
+
+			_.extend(req, obj);
+
+			req.addRole(token.role || "api-user");
+
+			await cache.set("configuration_" + key, obj);
 
 			return true;
 		}

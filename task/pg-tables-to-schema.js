@@ -201,12 +201,15 @@ var convertColumnType = function( column, enums )
 			schemaProperty.type = 'array';
 
 			switch (column.udt_name) {
-				case "_text" :
+
 				case "_varchar" :
 				case 'character varying' :
+				case '_character' :
 				case '_bpchar' :
 
 					schemaProperty.format = "string";
+					schemaProperty.cast = "character";
+
 					let list = _.filter(enums, {key: column.table_name + "_" + column.column_name});
 
 
@@ -219,19 +222,31 @@ var convertColumnType = function( column, enums )
 						}
 					}
 
+				case "_text" :
+					schemaProperty.format = "string";
+					schemaProperty.cast = "text";
 					break;
+				case '_bigint':
+				case '_integer':
 				case "_int4" :
+				case '_smallint':
 					schemaProperty.format = "integer";
+					schemaProperty.cast = "integer";
 					break;
-				case "_numeric" :
-				case "_float8" :
+				case '_real':
+				case '_float8':
+				case 'double precision':
+				case '_numeric':
 					schemaProperty.format = "number";
+					schemaProperty.cast = "numeric";
 					break;
 				case "_uuid" :
 					schemaProperty.format = "uuid";
+					schemaProperty.cast = "character";
 					break;
 				default :
 					schemaProperty.format = column.udt_name;
+					schemaProperty.cast = "text";
 			}
 
 			if (defaultValue) {
