@@ -190,9 +190,10 @@ module.exports = class QueryToPgSql extends QueryBase{
 			return;
 		}
 
-		console.log(value);
+		//console.log(value);
 
-		let processedValue = this.processArrayType(value, property);
+		let processedValue = this.processType(value, property);
+		//console.log(processedValue);
 
 		let c = {
 			where : "where",
@@ -287,7 +288,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			default :
 				if (value === null) {
-					sqlBuilder.whereNull(this.raw(columnName, processedValue));
+					sqlBuilder[c.whereNull](this.raw(columnName));
 				} else {
 					sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
 				}

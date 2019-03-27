@@ -353,7 +353,7 @@ module.exports = class QueryToPgSql {
 			let columnType = this.properties[key].type;
 			columnFormat = this.properties[key].format;
 			if (columnType === "array") {
-				return this.processArrayColumn(key, compare, value, queryBuilder)
+				return this.processArrayColumn(key, compare, value, queryBuilder, isOr)
 			}
 		} else if (key !== "or" && key !== "and") {
 			return;
@@ -472,9 +472,9 @@ module.exports = class QueryToPgSql {
 						for (let i = 0; i < value.length; i++) {
 							let innerCompare = "";
 							let innerValue;
-							let innerKey = Object.keys(value[i])[0];
+							let innerKey = Object.keys(value[i])[0]; //{field:{}}
 
-							if (typeof value[i][innerKey] === "object") {
+							if (value[i][innerKey] && typeof value[i][innerKey] === "object") {
 								innerCompare = Object.keys(value[i][innerKey])[0];
 							}
 
