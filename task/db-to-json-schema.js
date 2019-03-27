@@ -433,7 +433,7 @@ async function convert(destination, connectionString, options) {
 				"});\n\n" +
 				"router.delete('/:id', async function (req, res, next) {\n" +
 				"\tif(req.checkRole()){\n" +
-				"\t\treturn await c.delete(req, res);\n\t}\n\treturn next();\n" +
+				"\t\treturn await c.destroy(req, res);\n\t}\n\treturn next();\n" +
 				"});\n\n" +
 				"module.exports = router;"
 

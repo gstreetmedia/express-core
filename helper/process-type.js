@@ -84,6 +84,7 @@ module.exports = (value, property) =>{
 					return null;
 				}
 			}
+			value = "" + value;
 			value = _.isString(value) ? value.trim() : value;
 			value = _.isNumber(value) ? "" + value : value;
 			if (property.format) {
