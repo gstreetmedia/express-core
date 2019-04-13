@@ -21,6 +21,7 @@ if (process.env.CACHE_REDIS) {
 	manager = cacheManager.caching(config);
 	manager.store.events.on('redisError', function(error) {
 		// handle error here
+		console.log("Redis Error @ => " + new Date().toUTCString());
 		console.log(error);
 	});
 	setFunction = (key, value, ttl) => {
