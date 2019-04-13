@@ -593,7 +593,7 @@ module.exports = class QueryToPgSql {
 			case "==" :
 			case "eq" :
 				if (value === null) {
-					queryBuilder.whereNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
+					queryBuilder.whereNull(this.raw(this.tableName + "." + columnName + " IS NULL"));
 				} else if (_.isArray(value)) {
 					queryBuilder.whereIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
 				} else {
@@ -605,7 +605,7 @@ module.exports = class QueryToPgSql {
 			case "!=" :
 			case "ne" :
 				if (value === null) {
-					queryBuilder.whereNotNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
+					queryBuilder.whereNotNull(this.raw(this.tableName + "." + columnName + " NOT NULL"));
 				} else if (_.isArray(value)) {
 					queryBuilder.whereNotIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
 				} else {

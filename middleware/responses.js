@@ -67,7 +67,7 @@ module.exports = async function (req, res, next) {
 	};
 
 	res.invalid = (message)=> {
-		console.log(message);
+		//console.log(message);
 		if (typeof  message === "object") {
 			return res.status(400).send(message)
 		}

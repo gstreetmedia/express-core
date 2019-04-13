@@ -536,11 +536,9 @@ module.exports = class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroyWhere(query) {
-		console.log("ModelBase::destroyWhere");
+		//console.log("ModelBase::destroyWhere");
 		let command = this.queryBuilder.delete(query);
-
 		return command.toString();
-
 		let result = await this.execute(command);
 		return result;
 	}
@@ -686,11 +684,11 @@ module.exports = class ModelBase {
 
 		//console.log("join " + this.tableName);
 
-		if (!this.relationMappings && !this.relations && !this.foreignKeys) {
+		if (!this.relations && !this.foreignKeys) {
 			return results;
 		}
 
-		let relations = this.relationMappings || this.relations || {};
+		let relations = this.relations || {};
 		let foreignKeys = this.foreignKeys || {};
 		let fromIndex = {};
 		let findOne = false;
@@ -756,7 +754,7 @@ module.exports = class ModelBase {
 				let targetKeys = [];
 				let deepJoin;
 
-				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
+				for (let i = 0; i < results.length; i++) { //grab the join.from keys from object(s)
 					if (results[i][joinFrom]) {
 						targetKeys.push(results[i][joinFrom]);
 						fromIndex[results[i][joinFrom]] = i;
@@ -777,7 +775,7 @@ module.exports = class ModelBase {
 				switch (item.relation) {
 					case "HasOne":
 						m = new item.modelClass(this.req);
-						join[key].where = join[key].where || {};
+						join[key].where = join[key].where || relations[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 							join[key].select.push(joinTo);
@@ -816,7 +814,7 @@ module.exports = class ModelBase {
 							continue;
 						}
 
-						join[key].where = join[key].where || {};
+						join[key].where = join[key].where || relations[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
 						//must select the targetJoin key
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
@@ -825,6 +823,7 @@ module.exports = class ModelBase {
 
 
 						list = await m.find(join[key]);
+						//console.log(m.lastCommand.toString());
 
 						if (list.error) {
 							//console.log(list.error);
@@ -870,7 +869,7 @@ module.exports = class ModelBase {
 				}
 
 				let idList = [];
-				results.forEach(
+				results.forEach( //if sending in a long list, we want to query by ids in (1,2,3,4) to get in one shot
 					function (item) {
 						if (item[key] !== null) {
 							idList.push(item[key]);

@@ -192,7 +192,7 @@ module.exports = class ControllerBase {
 	 */
 	async query(req, res) {
 
-		console.log("ControllerBase::query");
+		//console.log("ControllerBase::query");
 
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
@@ -404,8 +404,6 @@ module.exports = class ControllerBase {
 				req.query.join = JSON.parse(req.query.join);
 			}
 		}
-
-		console.log(typeof req.query.select);
 
 		if (req.query && req.query.select && typeof req.query.select === "string") {
 

@@ -79,7 +79,7 @@ if (process.env.CACHE_REDIS) {
 }
 
 exports.set = async (key, value, ttl) => {
-	console.log("cache-manager set " + key);
+	//console.log("cache-manager set " + key);
 	return await setFunction(
 		cachePrefix + "_" + key, value,
 		{
@@ -89,14 +89,14 @@ exports.set = async (key, value, ttl) => {
 } ;
 
 exports.get = async (key) => {
-	console.log("cache-manager get " + key);
+	//console.log("cache-manager get " + key);
 	return await getFunction(
 		cachePrefix + "_" + key
 	);
 };
 
 exports.reset = async() => {
-	console.log("reset");
+	//console.log("reset");
 	return await resetFunction();
 };
 
