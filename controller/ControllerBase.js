@@ -309,9 +309,12 @@ module.exports = class ControllerBase {
 		results.forEach(
 			function(item) {
 				for(let field in item) {
-					if (item[field] && item[field].toLowerCase().indexOf(search) !== -1) {
-						hash[field] = hash[field] || [];
-						hash[field].push(item[field])
+					if (item[field]) {
+						let value = "" + item[field];
+						if (value.toLowerCase().indexOf(search) !== -1) {
+							hash[field] = hash[field] || [];
+							hash[field].push(item[field])
+						}
 					}
 				}
 			}
