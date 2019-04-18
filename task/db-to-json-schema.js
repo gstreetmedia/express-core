@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require("path");
 const inflector = require("../helper/inflector");
 const _ = require("lodash");
-const connectionStringParser = require("connection-string");
+const connectionStringParser = require("../helper/connection-string-parser");
 const SchemaModel = require("../model/SchemaModel");
 const FieldModel = require("../model/FieldModel")
 
@@ -79,30 +79,33 @@ async function convert(destination, connectionString, options) {
 
 		if (cs.indexOf("postgresql") === 0) {
 			converter = require("./pg-tables-to-schema");
-			pool = require("../helper/postgres-pool")(connectionString[i]);
+			pool = await require("../helper/postgres-pool")(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
 			converter = require("./mysql-tables-to-schema");
-			pool = require("../helper/mysql-pool")(connectionString[i]);
-		} else if (cs.indexOf("mssql")) {
+			pool = await require("../helper/mysql-pool")(connectionString[i]);
+		} else if (cs.indexOf("mssql") === 0) {
 			converter = require("./mssql-tables-to-schema");
-			pool = require("../helper/mysql-pool")(connectionString[i]);
+			let p = require("../helper/mssql-pool")
+			pool = await p(connectionString[i]);
 		} //TODO elastic?
 
 
 		cs = connectionStringParser(cs);
 
+		console.log(cs);
+
 		let schema = await converter(
 			_.extend({
 				baseUrl: '',
 				indent: 2,
-				tableName: cs.path[0],
+				dbName: cs.database,
 				connectionString: cs
 			}, options), pool);
 
 
 		schema.forEach(
 			function (item) {
-				item.dataSource = cs.path[0];
+				item.dataSource = cs.database;
 				schemas.push(item);
 			}
 		)
@@ -138,7 +141,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		if (schemaHash[name]) {
-			name += name + "-" + cs.path[0]
+			name += name + "-" + cs.database
 		}
 
 		schemaHash[name] = item;
@@ -153,7 +156,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		for (let key in item.properties) {
-			let k = inflector.camelize(key, false);
+			let k = inflector.camelize(inflector.underscore(key), false);
 			if (k.length === 2) {
 				k = k.toLowerCase();
 			}
@@ -210,7 +213,10 @@ async function convert(destination, connectionString, options) {
 
 		let tableName = item.tableName;
 		//TODO need to remove schemas that no longer exist
-		let result = await schemaModel.set(item.tableName, item);
+		if (destination !== "file") {
+			let result = await schemaModel.set(item.tableName, item);
+		}
+
 		let fields = await fieldModel.get(tableName);
 
 		let fieldSchema = {
@@ -311,15 +317,10 @@ async function convert(destination, connectionString, options) {
 			addKeys("publicUpdate", keysSorted);
 		}
 
-		await fieldModel.set(tableName, fieldSchema);
-
-		if (destination === "memory") {
-			global.schemaCache = global.schemaCache || {};
-			let name = md5(connectionString.join("::"));
-			global.schemaCache[name] = global.schemaCache[name] || {};
-			global.schemaCache[name][item.title] = item;
-			continue;
+		if (destination !== "file") {
+			await fieldModel.set(tableName, fieldSchema);
 		}
+
 		//schemas are always written because the DB can change
 		fs.writeFileSync(schemaName + ".js", "module.exports=" +
 			stt(stringify(item, {
@@ -475,7 +476,7 @@ async function convert(destination, connectionString, options) {
 	fs.writeFileSync("./src/router/app-router.js", s);
 
 	console.log("done");
-	return "done";
+	process.exit();
 }
 
 module.exports = convert;

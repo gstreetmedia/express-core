@@ -64,18 +64,27 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		rawfields.forEach(
 			function(item) {
-				if (item.visible) {
+
+				if (item.property && item.visible) {
+					console.log("item.prop => " + item.property);
 					req.query.select.push(item.property);
 				}
 			}
 		);
 
-		if (_.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
+		if (controller.Model.schema.primaryKey && _.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
+			console.log("adding Primary");
 			req.query.select.unshift(controller.Model.schema.primaryKey);
 		}
 
 		req.query.limit = req.query.limit || 50;
-		req.query.sort = req.query.sort ? req.query.sort : req.order || "name ASC";
+
+		if (!req.query.sort) {
+			if (controller.Model.schema.properties.name) {
+				req.query.sort = "name ASC";
+			}
+		}
+
 		let data = await controller.query(req);
 
 		return this.render(
@@ -130,6 +139,9 @@ module.exports = class AdminController extends ViewControllerBase {
 	async view(req, res) {
 		let controller = AdminController.getController(req);
 		req.query.join = "*";
+
+		console.log(controller);
+
 		let data = await controller.read(req);
 
 		if (!data) {
@@ -263,6 +275,25 @@ module.exports = class AdminController extends ViewControllerBase {
 
 	async search(req, res) {
 		let c = AdminController.getController(req);
+
+		let fields;
+		if (global.fieldCache && global.fieldCache[c.Model.tableName]) {
+			fields = global.fieldCache[c.Model.tableName].adminIndex;
+		} else {
+			console.log("or here");
+			fields = c.Model.fields.adminIndex;
+		}
+
+		req.query.properties = [];
+
+		fields.forEach(
+			function(item) {
+				if (item.visible) {
+					req.query.properties.push(item.property);
+				}
+			}
+		);
+
 		if (c) {
 			return await c.search(req, res);
 		} else {

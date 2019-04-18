@@ -403,9 +403,11 @@ module.exports = class QueryToPgSql extends QueryBase{
 				}
 				break;
 			case "string" :
+
 				if (property.format) {
 					switch (property.format) {
 						case "date-time" :
+						case "date" :
 							try {
 								if (moment(value).isValid()) {
 									return value;
@@ -413,7 +415,10 @@ module.exports = class QueryToPgSql extends QueryBase{
 							} catch (e) {
 
 							}
-							return null;
+							if (property.allowNull) {
+								return null;
+							}
+							return '';
 						case "uuid" :
 							if (value === "") {
 								return null;
@@ -424,7 +429,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 							return value.trim();
 					}
 				} else {
-					return _.isString(value) ? value.trim() : value;
+					return _.isString(value) ? value.trim() : value + "";
 				}
 				break;
 		}

@@ -5,7 +5,7 @@ const schema = require('../schema/schemas-schema');
 const fields = require('../schema/fields/schemas-fields');
 const cache = require("../helper/cache-manager");
 const md5 = require("md5");
-const connectionStringParser = require("connection-string");
+const connectionStringParser = require("../helper/connection-string-parser");
 let schemaModel;
 let knex = require("knex");
 let fs = require("fs");
@@ -84,34 +84,30 @@ module.exports = class SchemaModel extends ModelBase {
 		}
 
 
-		let strings = [];
+		let dataSources = [];
 		let count = 0;
 
 		connectionStrings.forEach(
 			function (item) {
-				let cs = connectionStringParser(item);
-				cs.connectionString = item;
-				strings.push(cs);
+				if (item.indexOf("://") === -1) {
+					dataSources.push(item);
+				} else {
+					let cs = connectionStringParser(item);
+					dataSources.push(cs.database);
+				}
 			}
 		);
 
 		let hasTable = await this.hasTable();
 		if (hasTable) {
 
-			let results = await this.find({where: {dataSource: {"!=": null}}});
+			let results = await this.find({where: {dataSource: {"in": dataSources}}});
 
 			//TODO we really need to have a key that is datasource_tablename;
 
 			results.forEach(
 				function (item) {
-					strings.forEach(
-						function (cs) {
-							if (cs.path[0] === item.dataSource) {
-								global.schemaCache[item.tableName] = item;
-								count++;
-							}
-						}
-					)
+					global.schemaCache[item.tableName] = item;
 				}
 			);
 		} else {
@@ -128,7 +124,7 @@ module.exports = class SchemaModel extends ModelBase {
 			);
 		}
 
-		console.log("Loaded " + count + " schemas");
+		console.log("Loaded " + Object.keys(global.schemaCache).length + " schemas");
 	}
 
 	async hasTable() {

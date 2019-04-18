@@ -249,8 +249,13 @@ module.exports = class ControllerBase {
 		let search = req.query.query.toString().toLowerCase();
 		let queryNumber = parseFloat(search);
 
-		for(let key in m.properties) {
-			if (m.properties[key].type === "string") {
+		let properties = req.query.properties || Object.keys(m.properties);
+		if (!_.isArray(properties)) {
+			properties = properties.split(",");
+		}
+
+		properties.forEach(function(key){
+			if (m.properties[key].type === "string" && isNaN(queryNumber)) {
 				let validate = true;
 
 				if (m.properties.enum) {
@@ -260,11 +265,11 @@ module.exports = class ControllerBase {
 				switch (m.properties[key].format) {
 					case "date" :
 					case "date-time" :
-						continue;
+						return;
 					case "uuid" :
 						//continue;
 						break;
-						//it's okay, we
+					//it's okay, we
 					default :
 				}
 
@@ -280,18 +285,17 @@ module.exports = class ControllerBase {
 
 				}
 			} else if (m.properties[key].type === "number" && !isNaN(queryNumber)) {
-				if (validateAgainstSchema(key, {[key]:queryNumber}, m.schema)) {
-					query.where.or.push(
-						{
-							[key]: {"=": queryNumber}
-						}
-					);
-					query.select.push(key);
-				}
+				query.where.or.push(
+					{
+						[key]: {"startsWith": queryNumber}
+					}
+				);
+				query.select.push(key);
 			}
-		}
+		});
 
-		if (_.findIndex(query.select, m.primaryKey) === -1) {
+
+		if (_.indexOf(query.select, m.primaryKey) === -1) {
 			query.select.push(m.primaryKey);
 		}
 
@@ -309,9 +313,15 @@ module.exports = class ControllerBase {
 		results.forEach(
 			function(item) {
 				for(let field in item) {
-					if (item[field] && item[field].toLowerCase().indexOf(search) !== -1) {
-						hash[field] = hash[field] || [];
-						hash[field].push(item[field])
+					if (item[field]) {
+						if (!item[field]) {
+							return;
+						}
+						let testValue = ("" + item[field]).toLowerCase();
+						if (testValue.indexOf(search) !== -1) {
+							hash[field] = hash[field] || [];
+							hash[field].push(item[field])
+						}
 					}
 				}
 			}
@@ -404,6 +414,8 @@ module.exports = class ControllerBase {
 				req.query.join = JSON.parse(req.query.join);
 			}
 		}
+
+		console.log(typeof req.query.select);
 
 		if (req.query && req.query.select && typeof req.query.select === "string") {
 

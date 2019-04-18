@@ -28,7 +28,7 @@ module.exports = class QueryToPgSql {
 	 * @returns {string[]}
 	 */
 	get keywords() {
-		return ['sort', 'select', 'skip', 'offset', 'limit', 'sort', 'join', 'count'];
+		return ['sort', 'select', 'skip', 'offset', 'limit', 'join', 'count'];
 	}
 
 	/**
@@ -153,6 +153,7 @@ module.exports = class QueryToPgSql {
 					queryBuilder.limit(parseInt(query[key]));
 					break;
 				case "sort" :
+					//TODO support array sort
 					let params = query[key].split(" ");
 					let direction = "ASC";
 					if (this.properties[params[0]]) {
@@ -186,7 +187,12 @@ module.exports = class QueryToPgSql {
 	count(query) {
 		query = _.clone(query);
 		let queryBuilder = this.parseQuery(query);
-		return queryBuilder.count(this.raw(this.properties[this.primaryKey].columnName));
+
+		if (this.primaryKey && this.properties[this.primaryKey]) {
+			return queryBuilder.count(this.raw(this.properties[this.primaryKey].columnName));
+		}
+
+		return queryBuilder.count(this.raw(this.properties[Object.keys(this.properties)[0]].columnName));
 	}
 
 	/**
@@ -315,7 +321,6 @@ module.exports = class QueryToPgSql {
 				} else {
 					compare = Object.keys(queryParams[key])[0]; //TODO what is this?
 				}
-
 			}
 
 			if (compare !== "" && compare !== "or" && compare !== "and") {
@@ -437,7 +442,7 @@ module.exports = class QueryToPgSql {
 			case "==" :
 			case "eq" :
 				if (value === null) {
-					queryBuilder[c.whereNull](this.tableName + "." + columnName, this.processType(value, this.properties[key]));
+					queryBuilder[c.whereNull](this.tableName + "." + columnName);
 				} else if (_.isArray(value)) {
 					queryBuilder[c.whereIn](this.tableName + "." + columnName, this.processArrayType(value, this.properties[key]));
 				} else {
@@ -449,7 +454,7 @@ module.exports = class QueryToPgSql {
 			case "!=" :
 			case "ne" :
 				if (value === null) {
-					queryBuilder[c.whereNotNull](this.tableName + "." + columnName, this.processType(value, this.properties[key]));
+					queryBuilder[c.whereNotNull](this.tableName + "." + columnName);
 				} else if (_.isArray(value)) {
 					queryBuilder[c.whereNotIn](this.tableName + "." + columnName, this.processArrayType(value, this.properties[key]));
 				} else {

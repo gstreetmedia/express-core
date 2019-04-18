@@ -1,29 +1,40 @@
-let mysql = require('mssql');
+let mssql = require('mssql');
 let util = require('util');
-let connectionStringParser = require("connection-string");
+let connectionStringParser = require("./connection-string-parser")
 let md5 = require("md5");
 let pools = {};
 
 module.exports = async (connectionString) => {
-	if (pools[md5(connectionString)]) {
-		return pools[md5(connectionString)];
+
+	let key = md5(connectionString);
+
+
+	if (pools[key]) {
+		return pools[key];
 	}
 
 	let cs = connectionStringParser(connectionString);
 
-	var pool = await mysql.connect({
+	console.log(cs);
+
+	var pool = new mssql.ConnectionPool({
 		connectionLimit: 10,
-		user: cs.user,
+		user: cs.username,
 		password: cs.password,
-		server: cs.hosts[0].name, // You can use 'localhost\\instance' to connect to named instance
-		database: cs.path[0],
-		port : cs.hosts[0].port,
+		server: cs.host, // You can use 'localhost\\instance' to connect to named instance
+		database: cs.database,
+		port : cs.port,
 		options: {
-			encrypt: true // Use this if you're on Windows Azure
+			encrypt: true, // Use this if you're on Windows Azure,
+			//camelCaseColumns : false
 		}
 	});
 
-	pools[md5(cs)] = pool;
+	await pool.connect();
+
+	pools[key] = pool;
 
 	return pool;
 }
+
+
