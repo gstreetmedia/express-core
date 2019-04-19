@@ -19,6 +19,8 @@ exports.classify = (value) => {
 	value = inflector.classify(value);
 	value = value.split("metum").join("Meta");
 	value = value.split("Metum").join("Meta");
+	value = value.split("datum").join("Data");
+	value = value.split("Datum").join("Data");
 	return value;
 }
 

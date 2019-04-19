@@ -3,7 +3,7 @@ let pools = {};
 const Pool = require("pg").Pool;
 const Client = require("pg").Client;
 
-module.exports = (connectionString) => {
+module.exports = async (connectionString) => {
 	if (pools[md5(connectionString)]) {
 		return pools[md5(connectionString)];
 	}

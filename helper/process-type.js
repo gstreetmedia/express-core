@@ -73,10 +73,12 @@ module.exports = (value, property) =>{
 			}
 			break;
 		case "string" :
-
 			if (value === '' && property.allowNull === false) {
 				return '';
+			} else if (value === '' || value === null && property.allowNull === true) {
+
 			}
+
 			if (value === undefined || value === "undefined") {
 				if (property.allowNull === false) {
 					return '';
@@ -90,6 +92,7 @@ module.exports = (value, property) =>{
 			if (property.format) {
 				switch (property.format) {
 					case "date-time" :
+					case "date" :
 						if (value && value !== '') {
 							let m = moment(value);
 							if (m) {

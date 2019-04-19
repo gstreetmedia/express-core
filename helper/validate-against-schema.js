@@ -23,7 +23,6 @@ module.exports = (key, data, schema) => {
 				return false;
 			}
 
-
 			switch (schema.properties[key].format) {
 				case "uuid" :
 					try {

@@ -15,15 +15,61 @@ var emptySchema = {
 
 module.exports = async function( options, pool ) {
 
+	let query = "SELECT INFORMATION_SCHEMA.COLUMNS.*,INFORMATION_SCHEMA.TABLE_CONSTRAINTS.CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.COLUMNS\n" +
+		"left join INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE on INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE.COLUMN_NAME = INFORMATION_SCHEMA.COLUMNS.COLUMN_NAME and INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE.TABLE_NAME = INFORMATION_SCHEMA.COLUMNS.TABLE_NAME\n" +
+		"left join INFORMATION_SCHEMA.TABLE_CONSTRAINTS on INFORMATION_SCHEMA.TABLE_CONSTRAINTS.CONSTRAINT_NAME = INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE.CONSTRAINT_NAME AND INFORMATION_SCHEMA.TABLE_CONSTRAINTS.TABLE_NAME = INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE.TABLE_NAME\n" +
+		"WHERE\n" +
+		"        INFORMATION_SCHEMA.COLUMNS.TABLE_SCHEMA = 'dbo'";
 
-	let data =  await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_catalog = '"+options.tableName+"'");
+
+	let data =  await pool.query(query);
 
 	let schema = {};
 
-	data.rows.forEach(
+	data.recordset.forEach(
+		function(item) {
+			for(let key in item) {
+				item[key.toLowerCase()] = item[key];
+				delete item[key];
+			}
+		}
+	)
+
+	data.recordset.forEach(
 		function(column) {
+
+			let test = column.table_name.toLowerCase();
+			let test2 = column.column_name.toLowerCase()
+
+			if (test2.indexOf("not_used") !== -1) {
+				return;
+			}
+			if (test.indexOf("bak") !== -1) {
+				return;
+			}
+			if (test.indexOf("bk") !== -1) {
+				return;
+			}
+			if (test.indexOf("jk") !== -1) {
+				return;
+			}
+			if (test.indexOf("orange") !== -1) {
+				return;
+			}
+			if (test.indexOf("_bak2") !== -1) {
+				return;
+			}
+			if (test.indexOf("bk2") !== -1) {
+				return;
+			}
+			if (test.indexOf("_done") !== -1) {
+				return;
+			}
+
+
 			var tableName = column.table_name;
 			var columnName = column.column_name;
+			var propertyName = inflector.camelize(inflector.underscore(columnName), false);
 
 			if (!schema[tableName]) {
 				schema[tableName] = {
@@ -40,25 +86,23 @@ module.exports = async function( options, pool ) {
 					additionalProperties: options.additionalProperties === undefined ? false : !!options.additionalProperties
 				}
 			}
-			schema[tableName].properties[columnName] = convertColumnType(column, enums);
 
-			let desc = _.find(descriptions, {table_name:tableName, column_name:columnName});
-			//console.log(desc);
-			schema[tableName].properties[columnName].description = desc.column_comment || "";
+			schema[tableName].properties[columnName] = convertColumnType(column);
 
 			if (column.constraint_type === "PRIMARY KEY") {
 				if (schema[tableName].primaryKey) {
 					console.log(tableName + " primary key already set to " + schema[tableName].primaryKey);
-				}
-				if (columnName.length === 2) {
-					schema[tableName].primaryKey = columnName.toLowerCase();
 				} else {
-					schema[tableName].primaryKey = inflector.camelize(column.column_name, false);
+					schema[tableName].primaryKey = propertyName;
 				}
 			}
 
 			if (column.constraint_type === "UNIQUE") {
-				schema[tableName].properties[columnName].unique = true;
+				if (schema[tableName].properties[columnName]) {
+					schema[tableName].properties[columnName].unique = true;
+				} else {
+					console.log("Cannot set unique on " + columnName);
+				}
 			}
 
 			if ( column.is_nullable === "NO" && column.column_default === null ) {
@@ -116,6 +160,7 @@ var convertColumnType = function( column, enums )
 		case 'text':
 		case '"char"':
 		case 'character varying':
+		case 'varchar':
 		{
 			schemaProperty.type = 'string';
 			let list = _.filter(enums, {key: column.table_name + "_" + column.column_name});

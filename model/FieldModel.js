@@ -5,7 +5,7 @@ const schema = require('../schema/fields-schema');
 const fields = require('../schema/fields/fields-fields');
 const cache = require("../helper/cache-manager");
 const md5 = require("md5");
-const connectionStringParser = require("connection-string");
+const connectionStringParser = require("../helper/connection-string-parser");
 const fs = require("fs");
 const knex = require("knex");
 
@@ -83,32 +83,29 @@ module.exports = class FieldModel extends ModelBase {
 			connectionStrings = [connectionStrings];
 		}
 
-		let strings = [];
+		let dataSources = [];
 		let count = 0;
 
 		connectionStrings.forEach(
 			function (item) {
-				let cs = connectionStringParser(item);
-				cs.connectionString = item;
-				strings.push(cs);
+				if (item.indexOf("://") === -1) {
+					dataSources.push(item);
+				} else {
+					let cs = connectionStringParser(item);
+					dataSources.push(cs.database);
+				}
 			}
 		);
 
 		let hasTable = await this.hasTable();
 
 		if (hasTable) {
-			let results = await this.find({where: {dataSource: {"!=": null}}});
+			let results = await this.find({where: {dataSource: {"in": dataSources}}});
 
 			results.forEach(
 				function (item) {
-					strings.forEach(
-						function (cs) {
-							if (cs.path[0] === item.dataSource) {
-								global.fieldCache[item.tableName] = item;
-								count++;
-							}
-						}
-					)
+					global.fieldCache[item.tableName] = item;
+
 				}
 			);
 		} else {
@@ -125,7 +122,7 @@ module.exports = class FieldModel extends ModelBase {
 				}
 			);
 		}
-		console.log("Loaded " + count + " fields");
+		console.log("Loaded " + Object.keys(global.fieldCache).length + " fields");
 		return true;
 
 	}

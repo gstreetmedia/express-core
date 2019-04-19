@@ -15,10 +15,12 @@
 				<div class="col-1 border-top text-right p-1 actions">Actions</div>
 			</div>
 			<%
+
+            if (value.forEach) {
 			value.forEach(
 			function(row) {
 			%>
-			<div class="row m-0 border-top row-striped" data-row-id="<%- row[relationModel.primaryKey] %>" data-bindid="view">
+			<div class="row m-0 border-top row-striped" data-bindid="route" data-route="/admin/<%= helpers.inflector.dasherize(helpers.inflector.underscore(relationModel.tableName)) %>/<%- row[relationModel.schema.primaryKey] %>/view">
 				<%
 				relationKeys.forEach(function(attribute) {
 				if (attribute !== relationModel.primaryKey) {
@@ -42,6 +44,7 @@
 			</div>
 			<% }
 			); //end forEach
+            }
 			%>
 		</div>
 	</div>

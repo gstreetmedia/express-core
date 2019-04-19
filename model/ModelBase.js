@@ -103,8 +103,8 @@ module.exports = class ModelBase {
 		let dataSource = this.dataSource || this.schema.dataSource;
 
 		//Allow for generic naming like DEFAULT_DB
-		if (process.env[this.schema.dataSource]) {
-			this._connectionString = process.env[this.schema.dataSource];
+		if (process.env[dataSource]) {
+			this._connectionString = process.env[dataSource];
 		}
 
 		//TODO Convert this to use a connection string parser
@@ -138,16 +138,16 @@ module.exports = class ModelBase {
 	 *
 	 * @returns {Pool}
 	 */
-	get pool() {
+	async getPool() {
 		if (this.connectionString.indexOf("postgresql://") === 0) {
 			this.db = "pg";
-			return require("../helper/postgres-pool")(this.connectionString);
+			return await require("../helper/postgres-pool")(this.connectionString);
 		} else if (this.connectionString.indexOf("mysql://") === 0) {
 			this.db = "mysql"
-			return require("../helper/mysql-pool")(this.connectionString);
+			return await require("../helper/mysql-pool")(this.connectionString);
 		} else if (this.connectionString.indexOf("mssql://") === 0) {
 			this.db = "mssql"
-			return require("../helper/mssql-pool")(this.connectionString);
+			return await require("../helper/mssql-pool")(this.connectionString);
 		}
 
 		//TODO Elastic, Redis
@@ -538,9 +538,6 @@ module.exports = class ModelBase {
 	async destroyWhere(query) {
 		console.log("ModelBase::destroyWhere");
 		let command = this.queryBuilder.delete(query);
-
-		return command.toString();
-
 		let result = await this.execute(command);
 		return result;
 	}
@@ -753,6 +750,8 @@ module.exports = class ModelBase {
 				let joinTo = item.join.to;
 				let joinThroughFrom = item.join.through ? item.join.through.from : null;
 				let joinThroughTo = item.join.through ? item.join.through.to : null;
+				let joinThroughWhere = item.join.through ? item.join.through.where  : null;
+				let joinThroughSort = item.join.through ? item.join.through.sort  : null;
 				let targetKeys = [];
 				let deepJoin;
 
@@ -766,10 +765,10 @@ module.exports = class ModelBase {
 				if (item.throughClass) { //build new targetKey based on the pivot table
 					m = new item.throughClass(this.req);
 					let j = _.clone(join[key]);
-					j.where = j.where || {};
+					j.where = joinThroughWhere || {};
 					j.where[joinThroughFrom] = {in: targetKeys};
-					//j.join = query.join;
 					j.select = [joinThroughFrom, joinThroughTo];
+					j.sort = joinThroughSort || null;
 					throughList = await m.find(j);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
 				}
@@ -777,13 +776,21 @@ module.exports = class ModelBase {
 				switch (item.relation) {
 					case "HasOne":
 						m = new item.modelClass(this.req);
+
+						if (relations[key].where) {
+							join[key].where = join[key].where || {where: {}};
+							for(let p in relations[key].where) {
+								join[key].where[p] = join[key].where[p] || relations[key].where[p];
+							}
+						}
+
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
+						join[key].sort = join[key].sort || null;
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 							join[key].select.push(joinTo);
 						}
 						list = await m.find(join[key]);
-
 
 						if (list.error) {
 							//console.log(list.error);
@@ -808,16 +815,18 @@ module.exports = class ModelBase {
 
 						break;
 					case "HasMany" :
-						try {
-							m = new item.modelClass(this.req);
-						} catch (e) {
-							console.log("Could not complete join");
-							console.log(item);
-							continue;
+						m = new item.modelClass(this.req);
+
+						if (relations[key].where) {
+							join[key].where = join[key].where || {where: {}};
+							for(let p in relations[key].where) {
+								join[key].where[p] = join[key].where[p] || relations[key].where[p];
+							}
 						}
 
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
+						join[key].sort = join[key].sort || null;
 						//must select the targetJoin key
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 							join[key].select.push(joinTo);
@@ -1048,9 +1057,18 @@ module.exports = class ModelBase {
 
 		//console.log(sql.toString());
 
+		let pool = await this.getPool();
+
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			try {
-				let results = await this.pool.query(sql);
+				let results = await pool.query(sql);
+
+				if (results.recordset) { //mssql
+					results = {
+						rows : results.recordset
+					}
+				}
+
 				if (postProcess) {
 					if (results.rows) {
 						return this.postProcessResponse(results.rows);
@@ -1068,14 +1086,22 @@ module.exports = class ModelBase {
 				//return results.rows;
 			} catch (e) {
 				this.lastError = e;
+				e.sql = sql;
 				return {
-					error: e,
-					sql: sql
+					error: e
 				};
 			}
 		} else {
 			try {
-				let results = await this.pool.query(sql);
+				let results = await pool.query(sql);
+
+				if (results.recordset) { //mssql
+					results = {
+						rows : results.recordset
+					}
+				}
+
+
 				if (results.rows) {
 					return results;
 				} else {
@@ -1085,9 +1111,9 @@ module.exports = class ModelBase {
 				}
 			} catch (e) {
 				this.lastError = e;
+				e.sql = sql;
 				return {
-					error: e,
-					sql: sql
+					error: e
 				};
 			}
 

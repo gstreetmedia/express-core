@@ -1,6 +1,6 @@
 let mysql = require('mysql');
 let util = require('util');
-let connectionStringParser = require("connection-string");
+let connectionStringParser = require("./connection-string-parser")
 let md5 = require("md5");
 let pools = {};
 
@@ -13,16 +13,16 @@ module.exports = (connectionString) => {
 
 	var pool = mysql.createPool({
 		connectionLimit: 10,
-		host : cs.hosts[0].name,
-		port : cs.hosts[0].port,
-		user : cs.user,
+		host : cs.host,
+		port : cs.port,
+		user : cs.username,
 		password : cs.password,
-		database : cs.path[0]
+		database : cs.database
 	});
 
 	pool.query = util.promisify(pool.query);
 
-	pools[md5(cs)] = pool;
+	pools[md5(connectionString)] = pool;
 
 	return pool;
 }
