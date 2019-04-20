@@ -351,11 +351,13 @@ module.exports = class QueryToPgSql {
 	 */
 	processCompare(key, compare, value, queryBuilder, isOr) {
 
+		//console.log("processCompare " + key);
+
 		let columnName;
 		let columnFormat = null;
 
 		if (key.indexOf(".") !== -1 || _.isObject(key)) { //JSONB Syntax
-			return this.processObjectColumn(this.tableName, key, compare, value, queryBuilder)
+			return this.processObjectColumn(key, compare, value, queryBuilder)
 		}
 
 		if (this.properties[key] && this.properties[key].columnName) {
@@ -461,7 +463,7 @@ module.exports = class QueryToPgSql {
 			        * ]
 				 */
 
-				let isOr = compare === "or" ? true : false;
+				isOr = compare === "or";
 
 				queryBuilder.where(
 					(builder) => {
@@ -489,177 +491,28 @@ module.exports = class QueryToPgSql {
 				);
 				break;
 			default :
-				if (value === null) {
-					queryBuilder[c.whereNull](this.column(columnName), this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					queryBuilder[c.whereIn](this.column(columnName), this.processArrayType(value, this.properties[key]));
-				} else {
-					queryBuilder[c.where](this.column(columnName), this.processType(value, this.properties[key]));
-				}
+				return this.processCompare(key, "==", value, queryBuilder, isOr);
 		}
 	}
 
 	/**
-	 * Process a text[] int[] real[] column
+	 * Process a json column.
 	 * @param key
 	 * @param compare
 	 * @param value
 	 * @param queryBuilder
 	 */
-	processObjectColumn(key, compare, value, queryBuilder) {
-
-		console.log("processObjectColumn");
-
-		let columnName;
-
-		if (this.properties[key] && this.properties[key].columnName) {
-			columnName = this.properties[key].columnName;
-		} else {
-			/*
-			select
-			  id,
-			  sync.record -> 'listing' ->> 'ExpirationDate' as "expiration_date"
-			from sync where
-			  sync.record -> 'listing' ->> 'ExpirationDate' < '2018-12-08'
-			 */
-			if (key.indexOf(".") !== -1) {
-				let parts = key.split(".");
-				key = parts[0];
-				let as = "";
-				if (this.properties[key] && this.properties[key].columnName) {
-					columnName = this.properties[key].columnName;
-					as = columnName;
-					parts.shift();
-					for (let i = 0; i < parts.length; i++) {
-						if (i + 1 === parts.length) {
-							columnName += " ->> '" + parts[i] + "'";
-						} else {
-							columnName += " -> '" + parts[i] + "'";
-						}
-						as += "." + parts[i];
-					}
-					queryBuilder.select(this.raw(this.tableName + "." + columnName + " as \"" + as + "\""));
-				} else {
-					return;
-				}
-			} else {
-				return;
-			}
-		}
-
-		switch (compare) {
-			case "inside" :
-			case "near" :
-			case "radius" :
-			case "poly" :
-			case "geohash" :
-			case "box" :
-				//TODO integrate geo query functions
-				break;
-			case "gt" :
-			case ">" :
-				queryBuilder.where(this.column(columnName), ">", this.processType(value, this.properties[key]));
-				break;
-			case "gte" :
-			case ">=" :
-				queryBuilder.where(this.column(columnName), ">=", this.processType(value, this.properties[key]));
-				break;
-			case "lt" :
-			case "<" :
-				queryBuilder.where(this.column(columnName), "<", this.processType(value, this.properties[key]));
-				break;
-			case "lte" :
-			case "<=" :
-				queryBuilder.where(this.column(columnName), "<=", this.processType(value, this.properties[key]));
-				break;
-			case "in" :
-				queryBuilder.whereIn(this.column(columnName), this.processArrayType(value, this.properties[key]));
-				break;
-			case "nin" :
-				queryBuilder.whereNotIn(this.column(columnName), this.processArrayType(value, this.properties[key]));
-				break;
-			case "endsWith" :
-				queryBuilder.where(this.column(columnName), this.like, "%" + value); //todo postgres only
-				break;
-			case "startsWith" :
-				queryBuilder.where(this.column(columnName), this.like, value + "%"); //todo postgres only
-				break;
-			case "contains" :
-				queryBuilder.where(this.column(columnName), this.like, "%" + value + "%"); //todo postgres only
-				break;
-			case "=" :
-			case "==" :
-			case "eq" :
-				if (value === null) {
-					queryBuilder.whereNull(this.raw(this.tableName + "." + columnName + " IS NULL"));
-				} else if (_.isArray(value)) {
-					queryBuilder.whereIn(this.column(columnName), this.processArrayType(value, this.properties[key]));
-				} else {
-					queryBuilder.where(this.column(columnName), this.processType(value, this.properties[key]));
-				}
-
-				break;
-			case "!" :
-			case "!=" :
-			case "ne" :
-				if (value === null) {
-					queryBuilder.whereNotNull(this.raw(this.tableName + "." + columnName + " NOT NULL"));
-				} else if (_.isArray(value)) {
-					queryBuilder.whereNotIn(this.column(columnName), this.processArrayType(value, this.properties[key]));
-				} else {
-					queryBuilder.whereNot(this.column(columnName), this.processType(value, this.properties[key]));
-				}
-				break;
-			case "or" :
-			case "and" :
-				/**
-				 * or : [
-				 *  {field1: val1},
-				 *  {field2 {">":val2}
-			        * ]
-				 */
-				queryBuilder[compare === "or" ? "orWhere" : "where"](
-					(builder) => {
-						for (let i = 0; i < value.length; i++) {
-							let innerCompare = "";
-							let innerValue;
-							let innerKey = Object.keys(value[i])[0];
-							let innerColumnName;
-
-							if (typeof value[i][innerKey] === "object") {
-								innerCompare = Object.keys(value[i][innerKey])[0];
-							}
-
-							if (innerCompare !== "") {
-								innerValue = value[i][innerKey][innerCompare];
-							} else {
-								innerValue = value[i][innerKey];
-							}
-
-							//compare, columnName, key, value, properties, queryBuilder
-							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
-							//table, key, compare, value, properties, queryBuilder
-							this.processCompare(innerKey, innerCompare, innerValue, builder);
-						}
-					}
-				);
-				break;
-			default :
-				if (value === null) {
-					queryBuilder.whereNull(this.column(columnName), this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					queryBuilder.whereIn(this.column(columnName), this.processArrayType(value, this.properties[key]));
-				} else {
-					queryBuilder.where(this.column(columnName), this.processType(value, this.properties[key]));
-				}
-		}
-	}
+	processObjectColumn(key, compare, value, queryBuilder) {}
 
 
 	column(column) {
 		return this.raw(this.tableName + "." + column);
 	}
 
+	/**
+	 * Return primaryKey if set (really should have one, but legacy DB's don't always)
+	 * @returns {string|*}
+	 */
 	getPrimaryKey() {
 		if (this.primaryKey && this.properties[this.primaryKey]) {
 			return this.primaryKey;
@@ -667,8 +520,11 @@ module.exports = class QueryToPgSql {
 		return Object.keys(this.properties)[0];
 	}
 
+	/**
+	 * Try to find some default to sort on. Sorting on a UUID doesn't seem to make much sense, so maybe a timestamp???
+	 * @returns {string|*}
+	 */
 	getDefaultSortKey() {
-
 		if (this.primaryKey && this.properties[this.primaryKey]) {
 			if (this.properties[this.primaryKey].type === "number") {
 				return this.primaryKey;
@@ -702,146 +558,7 @@ module.exports = class QueryToPgSql {
 	 * @param value
 	 * @param queryBuilder
 	 */
-	processArrayColumn(key, compare, value, queryBuilder) {
-
-		let context = this;
-
-		let columnName;
-		if (this.properties[key] && this.properties[key].columnName) {
-			columnName = this.properties[key].columnName;
-		} else {
-			return;
-		}
-
-		switch (compare) {
-			case "inside" :
-			case "near" :
-			case "radius" :
-			case "poly" :
-			case "geohash" :
-			case "box" :
-				//TODO integrate geo query functions
-				break;
-			case "gt" :
-			case ">" :
-				queryBuilder.where(this.raw(this.processType(val, this.properties[key]) + " > ANY(" + columnName + ")"));
-				break;
-			case "gte" :
-			case ">=" :
-				queryBuilder.where(this.raw(this.processType(val, this.properties[key]) + " >= ANY(" + columnName + ")"));
-				break;
-			case "lt" :
-			case "<" :
-				queryBuilder.where(this.raw(this.processType(val, this.properties[key]) + " < ANY(" + columnName + ")"));
-				break;
-			case "lte" :
-			case "<=" :
-				queryBuilder.where(this.raw(this.processType(val, this.properties[key]) + " <= ANY(" + columnName + ")"));
-				break;
-			case "in" :
-				queryBuilder.where(
-					(builder) => {
-						value.forEach(
-							function (val) {
-								builder.orWhere(context.knexRaw(context.processType(val, this.properties[key]) + " = ANY(" + columnName + ")"));
-							}
-						)
-					}
-				)
-
-				break;
-			case "nin" :
-				queryBuilder.where(
-					(builder) => {
-						value.forEach(
-							function (val) {
-								builder.where(context.knexRaw(context.processType(val, this.properties[key]) + " != ANY(" + columnName + ")"));
-							}
-						)
-					}
-				)
-				break;
-			case "=" :
-			case "==" :
-			case "eq" :
-				if (_.isArray(value)) {
-					queryBuilder.where(
-						(builder) => {
-							value.forEach(
-								function (val) {
-									builder.orWhere(context.knexRaw(context.processType(val, this.properties[key]) + " = ANY(" + columnName + ")"));
-								}
-							)
-						}
-					)
-				} else {
-					queryBuilder.where(this.raw(this.processType(value, this.properties[key]) + " = ANY(" + columnName + ")"));
-				}
-				break;
-			case "!" :
-			case "!=" :
-			case "ne" :
-				if (_.isArray(value)) {
-					queryBuilder.where(
-						(builder) => {
-							value.forEach(
-								function (val) {
-									builder.where(context.knexRaw(context.processType(val, this.properties[key]) + " != ANY(" + columnName + ")"));
-								}
-							)
-						}
-					)
-				} else {
-					queryBuilder.where(this.raw(this.processType(value, this.properties[key]) + " = ANY(" + columnName + ")"));
-				}
-				break;
-				break;
-			case "or" :
-				/**
-				 * or : [
-				 *  {field1: val1},
-				 *  {field2 {">":val2}
-			        * ]
-				 */
-				queryBuilder[compare === "or" ? "orWhere" : "where"](
-					(builder) => {
-						for (let i = 0; i < value.length; i++) {
-							let innerCompare = "";
-							let innerValue;
-							let innerKey = Object.keys(value[i])[0];
-
-							if (typeof value[i][innerKey] === "object") {
-								innerCompare = Object.keys(value[i][innerKey])[0];
-							}
-
-							if (innerCompare !== "") {
-								innerValue = value[i][innerKey][innerCompare];
-							} else {
-								innerValue = value[i][innerKey];
-							}
-
-							//compare, columnName, key, value, properties, queryBuilder
-							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
-							//this.tableName, key, compare, value, properties, queryBuilder
-							this.processCompare(innerKey, innerCompare, innerValue, builder);
-						}
-					}
-				);
-				break;
-			default :
-				if (value === null) {
-					queryBuilder.whereNull(this.tableName + "." + columnName, this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					value.forEach(
-						function (val) {
-							queryBuilder.orWhere(context.knexRaw(context.processType(val, this.properties[key]) + " != ANY(" + columnName + ")"));
-						}
-					)
-				} else {
-					queryBuilder.where(this.raw(this.processType(value, this.properties[key]) + " = ANY(" + columnName + ")"));
-				}
-		}
-	}
+	processArrayColumn(key, compare, value, queryBuilder) {}
 
 	/**
 	 * decode funny query string values

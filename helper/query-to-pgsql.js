@@ -27,40 +27,60 @@ module.exports = class QueryToPgSql extends QueryBase{
 	 * @param key
 	 * @param compare
 	 * @param value
-	 * @param sqlBuilder
+	 * @param queryBuilder
 	 */
-	processObjectColumn(key, compare, value, sqlBuilder) {
+	processObjectColumn(key, compare, value, queryBuilder, isOr) {
+
+		//console.log("processObjectColumn");
 
 		let columnName;
+		let fieldQuery = "";
+		let fieldName;
+		let as = "";
+
+		let c = {
+			where : "where",
+			whereIn : "whereIn",
+			whereNotIn : "whereNotIn",
+			whereNull : "whereNull",
+			whereNot : "whereNot",
+			whereNotNull : "whereNotNull"
+		}
+
+		if (isOr) {
+			c = {
+				where : "orWhere",
+				whereIn : "orWhereIn",
+				whereNotIn : "orWhereNotIn",
+				whereNull : "orWhereNull",
+				whereNot : "orWhereNot",
+				whereNotNull : "orWhereNotNull"
+			}
+		}
 
 		if (this.properties[key] && this.properties[key].columnName) {
 			columnName = this.properties[key].columnName;
 		} else {
-			/*
-			select
-			  id,
-			  sync.record -> 'listing' ->> 'ExpirationDate' as "expiration_date"
-			from sync where
-			  sync.record -> 'listing' ->> 'ExpirationDate' < '2018-12-08'
-			 */
 			if (key.indexOf(".") !== -1) {
 				let parts = key.split(".");
 				key = parts[0];
-				let as = "";
+
 				if (this.properties[key] && this.properties[key].columnName) {
 					columnName = this.properties[key].columnName;
 					as = columnName;
 					parts.shift();
 					for (let i = 0; i < parts.length; i++) {
 						if (i + 1 === parts.length) {
-							columnName += " ->> '" + parts[i] + "'";
+							fieldQuery += " ->> '" + parts[i] + "'";
 						} else {
-							columnName += " -> '" + parts[i] + "'";
+							fieldQuery += " -> '" + parts[i] + "'";
 						}
 						as += "." + parts[i];
 					}
-					sqlBuilder.select(this.raw(this.tableName + "." + columnName + " as \"" + as + "\""));
+					fieldName = parts[parts.length-1];
+					//sqlBuilder.select(this.raw(this.tableName + "." + columnName + " as \"" + as + "\""));
 				} else {
+					console.log("no object column named " + key);
 					return;
 				}
 			} else {
@@ -77,65 +97,122 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "box" :
 				//TODO integrate geo query functions
 				break;
-			case "gt" :
 			case ">" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), ">", this.processType(value, this.properties[key]));
-				break;
-			case "gte" :
 			case ">=" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), ">=", this.processType(value, this.properties[key]));
-				break;
-			case "lt" :
 			case "<" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), "<", this.processType(value, this.properties[key]));
-				break;
-			case "lte" :
 			case "<=" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), "<=", this.processType(value, this.properties[key]));
+				queryBuilder[c.where](
+					this.raw(
+						"(EXISTS(" +
+						"SELECT " +
+						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+						"WHERE (" + columnName +  "1" + fieldQuery + ") " + compare + " '" + value + "' " +
+						") OR " +
+						this.tableName + "." + columnName + fieldQuery + " " + compare + " '" + value + "')"
+					)
+				);
 				break;
 			case "in" :
-				sqlBuilder.whereIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
+				queryBuilder[c.whereIn](this.column( columnName + "." + fieldQuery), this.processArrayType(value, this.properties[key]));
 				break;
 			case "nin" :
-				sqlBuilder.whereNotIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
+				queryBuilder[c.whereNotIn](this.column( columnName + "." + fieldQuery), this.processArrayType(value, this.properties[key]));
 				break;
 			case "endsWith" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), this.like, "%" + value); //todo postgres only
+				queryBuilder[c.where](
+					this.raw(
+						"(EXISTS(" +
+						"SELECT " +
+						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+						"WHERE (" + columnName +  "1" + fieldQuery + ") ilike '%" + value + "' " +
+						") OR " +
+						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "')"
+					)
+				);
 				break;
 			case "startsWith" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), this.like, value + "%"); //todo postgres only
+				queryBuilder[c.where](
+					this.raw(
+						"(EXISTS(" +
+						"SELECT " +
+						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+						"WHERE (" + columnName +  "1" + fieldQuery + ") ilike '" + value + "%' " +
+						") OR " +
+						this.tableName + "." + columnName + fieldQuery + " ilike '" + value + "%')"
+					)
+				);
 				break;
 			case "contains" :
-				sqlBuilder.where(this.raw(this.tableName + "." + columnName), this.like, "%" + value + "%"); //todo postgres only
+				queryBuilder[c.where](
+					this.raw(
+						"(EXISTS(" +
+						"SELECT " +
+						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+						"WHERE (" + columnName +  "1" + fieldQuery + ") ilike '%" + value + "%' " +
+						") OR " +
+						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "%')"
+					)
+				);
 				break;
 			case "=" :
 			case "==" :
-			case "eq" :
 				if (value === null) {
-					sqlBuilder.whereNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
+					queryBuilder[c.where](
+						this.raw(
+							"(EXISTS(" +
+							"SELECT " +
+							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+							"WHERE (" + columnName +  "1" + fieldQuery + ") ISNULL " +
+							") OR " +
+							this.tableName + "." + columnName + fieldQuery + " ISNULL)"
+						)
+					);
 				} else {
-					sqlBuilder.where(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
+					queryBuilder[c.where](
+						this.raw(
+							"(EXISTS(" +
+							"SELECT " +
+							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+							"WHERE (" + columnName +  "1" + fieldQuery + ") = '" + value + "' " +
+							") OR " +
+							this.tableName + "." + columnName + fieldQuery + " = '" + value + "')"
+						)
+					);
 				}
-
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
 				if (value === null) {
-					sqlBuilder.whereNotNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
+					queryBuilder[c.where](
+						this.raw(
+							"(EXISTS(" +
+							"SELECT " +
+							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+							"WHERE (" + columnName +  "1" + fieldQuery + ") NOT NULL " +
+							") OR " +
+							this.tableName + "." + columnName + fieldQuery + " NOT NULL)"
+						)
+					);
 				} else {
-					sqlBuilder.whereNot(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
+					queryBuilder[c.where](
+						this.raw(
+							"(EXISTS(" +
+							"SELECT " +
+							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
+							"WHERE (" + columnName +  "1" + fieldQuery + ") != '" + value + "' " +
+							") OR " +
+							this.tableName + "." + columnName + fieldQuery + " != '" + value + "')"
+						)
+					);
 				}
 				break;
 			case "or" :
 			case "and" :
-				/**
-				 * or : [
-				 *  {field1: val1},
-				 *  {field2 {">":val2}
-			        * ]
-				 */
-				sqlBuilder[compare === "or" ? "orWhere" : "where"](
+
+				isOr = compare === "or" ? true : false;
+
+				queryBuilder.where(
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
 							let innerCompare = "";
@@ -153,31 +230,25 @@ module.exports = class QueryToPgSql extends QueryBase{
 								innerValue = value[i][innerKey];
 							}
 
-							this.processCompare(innerKey, innerCompare, innerValue, builder);
+							this.processCompare(innerKey, innerCompare, innerValue, builder, isOr);
 						}
 					}
 				);
 				break;
 			default :
-				if (value === null) {
-					sqlBuilder.whereNull(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
-				} else if (_.isArray(value)) {
-					sqlBuilder.whereIn(this.raw(this.tableName + "." + columnName), this.processArrayType(value, this.properties[key]));
-				} else {
-					sqlBuilder.where(this.raw(this.tableName + "." + columnName), this.processType(value, this.properties[key]));
-				}
+				return this.processObjectColumn(key, "==", value, queryBuilder, isOr);
 		}
 	}
 
 
 	/**
-	 * Process a JSONB Column
+	 * Process a type[] column
 	 * @param key
 	 * @param compare
 	 * @param value
-	 * @param sqlBuilder
+	 * @param queryBuilder
 	 */
-	processArrayColumn(key, compare, value, sqlBuilder, isOr) {
+	processArrayColumn(key, compare, value, queryBuilder, isOr) {
 
 		let context = this;
 		let property = this.properties[key];
@@ -226,35 +297,35 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			case "gt" :
 			case ">" :
-				sqlBuilder[c.where](this.raw(columnName + " > " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " > " + processedValue));
 				break;
 			case "gte" :
 			case ">=" :
-				sqlBuilder[c.where](this.raw(columnName + " >= " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " >= " + processedValue));
 				break;
 			case "lt" :
 			case "<" :
-				sqlBuilder[c.where](this.raw(columnName + " < " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " < " + processedValue));
 				break;
 			case "lte" :
 			case "<=" :
-				sqlBuilder[c.where](this.raw(columnName + " <= " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " <= " + processedValue));
 				break;
 			case "in" :
-				sqlBuilder[c.where](this.raw(columnName + " @> " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "nin" :
-				sqlBuilder[c.whereNot](this.raw(columnName + " @> " + processedValue));
+				queryBuilder[c.whereNot](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "=" :
 			case "==" :
 			case "eq" :
-				sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " = " + processedValue));
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
-				sqlBuilder[c.whereNot](this.raw(columnName + " = " + processedValue));
+				queryBuilder[c.whereNot](this.raw(columnName + " = " + processedValue));
 				break;
 				break;
 			case "or" :
@@ -264,7 +335,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 				 *  {field2 {">":val2}
 			        * ]
 				 */
-				sqlBuilder[compare === "or" ? "orWhere" : "where"](
+				queryBuilder[compare === "or" ? "orWhere" : "where"](
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
 							let innerCompare = "";
@@ -287,11 +358,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 				);
 				break;
 			default :
-				if (value === null) {
-					sqlBuilder[c.whereNull](this.raw(columnName));
-				} else {
-					sqlBuilder[c.where](this.raw(columnName + " = " + processedValue));
-				}
+				return this.processArrayColumn(key, "==", value, queryBuilder, isOr);
 		}
 	}
 
