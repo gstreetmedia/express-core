@@ -250,12 +250,13 @@ module.exports = class ControllerBase {
 		let queryNumber = parseFloat(search);
 
 		let properties = req.query.properties || Object.keys(m.properties);
+
 		if (!_.isArray(properties)) {
 			properties = properties.split(",");
 		}
 
 		properties.forEach(function(key){
-			if (m.properties[key].type === "string" && isNaN(queryNumber)) {
+			if (m.properties[key].type === "string") {
 				let validate = true;
 
 				if (m.properties.enum) {
@@ -268,7 +269,7 @@ module.exports = class ControllerBase {
 						return;
 					case "uuid" :
 						//continue;
-						break;
+						//break;
 					//it's okay, we
 					default :
 				}
@@ -294,6 +295,8 @@ module.exports = class ControllerBase {
 			}
 		});
 
+		console.log(query);
+
 
 		if (_.indexOf(query.select, m.primaryKey) === -1) {
 			query.select.push(m.primaryKey);
@@ -301,7 +304,7 @@ module.exports = class ControllerBase {
 
 		let results = await m.query(query);
 
-		//console.log(m.lastCommand);
+		console.log(m.lastCommand.toString());
 
 		if (results.error) {
 			results.q = query;

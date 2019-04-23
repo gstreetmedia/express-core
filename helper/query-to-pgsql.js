@@ -374,6 +374,29 @@ module.exports = class QueryToPgSql extends QueryBase{
 		}
 	}
 
+
+	processContains(key, value) {
+		let columnName = this.properties[key].columnName;
+		let columnType = this.properties[key].type;
+		let columnFormat = this.properties[key].format;
+
+		return this.raw(this.tableName + "." + columnName + "::text ilike '%" + value + "%'")
+	}
+
+	processStartsWith(key, value) {
+		let columnName = this.properties[key].columnName;
+		let columnType = this.properties[key].type;
+		let columnFormat = this.properties[key].format;
+		return this.raw(this.tableName + "." + columnName + "::text ilike '" + value + "%'")
+	}
+
+	processEndsWith(key, value) {
+		let columnName = this.properties[key].columnName;
+		let columnType = this.properties[key].type;
+		let columnFormat = this.properties[key].format;
+		return this.raw(this.tableName + "." + columnName + "::text ilike '%" + value + "'")
+	}
+
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
 	 * @param value
