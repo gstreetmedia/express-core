@@ -14,6 +14,8 @@ const stringify = require("stringify-object");
 
 let sourceBase = path.resolve(__dirname + "/../../");
 
+let templatePath = path.resolve(__dirname + "/templates");
+
 let schemaBase = sourceBase + "/schema";
 //console.log(schemaBase);
 if (!fs.existsSync(schemaBase)) {
@@ -345,7 +347,12 @@ async function convert(destination, connectionString, options) {
 
 		if (options.overwrite || !fs.existsSync(modelPath)) {
 
-			let ClassName = inflector.classify(name) + "Model";
+			let modelName = inflector.classify(name);
+			let template = fs.readFileSync(templatePath + "/model.js","UTF8");
+			template = template.split("ModelName").join(modelName).split("TableName").join(tableName);
+			fs.writeFileSync(modelPath, template);
+
+			/*
 
 			let s = "const ModelBase = require('../core/model/ModelBase');\n" +
 				"const _ = require('lodash');\n" +
@@ -374,10 +381,20 @@ async function convert(destination, connectionString, options) {
 			//throw new Error("Stop!!!!!!!!!!!!!!!");
 			//return;
 
+
 			fs.writeFileSync(modelPath, s);
+			 */
+
 		}
 
 		if (options.overwrite || !fs.existsSync(controllerPath)) {
+
+			let modelName = inflector.classify(name);
+			let template = fs.readFileSync(templatePath + "/controller.js","UTF8");
+			template = template.split("ModelName").join(modelName).split("ControllerName").join(modelName);
+			fs.writeFileSync(template, s);
+
+			/*
 			let s = "const ControllerBase = require('../core/controller/ControllerBase');\n" +
 				"const _ = require('lodash');\n" +
 				"const Model = require('../model/" + inflector.classify(name) + "Model');\n\n" +
@@ -395,9 +412,19 @@ async function convert(destination, connectionString, options) {
 				"}";
 
 			fs.writeFileSync(controllerPath, s);
+
+			 */
 		}
 
 		if (options.overwrite || !fs.existsSync(routerPath)) {
+
+			let modelName = inflector.classify(name);
+			let endpoint = inflector.dasherize(inflector.singularize(name), false)
+			let template = fs.readFileSync(templatePath + "/route.js","UTF8");
+			template = template.split("ControllerName").join(modelName).split("EndPointName").join(endpoint);
+			fs.writeFileSync(routerPath, template);
+
+			/*
 			let s = "let router = require('express').Router();\n" +
 				"let authentication = require('../core/middleware/authentication');\n" +
 				"const Controller = require('../controller/" + inflector.classify(name) + "Controller');\n" +
@@ -439,6 +466,7 @@ async function convert(destination, connectionString, options) {
 				"module.exports = router;"
 
 			fs.writeFileSync(routerPath, s);
+			*/
 		}
 
 		routers.push(name);

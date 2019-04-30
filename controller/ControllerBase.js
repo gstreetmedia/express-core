@@ -295,7 +295,7 @@ module.exports = class ControllerBase {
 			}
 		});
 
-		console.log(query);
+		//console.log(query);
 
 
 		if (_.indexOf(query.select, m.primaryKey) === -1) {
@@ -304,7 +304,7 @@ module.exports = class ControllerBase {
 
 		let results = await m.query(query);
 
-		console.log(m.lastCommand.toString());
+		//console.log(m.lastCommand.toString());
 
 		if (results.error) {
 			results.q = query;
@@ -417,8 +417,6 @@ module.exports = class ControllerBase {
 				req.query.join = JSON.parse(req.query.join);
 			}
 		}
-
-		console.log(typeof req.query.select);
 
 		if (req.query && req.query.select && typeof req.query.select === "string") {
 

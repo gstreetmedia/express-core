@@ -4,6 +4,10 @@ exports.singularize = function(value) {
 	value = inflector.singularize(value);
 	value = value.split("metum").join("meta");
 	value = value.split("Metum").join("Meta");
+	value = value.split("datum").join("data");
+	value = value.split("Datum").join("Data");
+	value = value.split("syncs").join("sync");
+	value = value.split("Syncs").join("Sync");
 	return value;
 }
 
@@ -21,6 +25,8 @@ exports.classify = (value) => {
 	value = value.split("Metum").join("Meta");
 	value = value.split("datum").join("Data");
 	value = value.split("Datum").join("Data");
+	value = value.split("Syncs").join("Sync");
+	value = value.split("syncs").join("sync");
 	return value;
 }
 

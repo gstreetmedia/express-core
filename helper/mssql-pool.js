@@ -15,7 +15,7 @@ module.exports = async (connectionString) => {
 
 	let cs = connectionStringParser(connectionString);
 
-	console.log(cs);
+	//console.log(cs);
 
 	var pool = new mssql.ConnectionPool({
 		connectionLimit: 10,

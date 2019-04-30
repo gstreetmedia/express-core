@@ -140,7 +140,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		let controller = AdminController.getController(req);
 		req.query.join = "*";
 
-		console.log(controller);
+		//console.log(controller);
 
 		let data = await controller.read(req);
 

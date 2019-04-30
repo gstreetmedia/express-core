@@ -1055,7 +1055,9 @@ module.exports = class ModelBase {
 
 		this.lastCommand = command;
 
-		//console.log(sql.toString());
+		if (this.debug) {
+			console.log(sql.toString());
+		}
 
 		let pool = await this.getPool();
 
