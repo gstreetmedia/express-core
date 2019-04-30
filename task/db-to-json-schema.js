@@ -392,7 +392,7 @@ async function convert(destination, connectionString, options) {
 			let modelName = inflector.classify(name);
 			let template = fs.readFileSync(templatePath + "/controller.js","UTF8");
 			template = template.split("ModelName").join(modelName).split("ControllerName").join(modelName);
-			fs.writeFileSync(template, s);
+			fs.writeFileSync(controllerPath, template);
 
 			/*
 			let s = "const ControllerBase = require('../core/controller/ControllerBase');\n" +
