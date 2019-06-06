@@ -108,7 +108,13 @@ async function convert(destination, connectionString, options) {
 		schema.forEach(
 			function (item) {
 				item.dataSource = cs.database;
-				schemas.push(item);
+				if (options.settings && options.settings[i].ignore) {
+					if (_.indexOf(options.settings[i].ignore, item.tableName) === -1) {
+						return schemas.push(item);
+					}
+				} else {
+					return schemas.push(item);
+				}
 			}
 		)
 	}
@@ -127,6 +133,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		let name = item.tableName;
+
 
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
@@ -158,7 +165,13 @@ async function convert(destination, connectionString, options) {
 		}
 
 		for (let key in item.properties) {
-			let k = inflector.camelize(inflector.underscore(key), false);
+
+			let k = key;
+			if (k.indexOf("_") === 0) {
+				k = key.substring(1, key.length);
+			}
+			k = inflector.camelize(inflector.underscore(k), false);
+
 			if (k.length === 2) {
 				k = k.toLowerCase();
 			}

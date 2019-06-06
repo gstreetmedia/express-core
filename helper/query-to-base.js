@@ -69,10 +69,11 @@ module.exports = class QueryToPgSql {
 				wrapIdentifier: (value, origImpl, queryContext) => {
 					if (value.indexOf("_") === -1) {
 						//console.log(value + " => " + inflector.underscore(value));
-						if (!process.env.IGNORE_CASE) {
-							value = inflector.underscore(value);
+						if (value !== this.tableName) {
+							if (!process.env.IGNORE_CASE) {
+								value = inflector.underscore(value);
+							}
 						}
-
 					}
 					return origImpl(value);
 				}
@@ -506,7 +507,8 @@ module.exports = class QueryToPgSql {
 
 
 	column(column) {
-		return this.raw(this.tableName + "." + column);
+
+		return this.raw('"' + this.tableName + '"."' + column + '"');
 	}
 
 	/**

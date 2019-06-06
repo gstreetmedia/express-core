@@ -66,11 +66,12 @@ module.exports = class AdminController extends ViewControllerBase {
 			function(item) {
 
 				if (item.property && item.visible) {
-					console.log("item.prop => " + item.property);
+					//console.log("item.prop => " + item.property);
 					req.query.select.push(item.property);
 				}
 			}
 		);
+
 
 		if (controller.Model.schema.primaryKey && _.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
 			console.log("adding Primary");
@@ -148,7 +149,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			return res.notFound(req.params.id);
 		}
 
-		//console.log(data);
+		console.log(data);
 
 		return this.render(
 			'page-admin-view',
