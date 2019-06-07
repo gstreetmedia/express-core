@@ -83,7 +83,6 @@ module.exports = class SchemaModel extends ModelBase {
 			connectionStrings = [connectionStrings];
 		}
 
-
 		let dataSources = [];
 		let count = 0;
 
