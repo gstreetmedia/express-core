@@ -1,5 +1,6 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
+
 const Controller = require('../controller/UserController');
 let c = new Controller()
 
@@ -14,7 +15,8 @@ router.use(async function(req, res, next){
 router.post('/login', async function (req, res, next) {
 	req.allowRole("guest");
 	if(req.checkRole()){
-		return await c.login(req, res);
+		let result = await c.login(req, res);
+		return;
 	}
 	return next();
 });

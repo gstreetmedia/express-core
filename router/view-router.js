@@ -1,35 +1,30 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-let fs = require("fs");
+
 let UserController = require("../../controller/UserController");
+let viewSelector = require("../helper/view/view-selector");
+
+router.use(authentication);
+
 router.use(
 	async (req, res, next) => {
 		return next();
 	}
-)
+);
 
 router.get('/', async (req, res, next) => {
+		return viewSelector(res, 'index', {});
+	}
+);
+
+router.get('/admin/login', async (req, res, next) => {
 	req.allowRole("guest");
 
-	if(req.hasRole("super-admin")){
+	if (req.hasRole("super-admin")) {
 		return res.redirect("/admin");
 	}
 
-	if (fs.existsSync(global.appRoot + "/src/views/page-login.ejs")) {
-		console.log("Render local login")
-		return res.render(
-			'page-login',
-			{}
-		)
-	} else {
-		return res.render(
-			'../core/views/page-login',
-			{}
-		)
-	}
-
-
-	return next();
+	return viewSelector(res, 'page-login', {});
 });
 
 router.post("/login", async (req, res, next) => {
