@@ -91,10 +91,7 @@ async function convert(destination, connectionString, options) {
 			pool = await p(connectionString[i]);
 		} //TODO elastic?
 
-
 		cs = connectionStringParser(cs);
-
-		console.log(cs);
 
 		let schema = await converter(
 			_.extend({
@@ -112,16 +109,17 @@ async function convert(destination, connectionString, options) {
 					if (_.indexOf(options.settings[i].ignore, item.tableName) === -1) {
 						return schemas.push(item);
 					}
+				} else if (options.settings && options.settings[i].include) {
+					if (_.indexOf(options.settings[i].include, item.tableName) !== -1) {
+						return schemas.push(item);
+					}
 				} else {
 					return schemas.push(item);
 				}
 			}
-		)
+		);
 	}
 
-
-	// Schema's is an array of json-schema objects
-	//
 	let routers = [];
 	let schemaHash = {};
 
@@ -134,7 +132,6 @@ async function convert(destination, connectionString, options) {
 
 		let name = item.tableName;
 
-
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
 				options.removePrefix = [options.removePrefix]
@@ -146,7 +143,7 @@ async function convert(destination, connectionString, options) {
 						name = tempName;
 					}
 				}
-			)
+			);
 		}
 
 		if (schemaHash[name]) {
