@@ -105,6 +105,7 @@ module.exports = (value, property) =>{
 						if (value === "") {
 							return null;
 						}
+						//TODO if the value is a string and not a UUID what should we do???
 						if (value == null || _.isString(value)) {
 							return value;
 						}

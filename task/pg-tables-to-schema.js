@@ -31,7 +31,7 @@ module.exports = async function( options, pool ) {
 	enums = enums.rows;
 
 	let views = await pool.query("SELECT view_name FROM information_schema.view_table_usage");
-	views = _.map(views.rows, "view_name");
+	views = _.uniq(_.map(views.rows, "view_name"));
 
 	let descriptions = await pool.query("SELECT\n" +
 		//"  cols.table_name,\n" +
@@ -62,8 +62,9 @@ module.exports = async function( options, pool ) {
 		function(column) {
 
 			if (_.indexOf(views, column.table_name) !== -1) { //don't do views
-				return;
+				//return;
 			}
+
 			if (column.table_name.indexOf("geography_") !== -1 ||
 				column.table_name.indexOf("geometry_") !== -1 ||
 				column.table_name.indexOf("raster_") !== -1 ||
