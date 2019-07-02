@@ -91,10 +91,7 @@ async function convert(destination, connectionString, options) {
 			pool = await p(connectionString[i]);
 		} //TODO elastic?
 
-
 		cs = connectionStringParser(cs);
-
-		console.log(cs);
 
 		let schema = await converter(
 			_.extend({
@@ -108,7 +105,17 @@ async function convert(destination, connectionString, options) {
 		schema.forEach(
 			function (item) {
 				item.dataSource = cs.database;
-				schemas.push(item);
+				if (options.settings && options.settings[i].ignore) {
+					if (_.indexOf(options.settings[i].ignore, item.tableName) === -1) {
+						return schemas.push(item);
+					}
+				} else if (options.settings && options.settings[i].include) {
+					if (_.indexOf(options.settings[i].include, item.tableName) !== -1) {
+						return schemas.push(item);
+					}
+				} else {
+					return schemas.push(item);
+				}
 			}
 		)
 	}
@@ -127,6 +134,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		let name = item.tableName;
+
 
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
@@ -392,7 +400,7 @@ async function convert(destination, connectionString, options) {
 			let modelName = inflector.classify(name);
 			let template = fs.readFileSync(templatePath + "/controller.js","UTF8");
 			template = template.split("ModelName").join(modelName).split("ControllerName").join(modelName);
-			fs.writeFileSync(template, s);
+			fs.writeFileSync(controllerPath, template);
 
 			/*
 			let s = "const ControllerBase = require('../core/controller/ControllerBase');\n" +
