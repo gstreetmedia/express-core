@@ -60,7 +60,7 @@ if (process.env.CACHE_REDIS) {
 
 	destroyFunction = (key) => {
 		return new Promise(function (resolve, reject) {
-			manager.del(function (err, result) {
+			manager.del(key, function (err, result) {
 				if (err) {
 					reject(err);
 				} else {
@@ -102,5 +102,8 @@ exports.reset = async() => {
 };
 
 exports.del = async(key) => {
-	return await destroyFunction("memory_" + cachePrefix + "_" + key);
+	console.log("cache-manager::del " + key)
+	await destroyFunction("memory_" + cachePrefix + "_" + key);
+	console.log("cache-manager::deleted")
+	return;
 }

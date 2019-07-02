@@ -88,6 +88,8 @@ module.exports = class QueryToPgSql extends QueryBase{
 			}
 		}
 
+		console.log("compare " + isOr);
+
 		switch (compare) {
 			case "inside" :
 			case "near" :
@@ -121,64 +123,23 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "endsWith" :
 				queryBuilder[c.where](
 					this.raw(
-						"(EXISTS(" +
-						"SELECT " +
-						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-						"WHERE (" + columnName +  "1" + fieldQuery + ") ilike '%" + value + "' " +
-						") OR " +
-						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "')"
+						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "'"
 					)
 				);
 				break;
 			case "startsWith" :
 				queryBuilder[c.where](
 					this.raw(
-						"(EXISTS(" +
-						"SELECT " +
-						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-						"WHERE (" + columnName +  "1" + fieldQuery + ") ilike '" + value + "%' " +
-						") OR " +
-						this.tableName + "." + columnName + fieldQuery + " ilike '" + value + "%')"
+						this.tableName + "." + columnName + fieldQuery + " ilike '" + value + "%'"
 					)
 				);
 				break;
 			case "contains" :
 				queryBuilder[c.where](
 					this.raw(
-						"(EXISTS(" +
-						"SELECT " +
-						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-						"WHERE (" + columnName +  "1" + fieldQuery + ") ilike '%" + value + "%' " +
-						") OR " +
-						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "%')"
+						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "%'"
 					)
 				);
-				break;
-			case "=" :
-			case "==" :
-				if (value === null) {
-					queryBuilder[c.where](
-						this.raw(
-							"(EXISTS(" +
-							"SELECT " +
-							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-							"WHERE (" + columnName +  "1" + fieldQuery + ") ISNULL " +
-							") OR " +
-							this.tableName + "." + columnName + fieldQuery + " ISNULL)"
-						)
-					);
-				} else {
-					queryBuilder[c.where](
-						this.raw(
-							"(EXISTS(" +
-							"SELECT " +
-							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-							"WHERE (" + columnName +  "1" + fieldQuery + ") = '" + value + "' " +
-							") OR " +
-							this.tableName + "." + columnName + fieldQuery + " = '" + value + "')"
-						)
-					);
-				}
 				break;
 			case "!" :
 			case "!=" :
@@ -235,8 +196,24 @@ module.exports = class QueryToPgSql extends QueryBase{
 					}
 				);
 				break;
+			case "=" :
+			case "==" :
 			default :
-				return this.processObjectColumn(key, "==", value, queryBuilder, isOr);
+
+				if (value === null) {
+					queryBuilder[c.where](
+						this.raw(
+							this.tableName + "." + columnName + fieldQuery + " ISNULL"
+						)
+					);
+				} else {
+					queryBuilder[c.where](
+						this.raw(
+							this.tableName + "." + columnName + fieldQuery + " = '" + value + "'"
+						)
+					);
+				}
+				break;
 		}
 	}
 

@@ -10,8 +10,24 @@ module.exports = function (value) {
 
 		let parts = value.split("://");
 		let protocol = parts[0];
-		let credentials = parts[1].substr(0, parts[1].lastIndexOf("@"));
 
+		if (parts[1].lastIndexOf("@") === -1) {
+			if (parts[1].indexOf(":") !== -1) {
+				parts = parts[1].split(":");
+				return {
+					protocol : protocol,
+					host : parts[0],
+					port : parts[1]
+				}
+			}
+			return {
+				protocol : protocol,
+				host : parts[1]
+			}
+		}
+
+
+		let credentials = parts[1].substr(0, parts[1].lastIndexOf("@"));
 		let username = credentials.split(":")[0];
 		let password = credentials.split(":")[1];
 

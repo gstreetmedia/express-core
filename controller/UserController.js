@@ -4,6 +4,7 @@ const hashPassword = require("../helper/hash-password");
 const SessionModel = require("../model/SessionModel");
 const now = require("../helper/now");
 const moment = require("moment-timezone");
+const rateLimiterRoute = require("../helper/rate-limit-route");
 
 module.exports = class UserController extends ControllerBase {
 
@@ -40,6 +41,13 @@ module.exports = class UserController extends ControllerBase {
 
 	async login(req, res) {
 
+		const retryAfterOrOk = await rateLimiterRoute.check("user/login", req.email, req, res);
+		if (retryAfterOrOk !== true) {
+			rateLimiterRoute.fail("user/login", req.email);
+			res.set('Retry-After', String(retryAfterOrOk));
+			return res.status(429).send('Too Many Requests');
+		}
+
 		let m = new this.Model(req);
 
 		//console.log(req.body);
@@ -60,7 +68,7 @@ module.exports = class UserController extends ControllerBase {
 
 			args.expires = moment().add(1, 'year').toDate();
 			res.cookie('token', result.token, args);
-			res.cookie('application-key',hashPassword(result.token), args);
+			res.cookie('application-key', hashPassword(result.token), args);
 		}
 
 		res.success(result);

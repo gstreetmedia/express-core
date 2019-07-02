@@ -4,7 +4,7 @@ const uuid = require("node-uuid");
 const inflector = require("../helper/inflector");
 const knex = require("knex");
 
-module.exports = class QueryToPgSql {
+module.exports = class QueryToSqlBase {
 
 	constructor(schema) {
 		this.schema = schema;
@@ -69,10 +69,11 @@ module.exports = class QueryToPgSql {
 				wrapIdentifier: (value, origImpl, queryContext) => {
 					if (value.indexOf("_") === -1) {
 						//console.log(value + " => " + inflector.underscore(value));
-						if (!process.env.IGNORE_CASE) {
-							value = inflector.underscore(value);
+						if (value !== this.tableName) {
+							if (!process.env.IGNORE_CASE) {
+								value = inflector.underscore(value);
+							}
 						}
-
 					}
 					return origImpl(value);
 				}
@@ -357,7 +358,7 @@ module.exports = class QueryToPgSql {
 		let columnFormat = null;
 
 		if (key.indexOf(".") !== -1 || _.isObject(key)) { //JSONB Syntax
-			return this.processObjectColumn(key, compare, value, queryBuilder)
+			return this.processObjectColumn(key, compare, value, queryBuilder, isOr)
 		}
 
 		if (this.properties[key] && this.properties[key].columnName) {
@@ -502,11 +503,12 @@ module.exports = class QueryToPgSql {
 	 * @param value
 	 * @param queryBuilder
 	 */
-	processObjectColumn(key, compare, value, queryBuilder) {}
+	processObjectColumn(key, compare, value, queryBuilder, isOr) {}
 
 
 	column(column) {
-		return this.raw(this.tableName + "." + column);
+
+		return this.raw('"' + this.tableName + '"."' + column + '"');
 	}
 
 	/**

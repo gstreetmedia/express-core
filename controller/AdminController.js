@@ -14,7 +14,6 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 	async home(req, res) {
-
 		this.render(
 			'page-admin-home',
 			{
@@ -31,7 +30,7 @@ module.exports = class AdminController extends ViewControllerBase {
 			},
 			req,
 			res
-		)
+		);
 	}
 
 	/**
@@ -66,7 +65,6 @@ module.exports = class AdminController extends ViewControllerBase {
 			function(item) {
 
 				if (item.property && item.visible) {
-					console.log("item.prop => " + item.property);
 					req.query.select.push(item.property);
 				}
 			}

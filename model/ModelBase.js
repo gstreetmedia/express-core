@@ -681,8 +681,6 @@ module.exports = class ModelBase {
 	 */
 	async join(results, query) {
 
-		//console.log("join " + this.tableName);
-
 		if (!this.relationMappings && !this.relations && !this.foreignKeys) {
 			return results;
 		}
@@ -697,17 +695,14 @@ module.exports = class ModelBase {
 			findOne = true;
 		}
 
-		if (query.join === "*") {
-			query.join = Object.keys(relations);
-			query.join = query.join.concat(Object.keys(foreignKeys));
-			//results[0].join = query.join;
-		}
-
-
 		let join = _.clone(query.join);
 
+		if (join === "*") {
+			join = Object.keys(relations);
+			join = join.concat(Object.keys(foreignKeys));
+		}
+
 		if (_.isString(join)) {
-			//console.log("JOIN IS A STRING");
 			let items = join.split(",");
 			join = {};
 			items.forEach(
@@ -718,8 +713,6 @@ module.exports = class ModelBase {
 				}
 			)
 		} else if (_.isArray(join)) {
-			//console.log("JOIN IS AN ARRAY");
-			//console.log("condition 2");
 			let temp = {};
 			join.forEach(
 				function (item) {
@@ -753,7 +746,6 @@ module.exports = class ModelBase {
 				let joinThroughWhere = item.join.through ? item.join.through.where  : null;
 				let joinThroughSort = item.join.through ? item.join.through.sort  : null;
 				let targetKeys = [];
-				let deepJoin;
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
 					if (results[i][joinFrom]) {
@@ -776,6 +768,9 @@ module.exports = class ModelBase {
 				switch (item.relation) {
 					case "HasOne":
 						m = new item.modelClass(this.req);
+						if (join[key].debug) {
+							m.debug = true;
+						}
 
 						if (relations[key].where) {
 							join[key].where = join[key].where || {where: {}};
@@ -793,7 +788,6 @@ module.exports = class ModelBase {
 						list = await m.find(join[key]);
 
 						if (list.error) {
-							//console.log(list.error);
 							continue;
 						}
 
@@ -817,6 +811,10 @@ module.exports = class ModelBase {
 					case "HasMany" :
 						m = new item.modelClass(this.req);
 
+						if (join[key].debug) {
+							m.debug = true;
+						}
+
 						if (relations[key].where) {
 							join[key].where = join[key].where || {where: {}};
 							for(let p in relations[key].where) {
@@ -832,11 +830,9 @@ module.exports = class ModelBase {
 							join[key].select.push(joinTo);
 						}
 
-
 						list = await m.find(join[key]);
 
 						if (list.error) {
-							//console.log(list.error);
 							continue;
 						}
 
