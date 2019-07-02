@@ -1,6 +1,8 @@
+module.exports = (ControllerName, EndPointName) => {
+	return `
 let router = require('express').Router();
 let authentication = require('../core/middleware/authentication');
-const Controller = require('../controller/ControllerNameController');
+const Controller = require('../controller/${ControllerName}Controller');
 let c = new Controller()
 
 router.use(authentication);
@@ -74,4 +76,7 @@ router.delete('/:id', async (req, res, next) => {
 	return next();
 });
 
-module.exports = router;
+module.exports = router;	
+	
+	`
+};
