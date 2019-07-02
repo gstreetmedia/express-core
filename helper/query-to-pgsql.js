@@ -493,7 +493,9 @@ module.exports = class QueryToPgSql extends QueryBase{
 				}
 				break;
 			case "string" :
-
+				if (value === null) {
+					return null;
+				}
 				if (property.format) {
 					switch (property.format) {
 						case "date-time" :
