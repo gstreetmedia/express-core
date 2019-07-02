@@ -1,7 +1,9 @@
-const ModelBase =  require('../core/model/ModelBase');
-const _  = require('lodash');
+module.exports = (ModelName, TableName) => {
+return `
+const ModelBase = require('../core/model/ModelBase');
+const _ = require('lodash');
 
-module.exports = class ModelNameModel extends ModelBase {
+module.exports = class ${ModelName}Model extends ModelBase {
 
 	constructor(req) {
 		super(req);
@@ -12,15 +14,15 @@ module.exports = class ModelNameModel extends ModelBase {
 	 * @returns {string}
 	 */
 	get tableName() {
-		return ModelNameModel.tableName;
+		return ${ModelName}Model.tableName;
 	}
-
+	
 	/**
 	 * The name of the table used by this Model Class
 	 * @returns {string}
 	 */
 	static get tableName() {
-		return 'TableName';
+		return '${TableName}';
 	}
 
 	/**
@@ -28,7 +30,7 @@ module.exports = class ModelNameModel extends ModelBase {
 	 * @returns {{}}
 	 */
 	static get schema() {
-		return ModelBase.getSchema(ModelNameModel.tableName);
+		return ModelBase.getSchema(${ModelName}Model.tableName);
 	}
 
 	/**
@@ -36,7 +38,7 @@ module.exports = class ModelNameModel extends ModelBase {
 	 * @returns {{}}
 	 */
 	static get fields() {
-		return ModelBase.getFields(ModelNameModel.tableName);
+		return ModelBase.getFields(${ModelName}Model.tableName);
 	}
 
 	/**
@@ -104,4 +106,5 @@ module.exports = class ModelNameModel extends ModelBase {
 	get foreignKeys() {
 		return {};
 	}
-};
+};`
+}

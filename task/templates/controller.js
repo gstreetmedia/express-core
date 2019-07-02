@@ -1,8 +1,11 @@
-const ControllerBase = require('../core/controller/ControllerBase');
-const  _  = require('lodash');
-const Model = require('../model/ModelNameModel');
+module.exports = (ModelName)=> {
 
-module.exports = class ClassNameController extends ControllerBase {
+return `	
+const ControllerBase = require('../core/controller/ControllerBase');
+const _ = require('lodash');
+const Model = require('../model/${ModelName}Model');
+
+module.exports = class ${ModelName}Controller extends ControllerBase {
 	constructor() {
 		super(Model);
 	}
@@ -34,4 +37,5 @@ module.exports = class ClassNameController extends ControllerBase {
 	async destroy(req, res) {
 		return await super.destroy(req, res);
 	}
+}`
 }
