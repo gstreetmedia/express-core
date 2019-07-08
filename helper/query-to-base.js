@@ -325,12 +325,17 @@ module.exports = class QueryToSqlBase {
 					compare = key;
 					//console.log(JSON.stringify(queryParams[key]))
 				} else {
-					compare = Object.keys(queryParams[key])[0]; //TODO what is this?
+					if (queryParams[key] && typeof queryParams[key] === "object") {
+						compare = Object.keys(queryParams[key])[0]; //formed as {param:{"compare":"value"}
+					} else {
+						compare = "=="; //formed as {param : value} which is an implied ==
+					}
+
 				}
 			}
 
 			if (compare !== "" && compare !== "or" && compare !== "and") {
-				value = queryParams[key][compare];
+				value = queryParams[key] ? queryParams[key][compare] : queryParams[key];
 			} else {
 				value = queryParams[key];
 			}
