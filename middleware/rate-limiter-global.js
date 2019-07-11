@@ -5,11 +5,10 @@ let rateLimiterMiddleware;
 
 if (process.env.CACHE_REDIS) {
 
-	let connection = connectionStringParser(process.env.CACHE_REDIS);
+	let connection = connectionStringParser();
 
 	const redisClient = redis.createClient({
-		host: connection.host,
-		port: connection.port,
+		url : process.env.CACHE_REDIS,
 		enable_offline_queue: false,
 	});
 
