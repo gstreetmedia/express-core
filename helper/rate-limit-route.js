@@ -1,5 +1,6 @@
 const redis = require('redis');
 const { RateLimiterRedis } = require('rate-limiter-flexible');
+const connectionStringParser = require("../helper/connection-string-parser");
 
 let fail = async () => {
 	return false;
@@ -13,8 +14,20 @@ let check = async () => {
 
 
 if (process.env.CACHE_REDIS) {
+
+	let connection = connectionStringParser(process.env.CACHE_REDIS);
+
+	console.log("Rate limiter Redis");
+	console.log(connection);
+
 	const redisClient = redis.createClient({
-		enable_offline_queue: true,
+		host: connection.host,
+		port: connection.port,
+		enable_offline_queue: false,
+	});
+
+	redisClient.on("error", (e) => {
+		console.log("Could not connect to rate limiter route redis");
 	});
 
 	const limiter = new RateLimiterRedis({
@@ -44,7 +57,6 @@ if (process.env.CACHE_REDIS) {
 		await limiter.delete(route + "_" + parameter);
 	};
 }
-
 
 exports.check = check;
 exports.fail = fail;

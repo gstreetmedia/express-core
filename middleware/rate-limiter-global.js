@@ -16,6 +16,10 @@ if (process.env.CACHE_REDIS) {
 		enable_offline_queue: false,
 	});
 
+	redisClient.on("error", (e) => {
+		console.log("Could not connect to rate limiter global redis");
+	});
+
 	const rateLimiter = new RateLimiterGlobal({
 		redis: redisClient,
 		keyPrefix: 'middleware',
