@@ -7,15 +7,13 @@ if (process.env.CACHE_REDIS) {
 
 	let connection = connectionStringParser(process.env.CACHE_REDIS);
 
+	console.log("Rate limiter Redis");
 	console.log(connection);
 
 	const redisClient = redis.createClient({
-		url : process.env.CACHE_REDIS,
+		host: connection.host,
+		port: connection.port,
 		enable_offline_queue: false,
-	});
-
-	redisClient.on('error', function (err) {
-		console.log("Could not connect ratelimiter redis");
 	});
 
 	const rateLimiter = new RateLimiterGlobal({

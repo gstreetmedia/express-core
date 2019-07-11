@@ -1,4 +1,5 @@
 const cacheManager = require('cache-manager');
+const connectionStringParser = require("./connection-string-parser");
 
 let config;
 let manager;
@@ -10,11 +11,16 @@ let resetFunction;
 let destroyFunction;
 
 if (process.env.CACHE_REDIS) {
-	console.log("redis " + process.env.CACHE_REDIS);
+
+	let connection = connectionStringParser(process.env.CACHE_REDIS);
+	console.log("cache redis");
+	console.log(connection);
+
 	const redisStore = require('cache-manager-redis');
 	config = {
 		store: redisStore,
-		url: process.env.CACHE_REDIS,
+		host: connection.host,
+		port : connection.port,
 		db: 0,
 		ttl: 120
 	};
