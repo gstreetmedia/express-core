@@ -5,11 +5,17 @@ let rateLimiterMiddleware;
 
 if (process.env.CACHE_REDIS) {
 
-	let connection = connectionStringParser();
+	let connection = connectionStringParser(process.env.CACHE_REDIS);
+
+	console.log(connection);
 
 	const redisClient = redis.createClient({
 		url : process.env.CACHE_REDIS,
 		enable_offline_queue: false,
+	});
+
+	redisClient.on('error', function (err) {
+		console.log("Could not connect ratelimiter redis");
 	});
 
 	const rateLimiter = new RateLimiterGlobal({
