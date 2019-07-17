@@ -13,9 +13,11 @@ router.use(
 );
 
 router.get('/', async (req, res, next) => {
-		return viewSelector(res, 'index', {});
+	if (req.hasRole("super-admin")) {
+		return res.redirect("/admin");
 	}
-);
+	return viewSelector(res, 'index', {});
+});
 
 router.get('/admin/login', async (req, res, next) => {
 	req.allowRole("guest");

@@ -4,7 +4,7 @@ const hashPassword = require("../helper/hash-password");
 const SessionModel = require("../model/SessionModel");
 const now = require("../helper/now");
 const moment = require("moment-timezone");
-const rateLimiterRoute = require("../helper/rate-limit-route");
+const rateLimitRoute = require("../helper/rate-limit-route");
 
 module.exports = class UserController extends ControllerBase {
 
@@ -41,16 +41,14 @@ module.exports = class UserController extends ControllerBase {
 
 	async login(req, res) {
 
-		const retryAfterOrOk = await rateLimiterRoute.check("user/login", req.email, req, res);
+		const retryAfterOrOk = await rateLimitRoute.check("user/login", req.params.email, req, res);
 		if (retryAfterOrOk !== true) {
-			rateLimiterRoute.fail("user/login", req.email);
+			rateLimitRoute.fail("user/login", req.params.email);
 			res.set('Retry-After', String(retryAfterOrOk));
 			return res.status(429).send('Too Many Requests');
 		}
 
 		let m = new this.Model(req);
-
-		//console.log(req.body);
 
 		let result = await m.login(
 			req.body.email,
@@ -88,11 +86,47 @@ module.exports = class UserController extends ControllerBase {
 		return res.success("Logged Out");
 	}
 
-	async passwordReset(req, res) {
+	async lostPasswordStart(req, res) {
 
+		if (!req.query.email) {
+			return res.notFound();
+		}
+
+		let m = new this.Model(req);
+		let result = m.lostPasswordStart(req.query.email);
+		if (!result.error) {
+			return res.success(result);
+		}
+		return res.notFound(req.query.email);
 	}
 
-	async updatePassword(req, res) {
+	async lostPasswordComplete(req, res) {
+		if (!req.query.token) {
+			return res.notFound();
+		}
+
+		let m = new this.Model(req);
+		let result = m.lostPasswordComplete(req.query.token, req.query.password);
+		if (!result.error) {
+			return res.success(result);
+		}
+		return res.notFound(req.query.token);
+	}
+
+	async updateEmailStart(req, res) {
+		if (!req.query.id) {
+			return res.notFound();
+		}
+
+		let m = new this.Model(req);
+		let result = m.updateEmailStart(req.query.token, req.query.password);
+		if (!result.error) {
+			return res.success(result);
+		}
+		return res.notFound(req.query.token);
+	}
+
+	async updateEmailComplete(req, res) {
 
 	}
 

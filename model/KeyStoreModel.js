@@ -85,4 +85,15 @@ module.exports = class KeyStoreModel extends ModelBase {
 		}
 	}
 
+	async destroy(key) {
+		let result = await super.destroy(
+			{
+				where : {
+					key : key
+				}
+			}
+		);
+		return result;
+	}
+
 }

@@ -101,7 +101,7 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 			relations.forEach(
 				function(key) {
 					if (token[key]) {
-						console.log("surfacing relation " + key);
+						//console.log("surfacing relation " + key);
 						obj[key] = token[key];
 						delete token[key];
 					}

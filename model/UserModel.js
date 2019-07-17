@@ -3,7 +3,7 @@ const _ = require('lodash');
 const hashPassword = require("../helper/hash-password");
 const SessionModel = require("./SessionModel");
 const now = require('../helper/now');
-const jwt = require('jsonwebtoken')
+const jwt = require('jsonwebtoken');
 
 module.exports = class UserModel extends ModelBase {
 
@@ -118,14 +118,27 @@ module.exports = class UserModel extends ModelBase {
 		);
 	}
 
-	async lostPasswordStart(username) {
+	async logoutAll(id) {
+		let sm = new SessionModel(this.req);
+		return await sm.destroyWhere(
+			{
+				where: {
+					userId: id
+				}
+			}
+		);
+	}
+
+	/**
+	 * Reset a user's password by email
+	 * @param email
+	 * @returns {Promise<{token: *}>}
+	 */
+	async lostPasswordStart(email) {
 		let result = await this.findOne(
 			{
 				where: {
-					or: [
-						{username: username},
-						{email: username}
-					]
+					email: email
 				}
 			}
 		);
@@ -138,22 +151,27 @@ module.exports = class UserModel extends ModelBase {
 				},
 				process.env.JWT_TOKEN_SECRET,
 				{
-					expiresIn: "1 hour"
+					expiresIn: "6 hour"
 				}
 			);
 			await this.update(
 				result.id,
 				{
 					passwordResetToken: token,
-					passwordResetTokenExpiresAt: moment().tz("UTC").add(1, "hours").toISOString()
+					passwordResetTokenExpiresAt: moment().tz("UTC").add(6, "hours").toISOString()
 				}
 			);
 			return {
-				token: tok
+				token: token
 			};
 		}
 	}
 
+	/**
+	 * Update a user's password if the token is still valid
+	 * @param email
+	 * @returns {Promise<{token: *}>}
+	 */
 	async lostPasswordComplete(token, password) {
 		let decoded;
 		try {
@@ -179,6 +197,12 @@ module.exports = class UserModel extends ModelBase {
 		}
 	}
 
+	/**
+	 * Update the user's email.
+	 * @param id
+	 * @param email
+	 * @returns {Promise<void>}
+	 */
 	async updateEmailStart(id, email) {
 		let result = await this.read(id);
 
@@ -190,7 +214,7 @@ module.exports = class UserModel extends ModelBase {
 				},
 				process.env.JWT_TOKEN_SECRET,
 				{
-					expiresIn: "1 hour"
+					expiresIn: "6 hour"
 				}
 			);
 			await this.update(
@@ -198,12 +222,21 @@ module.exports = class UserModel extends ModelBase {
 				{
 					emailChangeCandidate: email,
 					emailProofToken: token,
-					emailProofTokenExpiresAt: moment().tz("UTC").add(1, "hours").toISOString()
+					emailProofTokenExpiresAt: moment().tz("UTC").add(6, "hours").toISOString()
 				}
 			);
+
+			return {
+				token : token
+			}
 		}
 	}
 
+	/**
+	 * Set the user's email to active if the tokens matches and isn't expired
+	 * @param token
+	 * @returns {Promise<{error: string}|*>}
+	 */
 	async updateEmailComplete(token) {
 		let decoded;
 		try {

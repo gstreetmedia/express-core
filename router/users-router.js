@@ -29,6 +29,38 @@ router.get('/logout', async function (req, res, next) {
 	return next();
 });
 
+router.post('/lost-password', async function (req, res, next) {
+	req.allowRole("user");
+	if(req.checkRole()){
+		return await c.lostPasswordStart(req, res);
+	}
+	return next();
+});
+
+router.put('/lost-password', async function (req, res, next) {
+	req.allowRole("user");
+	if(req.checkRole()){
+		return await c.lostPasswordComplete(req, res);
+	}
+	return next();
+});
+
+router.post('/update-email', async function (req, res, next) {
+	req.allowRole("user");
+	if(req.checkRole()){
+		return await c.updateEmailComplete(req, res);
+	}
+	return next();
+});
+
+router.put('/update-email', async function (req, res, next) {
+	req.allowRole("user");
+	if(req.checkRole()){
+		return await c.updateEmailComplete(req, res);
+	}
+	return next();
+});
+
 router.get('/index', async function (req, res, next) {
 	if(req.checkRole()){
 		return await c.index(req, res);

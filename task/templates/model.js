@@ -69,10 +69,10 @@ module.exports = class ${ModelName}Model extends ModelBase {
 	/**
 	 * @param {string|int} id
 	 * @param {object} data
-	 * @param {object} query
+	 * @param {boolean} fetch
 	 * @returns {Promise<*>}
 	 */
-	async update(id, data, query) {
+	async update(id, data, fetch) {
 		return await super.update(id, data, query);
 	}
 

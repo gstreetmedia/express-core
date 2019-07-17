@@ -9,8 +9,9 @@ const md5 = require("md5");
 let connectionStringParser = require("connection-string");
 const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
+const EventEmitter = require('events');
 
-module.exports = class ModelBase {
+module.exports = class ModelBase extends EventEmitter {
 
 	/**
 	 *
@@ -20,6 +21,7 @@ module.exports = class ModelBase {
 	 * or req.account.id etc.
 	 */
 	constructor(req) {
+		super();
 		this.req = req;
 		if (req && req.connectionString) {
 			this._connectionString = req.connectionString;
@@ -258,6 +260,7 @@ module.exports = class ModelBase {
 		}
 
 		await this.beforeCreate(params);
+		this.emit("beforeCreate", params);
 
 		let command = this.queryBuilder.insert(params);
 
@@ -274,16 +277,31 @@ module.exports = class ModelBase {
 		let record = await this.read(data[this.primaryKey]);
 
 		await this.afterCreate(data[this.primaryKey], record);
+		this.emit("create", data[this.primaryKey], record);
 
 		return record;
 	}
 
+	/**
+	 * Shorthand method for determining if a create or an update is necessary
+	 * @param query
+	 * @param data
+	 * @returns {Promise<void|*>}
+	 */
+	async upsert(query, data) {
+		let result = this.findOne(query);
+		if (result) {
+			return await this.update(result.id, data);
+		} else {
+			return await this.create(data);
+		}
+	}
 
 	/**
 	 * Update one record
 	 * @param id
 	 * @param data
-	 * @param query
+	 * @param fetch
 	 * @returns {Promise<void>}
 	 */
 	async update(id, data, fetch) {
@@ -335,6 +353,7 @@ module.exports = class ModelBase {
 			}
 
 			let proceed = await this.beforeUpdate(id, params);
+			this.emit("beforeUpdate", params);
 
 			if (proceed) {
 
@@ -349,6 +368,7 @@ module.exports = class ModelBase {
 				let record = await this.read(id);
 
 				await this.afterUpdate(id, record);
+				this.emit("update", id, record);
 
 				if (fetch) {
 					return record;
@@ -405,9 +425,13 @@ module.exports = class ModelBase {
 			};
 		}
 
+		this.emit("beforeUpdateWhere", result);
+
 		let command = this.queryBuilder.update(query, params);
 
 		let result = await this.execute(command);
+		this.emit("updateWhere", result);
+
 		if (result.error) {
 			return result;
 		}
@@ -497,6 +521,7 @@ module.exports = class ModelBase {
 		if (record) {
 
 			let proceed = await this.beforeDestroy(id, record);
+			this.emit("beforeDestroy", id, record);
 
 			if (proceed !== false) {
 				let command = this.queryBuilder.delete(
@@ -510,6 +535,7 @@ module.exports = class ModelBase {
 				let result = await this.execute(command);
 
 				await this.afterDestroy(id, record);
+				this.emit("afterDestroy", id, record);
 
 				return result;
 			} else {
@@ -538,6 +564,7 @@ module.exports = class ModelBase {
 	async destroyWhere(query) {
 		console.log("ModelBase::destroyWhere");
 		let command = this.queryBuilder.delete(query);
+		this.emit("beforeDestroyWhere", id, record);
 		let result = await this.execute(command);
 		return result;
 	}
