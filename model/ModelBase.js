@@ -647,6 +647,7 @@ module.exports = class ModelBase extends EventEmitter {
 			let result = await this.execute(command);
 			return result;
 		} catch (e) {
+			console.log(command.toString());
 			console.log(e);
 			return null;
 		}
