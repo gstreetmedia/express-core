@@ -63,7 +63,6 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		rawfields.forEach(
 			function(item) {
-
 				if (item.property && item.visible) {
 					req.query.select.push(item.property);
 				}
@@ -80,6 +79,8 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (!req.query.sort) {
 			if (controller.Model.schema.properties.name) {
 				req.query.sort = "name ASC";
+			} else if (controller.Model.schema.properties.createdAt) {
+				req.query.sort = "createdAt ASC";
 			}
 		}
 
@@ -137,7 +138,7 @@ module.exports = class AdminController extends ViewControllerBase {
 	async view(req, res) {
 		let controller = AdminController.getController(req);
 		req.query.join = "*";
-
+		req.query.joinFieldSet = "adminIndex";
 		//console.log(controller);
 
 		let data = await controller.read(req);
@@ -359,7 +360,6 @@ module.exports = class AdminController extends ViewControllerBase {
 		schemaList = list;
 		return schemaList;
 	}
-
 
 	static getModel(req) {
 		const Model = require("../../model/" + inflector.classify(inflector.underscore(req.params.model)) + "Model");
