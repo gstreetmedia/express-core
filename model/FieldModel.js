@@ -75,6 +75,22 @@ module.exports = class FieldModel extends ModelBase {
 		return await super.destroy(id);
 	}
 
+	getSelect(tableName, fieldSet) {
+		let rawfields = global.fieldCache[tableName][fieldSet];
+
+		let select = [];
+
+		rawfields.forEach(
+			function(item) {
+				if (item.property && item.visible) {
+					select.push(item.property);
+				}
+			}
+		);
+
+		return select;
+	}
+
 	async loadFields(connectionStrings) {
 
 		global.fieldCache = global.fieldCache || {};
