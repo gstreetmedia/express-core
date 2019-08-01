@@ -837,7 +837,6 @@ module.exports = class ModelBase extends EventEmitter {
 							break;
 						case "HasMany" :
 							m = new item.modelClass(this.req);
-							m.debug = true;
 
 							if (join[key].debug) {
 								m.debug = true;
