@@ -775,7 +775,13 @@ module.exports = class ModelBase extends EventEmitter {
 					let targetKeys = [];
 
 					for (let i = 0; i < results.length; i++) { //grab the primary keys from the
-						if (results[i][joinFrom]) {
+
+						if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
+							//Allow for join on json value
+							let value = _.get(results[i], joinFrom, null);
+							targetKeys.push(value);
+							fromIndex[value] = i;
+						} else if (results[i][joinFrom]) {
 							targetKeys.push(results[i][joinFrom]);
 							fromIndex[results[i][joinFrom]] = i;
 						}
@@ -837,6 +843,7 @@ module.exports = class ModelBase extends EventEmitter {
 							break;
 						case "HasMany" :
 							m = new item.modelClass(this.req);
+							m.debug = true;
 
 							if (join[key].debug) {
 								m.debug = true;
@@ -851,7 +858,9 @@ module.exports = class ModelBase extends EventEmitter {
 
 							join[key].where = join[key].where || {};
 							join[key].where[joinTo] = {in: targetKeys};
-							join[key].sort = join[key].sort || null;
+							join[key].sort = relations[key].sort || null;
+							join[key].offset = relations[key].offset || 0;
+							join[key].limit = relations[key].limit || 100;
 
 							join[key].joinFieldSet = query.joinFieldSet || null;
 
