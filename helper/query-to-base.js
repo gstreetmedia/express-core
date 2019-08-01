@@ -197,8 +197,8 @@ module.exports = class QueryToSqlBase {
 	count(query) {
 		query = _.clone(query);
 		let queryBuilder = this.parseQuery(query);
-		return queryBuilder.count("*");
-		//return queryBuilder.count(this.raw(this.properties[this.getPrimaryKey()].columnName));
+		//return queryBuilder.count("*");
+		return queryBuilder.count(this.raw(this.properties[this.getPrimaryKey()].columnName));
 	}
 
 	/**
