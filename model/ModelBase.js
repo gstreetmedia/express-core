@@ -801,7 +801,7 @@ module.exports = class ModelBase extends EventEmitter {
 					switch (item.relation) {
 						case "HasOne":
 							m = new item.modelClass(this.req);
-							if (join[key].debug) {
+							if (relations[key].debug) {
 								m.debug = true;
 							}
 
@@ -843,9 +843,8 @@ module.exports = class ModelBase extends EventEmitter {
 							break;
 						case "HasMany" :
 							m = new item.modelClass(this.req);
-							m.debug = true;
 
-							if (join[key].debug) {
+							if (relations[key].debug) {
 								m.debug = true;
 							}
 
