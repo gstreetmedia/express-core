@@ -106,12 +106,15 @@ module.exports = class ModelBase extends EventEmitter {
 
 		//Allow for generic naming like DEFAULT_DB
 		if (process.env[dataSource]) {
+
 			this._connectionString = process.env[dataSource];
+
 		}
 
 		//TODO Convert this to use a connection string parser
 
 		for (let key in process.env) {
+
 			if (process.env[key].indexOf("postgresql://") === -1 &&
 				process.env[key].indexOf("mysql://") === -1 &&
 				process.env[key].indexOf("mssql://") === -1) {
@@ -119,6 +122,7 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 
 			let cs = connectionStringParser(process.env[key]);
+
 			if (!cs) {
 				console.log("Unknown connection string type");
 				continue;
@@ -130,6 +134,7 @@ module.exports = class ModelBase extends EventEmitter {
 				this._connectionString = process.env[key];
 				break;
 			}
+
 		}
 
 
@@ -140,7 +145,7 @@ module.exports = class ModelBase extends EventEmitter {
 	 *
 	 * @returns {Pool}
 	 */
-	async getPool() {
+	async getPool(action) {
 		if (this.connectionString.indexOf("postgresql://") === 0) {
 			this.db = "pg";
 			return await require("../helper/postgres-pool")(this.connectionString);
@@ -1083,9 +1088,11 @@ module.exports = class ModelBase extends EventEmitter {
 			console.log(sql.toString());
 		}
 
-		let pool = await this.getPool();
+
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
+			let pool = await this.getPool("read");
+
 			try {
 				let results = await pool.query(sql);
 
@@ -1118,6 +1125,7 @@ module.exports = class ModelBase extends EventEmitter {
 				};
 			}
 		} else {
+			let pool = await this.getPool("write")
 			try {
 				let results = await pool.query(sql);
 
