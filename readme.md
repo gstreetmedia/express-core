@@ -12,7 +12,7 @@ Another goal of this project is to not become so bloated you can't wrap your hea
 
 TODO
 
-1. Query Generator for MSSQL
+1. Query Generator for MSSQL (done)
 2. Query Generator for Elastic Search
-3. Move form layouts into a table rather than config files
+3. Move form layouts into a table rather than config files (done)
 4. Create a gui for managing tables layouts
