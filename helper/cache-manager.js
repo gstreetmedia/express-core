@@ -1,6 +1,3 @@
-const cacheManager = require('cache-manager');
-const connectionStringParser = require("./connection-string-parser");
-
 let config;
 let manager;
 let cachePrefix = process.env.CACHE_PREFIX || "core";
@@ -9,84 +6,110 @@ let setFunction;
 let getFunction;
 let resetFunction;
 let destroyFunction;
+let clearFunction;
 
 if (process.env.CACHE_REDIS) {
+	const redis = require("redis");
+	const util = require('util');
 
-	let connection = connectionStringParser(process.env.CACHE_REDIS);
-	console.log("cache redis");
-	console.log(connection);
 
-	const redisStore = require('cache-manager-redis');
-	config = {
-		store: redisStore,
-		host: connection.host,
-		port : connection.port,
-		db: 0,
-		ttl: 120
-	};
-	manager = cacheManager.caching(config);
-	manager.store.events.on('redisError', function(error) {
-		// handle error here
+	const connectionStringParser = require("./connection-string-parser");
+	const cs = connectionStringParser(process.env.CACHE_REDIS);
+
+	console.log(cs);
+
+	let client = new redis.createClient(
+		{
+			host : cs.host
+		}
+	);
+
+	client.on('error', function(error) {
 		console.log("Redis Error @ => " + new Date().toUTCString());
 		console.log(error);
 	});
-	setFunction = (key, value, ttl) => {
+
+	setFunction = async(key, value, ttl) => {
+
 		return new Promise(function (resolve, reject) {
-			manager.set(cachePrefix + "_" + key, value, ttl, function (err) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(true);
-				}
-			});
-		});
-	};
-	getFunction = (key, value, ttl) => {
-		return new Promise(function (resolve, reject) {
-			manager.get(cachePrefix + "_" + key, function (err, result) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-	};
-	resetFunction = (key, value, ttl) => {
-		return new Promise(function (resolve, reject) {
-			manager.reset(function (err, result) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(result);
-				}
-			});
-		});
+			let storedValue;
+			try {
+				storedValue = JSON.stringify(value)
+			} catch (e) {
+				storedValue = value;
+			}
+			client.set(key, storedValue, 'EX', 120, (err)=> {});
+
+			resolve(true);
+		})
 	};
 
-	destroyFunction = (key) => {
+	getFunction = async(key) => {
 		return new Promise(function (resolve, reject) {
-			manager.del(key, function (err, result) {
+			client.get(key,
+				function (err, value) {
+					if (err) {
+						reject(err);
+					} else {
+						try {
+							resolve(JSON.parse(value));
+						} catch (e) {
+							resolve(value);
+						}
+
+
+					}
+				}
+			);
+		})
+	};
+
+	resetFunction = async(key, value, ttl) => {
+		return await setFunction(key, value, ttl);
+	};
+
+	destroyFunction = async(key) => {
+		return new Promise(function (resolve, reject) {
+			client.del(key,
+				function (err, value) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(true);
+					}
+				}
+			);
+		})
+	};
+
+	clearFunction = async()=> {
+		client.keys(cachePrefix + "_*",
+			(err, list) => {
 				if (err) {
 					reject(err);
 				} else {
-					resolve(result);
+					for (i = 0; i < list.length; i++) {
+						client.del(list[i]);
+					}
 				}
-			});
-		});
-	};
+			}
+		);
+
+	}
+
 
 } else {
+	const cacheManager = require('cache-manager');
 	config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
 	manager = cacheManager.caching(config);
 	setFunction = manager.set;
 	getFunction = manager.get;
 	destroyFunction = manager.del;
 	resetFunction = manager.reset;
+	clearFunction = manager.clear;
 }
 
 exports.set = async (key, value, ttl) => {
-	//console.log("cache-manager set " + key);
 	return await setFunction(
 		cachePrefix + "_" + key, value,
 		{
@@ -96,20 +119,20 @@ exports.set = async (key, value, ttl) => {
 } ;
 
 exports.get = async (key) => {
-	//console.log("cache-manager get " + key);
 	return await getFunction(
 		cachePrefix + "_" + key
 	);
 };
 
 exports.reset = async() => {
-	//console.log("reset");
-	return await resetFunction();
+	await resetFunction();
 };
 
 exports.del = async(key) => {
 	console.log("cache-manager::del " + key)
 	await destroyFunction("memory_" + cachePrefix + "_" + key);
-	console.log("cache-manager::deleted")
-	return;
-}
+};
+
+exports.clear = () => {
+	clearFunction();
+};

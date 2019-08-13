@@ -6,7 +6,7 @@ const inflector = require("../helper/inflector");
 const processType = require("../helper/process-type");
 const validateAgainstSchema = require("../helper/validate-against-schema");
 const md5 = require("md5");
-let connectionStringParser = require("connection-string");
+let connectionStringParser = require("../helper/connection-string-parser");
 const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
 const EventEmitter = require('events');
@@ -31,14 +31,14 @@ module.exports = class ModelBase extends EventEmitter {
 		if (global.fieldCache && global.fieldCache[tableName]) {
 			return global.fieldCache[tableName]
 		}
-		return require('../../schema/fields/' + tableName + '-fields');
+		return require('../../schema/fields/' + inflector.dasherize(tableName) + '-fields');
 	}
 
 	static getSchema(tableName) {
 		if (global.schemaCache && global.schemaCache[tableName]) {
 			return global.schemaCache[tableName]
 		}
-		return require('../../schema/' + tableName + '-schema');
+		return require('../../schema/' + inflector.dasherize(tableName) + '-schema');
 	}
 
 	set tableName(value) {
@@ -111,9 +111,9 @@ module.exports = class ModelBase extends EventEmitter {
 		//TODO Convert this to use a connection string parser
 
 		for (let key in process.env) {
-			if (process.env[key].indexOf("postgresql://") === -1 &&
-				process.env[key].indexOf("mysql://") === -1 &&
-				process.env[key].indexOf("mssql://") === -1) {
+			if (process.env[key].indexOf("postgres") === -1 &&
+				process.env[key].indexOf("mysql") === -1 &&
+				process.env[key].indexOf("mssql") === -1) {
 				continue;
 			}
 
@@ -123,9 +123,9 @@ module.exports = class ModelBase extends EventEmitter {
 				continue;
 			}
 
-			let path = cs.path && cs.path.length > 0 ? cs.path[0] : null;
+			let database = cs.database;
 
-			if (path.indexOf(dataSource) !== -1) {
+			if (database === dataSource) {
 				this._connectionString = process.env[key];
 				break;
 			}
@@ -140,13 +140,13 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Pool}
 	 */
 	async getPool() {
-		if (this.connectionString.indexOf("postgresql://") === 0) {
+		if (this.connectionString.indexOf("postgres") === 0) {
 			this.db = "pg";
 			return await require("../helper/postgres-pool")(this.connectionString);
-		} else if (this.connectionString.indexOf("mysql://") === 0) {
+		} else if (this.connectionString.indexOf("mysql") === 0) {
 			this.db = "mysql"
 			return await require("../helper/mysql-pool")(this.connectionString);
-		} else if (this.connectionString.indexOf("mssql://") === 0) {
+		} else if (this.connectionString.indexOf("mssql") === 0) {
 			this.db = "mssql"
 			return await require("../helper/mssql-pool")(this.connectionString);
 		}
@@ -165,11 +165,11 @@ module.exports = class ModelBase extends EventEmitter {
 
 		let builder;
 
-		if (this.connectionString.indexOf("postgresql://") !== -1) {
+		if (this.connectionString.indexOf("postgres") !== -1) {
 			builder = require("../helper/query-to-pgsql");
-		} else if (this.connectionString.indexOf("mysql://") !== -1) {
+		} else if (this.connectionString.indexOf("mysql") !== -1) {
 			builder = require("../helper/query-to-mysql");
-		} else if (this.connectionString.indexOf("mssql://") !== -1) {
+		} else if (this.connectionString.indexOf("mssql") !== -1) {
 			builder = require("../helper/query-to-mssql");
 		}
 
@@ -843,7 +843,6 @@ module.exports = class ModelBase extends EventEmitter {
 							break;
 						case "HasMany" :
 							m = new item.modelClass(this.req);
-							m.debug = true;
 
 							if (join[key].debug) {
 								m.debug = true;

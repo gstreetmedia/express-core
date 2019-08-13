@@ -1,5 +1,5 @@
 require('dotenv').config();
-const md5 = require("md5");
+
 const fs = require('fs');
 const path = require("path");
 const inflector = require("../helper/inflector");
@@ -79,7 +79,7 @@ async function convert(destination, connectionString, options) {
 		cs = connectionString[i];
 		let pool;
 
-		if (cs.indexOf("postgresql") === 0) {
+		if (cs.indexOf("postgres") === 0) {
 			converter = require("./pg-tables-to-schema");
 			pool = await require("../helper/postgres-pool")(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
@@ -102,9 +102,6 @@ async function convert(destination, connectionString, options) {
 				dbName: cs.database,
 				connectionString: cs
 			}, options), pool);
-
-
-		//console.log(schema);
 
 		schema.forEach(
 			function (item) {
