@@ -842,7 +842,6 @@ module.exports = class ModelBase extends EventEmitter {
 							break;
 						case "HasMany" :
 							m = new item.modelClass(this.req);
-							//m.debug = true;
 
 							if (join[key].debug) {
 								m.debug = true;
@@ -861,18 +860,10 @@ module.exports = class ModelBase extends EventEmitter {
 							join[key].offset = relations[key].offset || 0;
 							join[key].limit = relations[key].limit || 100;
 
-							join[key].joinFieldSet = query.joinFieldSet || null;
-
-							//perhaps you want a subset of fields for this operation???
-							if (query.joinFieldSet) {
-								join[key].select = m.getSelect(query.joinFieldSet);
-							}
-
 							//must select the targetJoin key
 							if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 								join[key].select.push(joinTo);
 							}
-
 
 							list = await m.find(join[key]);
 
@@ -911,8 +902,12 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 				} else if (foreignKeys[key]) {
 					let m;
+
 					try {
 						m = new foreignKeys[key].modelClass(this.req);
+						if (foreignKeys[key].debug) {
+							m.debug = true;
+						}
 					} catch (e) {
 						console.log("foreignKey Issue " + key +  " within " + this.tableName);
 						console.log(foreignKeys[key]);
@@ -931,7 +926,7 @@ module.exports = class ModelBase extends EventEmitter {
 						let primaryKey = foreignKeys[key].to || m.primaryKey;
 						let q = {
 							where: {
-								[primaryKey]: {"in": idList}
+								[primaryKey]: {"in": _.uniq(idList)}
 							}
 						};
 						if (join[key].select) {
@@ -941,16 +936,17 @@ module.exports = class ModelBase extends EventEmitter {
 							q.join = join[key].join;
 						}
 						let list = await m.query(q);
+
 						if (!list.error) {
 							list.forEach(
 								function (item) {
-									for (let i = 0; i < results.length; i++) {
-										if (results[i][key] === item[primaryKey]) {
-											results[i].foreignKeys = results[i].foreignKeys || {};
-											results[i].foreignKeys[key] = item;
-											break;
+									let matches = _.filter(results, {[key] : item[primaryKey]});
+									matches.forEach(
+										function(row) {
+											row.foreignKeys = row.foreignKeys || {};
+											row.foreignKeys[key] = item;
 										}
-									}
+									)
 								}
 							)
 						}
