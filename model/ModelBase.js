@@ -561,9 +561,8 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async destroyWhere(query) {
-		console.log("ModelBase::destroyWhere");
 		let command = this.queryBuilder.delete(query);
-		this.emit("beforeDestroyWhere", id, record);
+		this.emit("beforeDestroyWhere", query);
 		let result = await this.execute(command);
 		return result;
 	}
@@ -843,7 +842,7 @@ module.exports = class ModelBase extends EventEmitter {
 							break;
 						case "HasMany" :
 							m = new item.modelClass(this.req);
-							m.debug = true;
+							//m.debug = true;
 
 							if (join[key].debug) {
 								m.debug = true;
