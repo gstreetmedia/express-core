@@ -9,7 +9,8 @@ const md5 = require("md5");
 const connectionStringParser = require("connection-string");
 const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
-const EventEmitter = require('events');
+const EventEmitter = require("events");
+const cacheManager = require("../helper/cache-manager");
 
 module.exports = class ModelBase extends EventEmitter {
 
@@ -54,7 +55,6 @@ module.exports = class ModelBase extends EventEmitter {
 		let name = this.constructor.name.split("Model").join("");
 		this._tableName = inflector.underscore(inflector.pluralize(name));
 		return this._tableName;
-
 	}
 
 	get schema() {
@@ -189,11 +189,23 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @param query - used to pass in select & join
 	 * @returns {Promise<*>}
 	 */
-	async read(id, query) {
+	async read(id, query, cache) {
+
+		let cacheKey;
+		if (cache === true) {
+			cacheKey = this.tableName + "::" + id;
+			if (query) {
+				cacheKey += "::" + md5(JSON.stringify(query));
+			}
+			let record = await cacheManager.get(cacheKey);
+			if (record) {
+				return record;
+			}
+		}
 
 		let obj = {
 			where: {}
-		}
+		};
 
 		obj.where[this.primaryKey] = id;
 		if (query && query.select) {
@@ -209,10 +221,14 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		if (result.length === 1) {
+			result = result[0];
 			if (query && query.join) {
-				return await this.join(result[0], query);
+				result = await this.join(result, query);
 			}
-			return result[0];
+			if (cacheKey) {
+				await cacheManager.set(cacheKey, result);
+			}
+			return result;
 		} else if (result.length === 0) {
 			return null;
 		}
@@ -442,7 +458,17 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @param query
 	 * @returns {Promise<*>}
 	 */
-	async query(query) {
+	async query(query, cache) {
+
+		let cacheKey;
+		if (cache === true) {
+			cacheKey = this.tableName + "::" + md5(JSON.stringify(query));
+			let record = await cacheManager.get(cacheKey);
+			if (record) {
+				return record;
+			}
+		}
+
 		let command = this.queryBuilder.select(query);
 
 		let result = await this.execute(command);
@@ -451,10 +477,14 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		if (query.join) {
-			return await this.join(result, query);
-		} else {
-			return result;
+			result = await this.join(result, query);
 		}
+
+		if (cacheKey) {
+			await cacheManager.set(cacheKey, result);
+		}
+
+		return result;
 	}
 
 	/**
@@ -462,7 +492,17 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @param query
 	 * @returns {Promise<*>}
 	 */
-	async count(query) {
+	async count(query, cache) {
+		let cacheKey;
+
+		if (cache === true) {
+			cacheKey = this.tableName + "::count::" + md5(JSON.stringify(query));
+			result = await cacheManager.get(cacheKey);
+			if (result) {
+				return result;
+			}
+		}
+
 		let command = this.queryBuilder.count(query);
 		let result = await this.execute(command);
 
@@ -472,11 +512,15 @@ module.exports = class ModelBase extends EventEmitter {
 
 		if (result) {
 			if (this.db === "pg" && result[0].count) {
-				return result[0].count;
+				result = result[0].count;
 			} else {
 				let key = Object.keys(result[0]);
-				return result[0][key];
+				result = result[0][key];
 			}
+			if (cacheKey) {
+				await cacheManager.set(cacheKey, result);
+			}
+			return result;
 		} else {
 			return 0;
 		}
@@ -487,7 +531,23 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @param query
 	 * @returns {Promise<*>}
 	 */
-	async find(query) {
+	async find(query, cache) {
+		let cacheKey;
+		let result;
+		if (cache === true) {
+			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
+			result = await cacheManager.get(cacheKey);
+			if (result) {
+				return result;
+			}
+		}
+		result = await this.query(query);
+		if (result.error) {
+			return result;
+		}
+		if (cacheKey) {
+			await cacheManager.set(cacheKey, result[0]);
+		}
 		return await this.query(query);
 	}
 
@@ -496,15 +556,31 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @param query
 	 * @returns {Promise<*>}
 	 */
-	async findOne(query) {
+	async findOne(query, cache) {
 		query.limit = 1;
-		let result = await this.query(query);
-		if (result && result.length > 0) {
-			return result[0];
+		let cacheKey;
+		let result;
+		if (cache === true) {
+			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
+			result = await cacheManager.get(cacheKey);
+			if (result) {
+				return result;
+			}
 		}
+
+		result = await this.query(query);
+
 		if (result.error) {
 			return result;
 		}
+
+		if (result && result.length > 0) {
+			if (cacheKey) {
+				await cacheManager.set(cacheKey, result[0]);
+			}
+			return result[0];
+		}
+
 		return null;
 	}
 
@@ -816,6 +892,17 @@ module.exports = class ModelBase extends EventEmitter {
 						join[key].where = join[key].where || {};
 						join[key].where[joinTo] = {in: targetKeys};
 						join[key].sort = join[key].sort || null;
+
+						if (relations[key].select) {
+							join[key].select = join[key].select || [];
+							relations[key].select.forEach(
+								(field) => {
+									join[key].select.push(field)
+								}
+							);
+							join[key].select = _.uniq(join[key].select);
+						}
+
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 							join[key].select.push(joinTo);
 						}
@@ -863,6 +950,16 @@ module.exports = class ModelBase extends EventEmitter {
 						join[key].offset = relations[key].offset || 0;
 						join[key].limit = relations[key].limit || 100;
 
+
+						if (relations[key].select) {
+							join[key].select = join[key].select || [];
+							relations[key].select.forEach(
+								(field) => {
+									join[key].select.push(field)
+								}
+							);
+							join[key].select = _.uniq(join[key].select);
+						}
 						//must select the targetJoin key
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 							join[key].select.push(joinTo);
@@ -904,7 +1001,6 @@ module.exports = class ModelBase extends EventEmitter {
 						break;
 				}
 			} else if (foreignKeys[key]) {
-
 				let ForeignKeyModel = this.loadModel(foreignKeys[key].modelClass);
 				let foreignKeyModel = new ForeignKeyModel(this.req);
 				if (foreignKeys[key].debug) {
@@ -921,12 +1017,15 @@ module.exports = class ModelBase extends EventEmitter {
 				);
 
 				if (idList.length > 0) {
+					idList = _.uniq(idList);
+
 					let primaryKey = foreignKeys[key].to || foreignKeyModel.primaryKey;
 					let q = {
 						where: {
-							[primaryKey]: {"in": _.uniq(idList)}
+							[primaryKey]: {"in": idList}
 						}
 					};
+
 					if (join[key].select) {
 						q.select = join[key].select;
 					}
@@ -935,6 +1034,7 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 
 					let list = await foreignKeyModel.query(q);
+
 
 					if (!list.error) {
 						list.forEach(

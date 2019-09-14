@@ -70,7 +70,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		);
 
 		if (controller.Model.schema.primaryKey && _.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
-			console.log("adding Primary");
+			//console.log("adding Primary");
 			req.query.select.unshift(controller.Model.schema.primaryKey);
 		}
 

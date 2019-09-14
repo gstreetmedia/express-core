@@ -50,7 +50,7 @@
 						return;
 				}
 
-				var element = helpers.form(model, key, value);
+				var element = helpers.form(model, key, value, typeof data === "object" ? data.lookup : null);
 			%>
 			<div class="form-group row clearfix">
 				<label class="label col-md-3">
