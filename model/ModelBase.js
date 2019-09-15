@@ -487,6 +487,8 @@ module.exports = class ModelBase extends EventEmitter {
 		return result;
 	}
 
+
+
 	/**
 	 *
 	 * @param query
@@ -1149,7 +1151,7 @@ module.exports = class ModelBase extends EventEmitter {
 					console.log("Invalid 2 => " + key + " " + data[key]);
 					invalid.push(key);
 				} else if (_.indexOf(this.schema.required, key) !== -1 || data[key] !== null) {
-					console.log("Invalid 2.1 => " + key + " " + data[key]);
+					console.log("Invalid 2.1 " + this.tableName + " => " + key + " " + data[key]);
 					invalid.push(key);
 				}
 			}

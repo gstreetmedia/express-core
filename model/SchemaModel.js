@@ -51,8 +51,9 @@ module.exports = class SchemaModel extends ModelBase {
 		return SchemaModel.fields;
 	}
 
-	async index(key, value) {
-		return await super.index(key, value);
+	async index(query) {
+		query.sort = "title ASC";
+		return await super.index(query);
 	}
 
 	async create(data) {
@@ -68,6 +69,7 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async query(query) {
+		query.sort = "title ASC";
 		return await super.query(query);
 	}
 

@@ -30,14 +30,16 @@ module.exports = class ControllerBase {
 		try {
 			let m = new this.Model(req);
 			let count = await m.count(req.query);
-
-			if (count > 500) {
-				req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
-				req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
-				req.limit = req.query.limit;
-				req.offset = req.query.offset;
+			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+			if (isNaN(req.query.limit)) {
+				req.query.limit = 500;
 			}
-
+			req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
+			if (isNaN(req.query.offset)) {
+				req.query.offset = 0;
+			}
+			req.limit = req.query.limit;
+			req.offset = req.query.offset || 0;
 			req.count = parseInt(count);
 			let result = await m.index(req.query);
 			if (res) {
@@ -205,12 +207,16 @@ module.exports = class ControllerBase {
 
 		let m = new this.Model(req);
 		let count = await m.count(req.query);
-		if (count > 500) {
-			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
-			req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
-			req.limit = req.query.limit;
-			req.offset = req.query.offset;
+		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		if (isNaN(req.query.limit)) {
+			req.query.limit = 500;
 		}
+		req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
+		if (isNaN(req.query.offset)) {
+			req.query.offset = 0;
+		}
+		req.limit = req.query.limit;
+		req.offset = req.query.offset || 0;
 		req.count = parseInt(count);
 		let result = await m.query(req.query);
 
