@@ -119,7 +119,7 @@ module.exports = class SchemaModel extends ModelBase {
 						return;
 					}
 					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/' + file);
+					global.schemaCache[tableName] = require(global.appRoot + '/src/schema/' + file);
 					count++;
 				}
 			);
