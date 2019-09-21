@@ -99,37 +99,49 @@ module.exports = class SessionModel extends ModelBase {
 
 	/**
 	 * Get a session token for this user record
-	 * @param userRecord - can be anything, but should include at least the user.id
+	 * @param data - can be anything, but should include at least the user.id as either data.id or data.user.id or data.userId
 	 * @param req
 	 * @param maxAge
 	 * @returns {Promise<*>}
 	 */
-	async getToken(userRecord, req, maxAge) {
-		let userId = userRecord.id;
+	async getToken(data, req, maxAge) {
+		let userId = data.user ? data.user.id : data.userId ? data.userId : data.id;
+
+		if (!userId) {
+			throw new Error(
+				"Cannot create session without user id"
+			)
+		}
+
+		data.userId = userId;
+
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
 
-		if (!userRecord || !userRecord.id) {
+		if (!userId) {
 			return {
 				error : "Missing User Record or valid id"
 			};
 		}
 
-		await this.houseKeeping(userRecord.id);
+		await this.houseKeeping(userId);
 
-		let obj = _.cloneDeep(userRecord);
-		obj.ipAddress = ipAddress;
-		obj.userAgent = userAgent;
+		data = _.cloneDeep(data);
+		data.ipAddress = ipAddress;
+		data.userAgent = userAgent;
 
-		if (obj.password) {
-			delete obj.password;
+		if (data.password) {
+			delete data.password;
 		}
 
 		let token = jwt.sign(
-			obj,
+			{
+				id : userId,
+				data : data
+			},
 			process.env.JWT_TOKEN_SECRET,
 			{
-				expiresIn: "720 days"
+				expiresIn: process.env.CORE_JWT_DURATION || "30 days"
 			}
 		);
 
@@ -149,15 +161,22 @@ module.exports = class SessionModel extends ModelBase {
 
 
 	get relations() {
-
-
+		return {
+			user : {
+				relation : "HasOne",
+				modelClass : "UserModel",
+				join : {
+					from : "userId",
+					to : "id"
+				}
+			}
+		}
 	}
 
 	get foreignKeys () {
-		const UserModel = require("./UserModel");
 		return {
 			userId : {
-				modelClass : UserModel,
+				modelClass : "UserModel",
 				to : "id"
 			}
 		}
