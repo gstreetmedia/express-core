@@ -843,16 +843,17 @@ module.exports = class ModelBase extends EventEmitter {
 				let m;
 				let throughList;
 				let item = relations[key];
+
 				let joinFrom = item.join.from;
 				let joinTo = item.join.to;
 				let joinThroughFrom = item.join.through ? item.join.through.from : null;
 				let joinThroughTo = item.join.through ? item.join.through.to : null;
 				let joinThroughWhere = item.join.through ? item.join.through.where : null;
 				let joinThroughSort = item.join.through ? item.join.through.sort : null;
+
 				let targetKeys = [];
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
-
 					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
 						//Allow for join on json value
 						let value = _.get(results[i], joinFrom, null);
@@ -872,6 +873,9 @@ module.exports = class ModelBase extends EventEmitter {
 					j.where[joinThroughFrom] = {in: targetKeys};
 					j.select = [joinThroughFrom, joinThroughTo];
 					j.sort = joinThroughSort || null;
+					if (join[key].debug) {
+						throughModel.debug = true;
+					}
 					throughList = await throughModel.find(j);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
 				}
@@ -920,9 +924,17 @@ module.exports = class ModelBase extends EventEmitter {
 								function (row) {
 									let obj = {};
 									obj[joinThroughTo] = row[joinTo];
-									let throughItem = _.find(throughList, obj);
-									let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
-									results[resultsIndex][key] = row;
+									let throughItems = _.filter(throughList, obj);
+									throughItems.forEach(
+										function(throughItem) {
+											try {
+												let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												results[resultsIndex][key] = row;
+											} catch (e) {
+												console.log("join through error " + item.throughClass);
+											}
+										}
+									)
 								}
 							)
 						} else {
@@ -950,7 +962,7 @@ module.exports = class ModelBase extends EventEmitter {
 						join[key].where[joinTo] = {in: targetKeys};
 						join[key].sort = relations[key].sort || null;
 						join[key].offset = relations[key].offset || 0;
-						join[key].limit = relations[key].limit || 100;
+						//join[key].limit = relations[key].limit || 100;
 
 
 						if (relations[key].select) {
@@ -978,10 +990,17 @@ module.exports = class ModelBase extends EventEmitter {
 								function (row) {
 									let obj = {};
 									obj[joinThroughTo] = row[joinTo];
-									let throughItem = _.find(throughList, obj);
-									let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
-									results[resultsIndex][key] = results[resultsIndex][key] || [];
-									results[resultsIndex][key].push(row);
+									let throughItems = _.filter(throughList, obj);
+									throughItems.forEach(
+										function(throughItem){
+											let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+											results[resultsIndex][key] = results[resultsIndex][key] || [];
+											let filter = {[item.join.to]:row[item.join.to]};
+											if (!_.find(results[resultsIndex][key], filter)) {
+												results[resultsIndex][key].push(row);
+											}
+										}
+									);
 								}
 							)
 						} else {
@@ -1189,7 +1208,9 @@ module.exports = class ModelBase extends EventEmitter {
 				message: "Error converting command to string"
 			}
 		}
-
+		if (this.lastCommand === command) {
+			//console.warn("Possible duplicate query");
+		}
 		this.lastCommand = command;
 
 		if (this.debug) {
