@@ -476,6 +476,8 @@ module.exports = class ModelBase extends EventEmitter {
 			return result;
 		}
 
+		await this.afterFind(result);
+
 		if (query.join) {
 			result = await this.join(result, query);
 		}
@@ -547,6 +549,7 @@ module.exports = class ModelBase extends EventEmitter {
 		if (result.error) {
 			return result;
 		}
+
 		if (cacheKey) {
 			await cacheManager.set(cacheKey, result[0]);
 		}
@@ -1415,6 +1418,10 @@ module.exports = class ModelBase extends EventEmitter {
 	 */
 	async afterDestroy(id, data) {
 		return;
+	}
+
+	async afterFind(data) {
+		return ;
 	}
 
 	/**
