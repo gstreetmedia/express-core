@@ -1,0 +1,76 @@
+.modal-full-screen {
+	z-index: 2000;
+	overflow: hidden;
+}
+
+.modal-full-screen > .modal-dialog {
+	width: 95%;
+	max-width: 100%;
+	height: 100%;
+	margin: 0 auto;
+	padding: 0;
+}
+
+@media (max-width: 768px) {
+	.modal-full-screen > .modal-dialog {
+		width: 100%;
+	}
+}
+
+.modal-full-screen > .modal-dialog .modal-header {
+	padding:0;
+	height: 50px;
+	position: relative;
+	line-height: 1;
+}
+
+.modal-full-screen > .modal-dialog .modal-header .close {
+	position: absolute;
+	right:1rem;
+	top:50%;
+	transform: translate(0,-50%);
+	padding:0;
+	margin:0;
+}
+
+.modal-full-screen > .modal-dialog .modal-header .modal-title {
+	position: absolute;
+	left:1rem;
+	top:50%;
+	transform: translate(0,-50%);
+	padding:0;
+	margin:0;
+}
+
+.modal-full-screen > .modal-dialog .modal-header .btn {
+	height: 40px;
+	padding-top: 0;
+	padding-bottom: 0;
+	line-height: 40px;
+}
+
+.modal-full-screen > .modal-dialog .modal-content {
+	height: auto;
+	min-height: 100%;
+	border-radius: 0;
+	background-color: white;
+}
+
+.modal-full-screen > .modal-dialog .modal-body {
+	position: absolute;
+	background-color: white;
+	padding: 0;
+	top: 50px;
+	bottom: 0;
+	width: 100%;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.modal-full-screen > .modal-dialog .modal-body .controller {
+	padding-top: 0;
+}
+
+.modal-open .modal-full-screen {
+	overflow: hidden;
+}

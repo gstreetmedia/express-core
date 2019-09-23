@@ -1,0 +1,58 @@
+.container-fluid.gridded {
+	position: absolute;
+	overflow: scroll;
+	top: 50px;
+	bottom: 40px;
+	right: 0;
+	left: 0;
+	padding:0;
+}
+
+.container-fluid.gridded-inline {
+	bottom:auto;
+	top:0;
+	overflow-x: scroll;
+	overflow-y: hidden;
+	border-left:1px solid #DDD;
+	border-right:1px solid #DDD;
+}
+
+.container-fluid.gridded-inline .col-1 {
+	max-width: 150px;
+	min-width: 150px;
+}
+
+.row-striped:nth-of-type(odd){
+	background-color: #efefef;
+}
+
+.row-striped:nth-of-type(even){
+	background-color: #ffffff;
+}
+
+.row-striped:hover {
+	background-color: #EAEAEA;
+
+	cursor: pointer;
+}
+.row-striped:hover a {
+	color:white;
+}
+
+
+.gridded .col-1.actions {
+	width: 100px;
+}
+
+.gridded .col-1.actions form {
+	width: auto;
+	display: inline-block;
+}
+
+.gridded .col-1.actions .btn-link {
+	width: auto;
+	display: inline-block;
+
+	line-height: 1;
+	padding:0;
+}
