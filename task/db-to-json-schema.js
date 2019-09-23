@@ -92,7 +92,6 @@ async function convert(destination, connectionString, options) {
 		} //TODO elastic?
 
 		cs = connectionStringParser(cs);
-
 		console.log(cs);
 
 		let schema = await converter(
@@ -141,12 +140,13 @@ async function convert(destination, connectionString, options) {
 	for (let q = 0; q < schemas.length; q++) {
 		let item = schemas[q];
 
+		let existingSchema = await schemaModel.get(item.tableName, false);
+
 		if (item.tableName.indexOf("_") === 0) { //private tables
 			//continue;
 		}
 
 		let name = item.tableName;
-
 
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
@@ -177,10 +177,24 @@ async function convert(destination, connectionString, options) {
 			primaryKey = 'id';
 		}
 
+		//TODO we need to see if the column name exist already, but the developer may have changed the property name
+		//TODO in this case, we should leave the property name intact
 		for (let key in item.properties) {
+			//TODO allow developer to choose type, (snake_case, camelCase, PascalCase)
 			let k = inflector.camelize(inflector.underscore(key), false);
 			if (k.length === 2) {
 				k = k.toLowerCase();
+			}
+			if (existingSchema) { //Allow developer override of property names
+				Object.keys(existingSchema.properties).forEach(
+					function(propertyName) {
+						if (item.columnName === key) {
+							if (propertyName !== k) {
+								k = propertyName;
+							}
+						}
+					}
+				)
 			}
 			properties[k] = _.clone(item.properties[key]);
 			properties[k].columnName = key;

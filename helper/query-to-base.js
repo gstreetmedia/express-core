@@ -159,16 +159,23 @@ module.exports = class QueryToSqlBase {
 					break;
 				case "sort" :
 					//TODO support array sort
-					let params = query[key].split(" ");
-					let direction = "ASC";
-					if (this.properties[params[0]]) {
-						if (params.length > 1) {
-							if (params[1].toLowerCase() === "desc") {
-								direction = "DESC";
+					let terms = query[key].split(",");
+					let context = this;
+					terms.forEach(
+						function(term) {
+							let params = term.split(" ");
+							let direction = "ASC";
+							if (context.properties[params[0]]) {
+								if (params.length > 1) {
+									if (params[1].toLowerCase() === "desc") {
+										direction = "DESC";
+									}
+								}
+								queryBuilder.orderBy(context.raw('"' + context.properties[params[0]].columnName + '"'), direction);
 							}
 						}
-						queryBuilder.orderBy(this.properties[params[0]].columnName, direction);
-					}
+					);
+
 					break;
 					hasSort = true;
 				case "select" :
@@ -197,8 +204,8 @@ module.exports = class QueryToSqlBase {
 	count(query) {
 		query = _.clone(query);
 		let queryBuilder = this.parseQuery(query);
-		return queryBuilder.count("*");
-		//return queryBuilder.count(this.raw(this.properties[this.getPrimaryKey()].columnName));
+		//return queryBuilder.count("*");
+		return queryBuilder.count(this.raw(this.properties[this.getPrimaryKey()].columnName));
 	}
 
 	/**

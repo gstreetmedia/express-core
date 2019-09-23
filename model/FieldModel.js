@@ -51,8 +51,9 @@ module.exports = class FieldModel extends ModelBase {
 		return FieldModel.fields;
 	}
 
-	async index(key, value) {
-		return await super.index(key, value);
+	async index(query) {
+		query.sort = "title ASC";
+		return await super.index(query);
 	}
 
 	async create(data) {
@@ -68,11 +69,28 @@ module.exports = class FieldModel extends ModelBase {
 	}
 
 	async query(query) {
+		query.sort = "title ASC";
 		return await super.query(query);
 	}
 
 	async destroy(id) {
 		return await super.destroy(id);
+	}
+
+	getSelect(tableName, fieldSet) {
+		let rawfields = global.fieldCache[tableName][fieldSet];
+
+		let select = [];
+
+		rawfields.forEach(
+			function(item) {
+				if (item.property && item.visible) {
+					select.push(item.property);
+				}
+			}
+		);
+
+		return select;
 	}
 
 	async loadFields(connectionStrings) {

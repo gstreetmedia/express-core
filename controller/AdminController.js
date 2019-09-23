@@ -63,7 +63,6 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		rawfields.forEach(
 			function(item) {
-
 				if (item.property && item.visible) {
 					req.query.select.push(item.property);
 				}
@@ -71,7 +70,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		);
 
 		if (controller.Model.schema.primaryKey && _.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
-			console.log("adding Primary");
+			//console.log("adding Primary");
 			req.query.select.unshift(controller.Model.schema.primaryKey);
 		}
 
@@ -80,10 +79,20 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (!req.query.sort) {
 			if (controller.Model.schema.properties.name) {
 				req.query.sort = "name ASC";
+			} else if (controller.Model.schema.properties.createdAt) {
+				req.query.sort = "createdAt ASC";
 			}
 		}
 
-		let data = await controller.query(req);
+		let data;
+		if (controller.adminIndex) {
+			data = await controller.adminIndex(req);
+			if (!data) {
+				return; //Assume Controller took care of everything
+			}
+		} else {
+			data = await controller.query(req);
+		}
 
 		return this.render(
 			'page-admin-list',
@@ -113,6 +122,12 @@ module.exports = class AdminController extends ViewControllerBase {
 	async create(req, res) {
 		let controller = AdminController.getController(req);
 
+		let data;
+		if (controller.adminCreate) {
+			//If desired, create items in data for input field options (e.g select)
+			data = await controller.adminCreate(req);
+		}
+
 		return this.render(
 			'page-admin-edit',
 			{
@@ -121,7 +136,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				slug : inflector.dasherize(inflector.singularize(req.params.model)),
 				model : new controller.Model(),
 				schemaList : AdminController.getSchemaList(),
-				action : "create"
+				action : "create",
+				data : data
 			},
 			req,
 			res
@@ -137,16 +153,20 @@ module.exports = class AdminController extends ViewControllerBase {
 	async view(req, res) {
 		let controller = AdminController.getController(req);
 		req.query.join = "*";
-
+		req.query.joinFieldSet = "adminIndex";
 		//console.log(controller);
 
-		let data = await controller.read(req);
+		let data;
+		if (controller.adminView) {
+			//If desired, create items in data for input field options (e.g select)
+			data = await controller.adminView(req);
+		} else {
+			data = await controller.read(req);
+		}
 
 		if (!data) {
 			return res.notFound(req.params.id);
 		}
-
-		//console.log(data);
 
 		return this.render(
 			'page-admin-view',
@@ -173,7 +193,14 @@ module.exports = class AdminController extends ViewControllerBase {
 	 */
 	async edit(req, res) {
 		let controller = AdminController.getController(req);
-		let data = await controller.read(req);
+
+		let data;
+		if (controller.adminUpdate) {
+			//If desired, create items in data for input field options (e.g select)
+			data = await controller.adminUpdate(req);
+		} else {
+			data = await controller.read(req);
+		}
 
 		return this.render(
 			'page-admin-edit',
@@ -359,7 +386,6 @@ module.exports = class AdminController extends ViewControllerBase {
 		schemaList = list;
 		return schemaList;
 	}
-
 
 	static getModel(req) {
 		const Model = require("../../model/" + inflector.classify(inflector.underscore(req.params.model)) + "Model");

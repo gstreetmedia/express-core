@@ -414,6 +414,9 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (value === '') {
 					return null;
 				}
+				if (!_.isArray(value)) {
+					value = [value];
+				}
 				if (isInsertOrUpdate) {
 					switch (property.format) {
 						case "string" :

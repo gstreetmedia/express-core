@@ -105,7 +105,7 @@ module.exports = class ViewControllerBase {
 		let o = {
 			helpers : helpers,
 			req : req
-		}
+		};
 		_.extend(o, obj);
 		if (fs.existsSync(global.appRoot + "/src/views/" + page + ".ejs")) {
 			//console.log("view override");

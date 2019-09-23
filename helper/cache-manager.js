@@ -13,8 +13,8 @@ let destroyFunction;
 if (process.env.CACHE_REDIS) {
 
 	let connection = connectionStringParser(process.env.CACHE_REDIS);
-	console.log("cache redis");
-	console.log(connection);
+	//console.log("cache redis");
+	//console.log(connection);
 
 	const redisStore = require('cache-manager-redis');
 	config = {

@@ -51,8 +51,9 @@ module.exports = class SchemaModel extends ModelBase {
 		return SchemaModel.fields;
 	}
 
-	async index(key, value) {
-		return await super.index(key, value);
+	async index(query) {
+		query.sort = "title ASC";
+		return await super.index(query);
 	}
 
 	async create(data) {
@@ -68,6 +69,7 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async query(query) {
+		query.sort = "title ASC";
 		return await super.query(query);
 	}
 
@@ -117,7 +119,7 @@ module.exports = class SchemaModel extends ModelBase {
 						return;
 					}
 					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/' + file);
+					global.schemaCache[tableName] = require(global.appRoot + '/src/schema/' + file);
 					count++;
 				}
 			);
