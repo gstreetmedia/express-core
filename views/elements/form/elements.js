@@ -38,20 +38,22 @@ exports.checkBoxOrRadio = (attr) => {
 		(item) => {
 		count++;
 		return `
-		<div class="form-check ${css} col-md-4">
-			<label class="form-check-label" for="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}">
-			<input  class="form-check-input"
-					type="${attr.type}"
-					name="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}"
-					id="${item.name}[${count}]"
-					value="${item.value ? item.value : ''}" ${item.value === attr.value ? "checked" : ""}
-					data-type="${attr.dataType}"
-			>
-			<span class="form-check-sign">
-				<span class="check"></span>
-			</span>
-			${item.name}
-			</label>
+		<div class="col-md-4">
+			<div class="form-check ${css}">
+				<label class="form-check-label" for="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}">
+				<input  class="form-check-input"
+						type="${attr.type}"
+						name="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}"
+						id="${item.name}[${count}]"
+						value="${item.value ? item.value : ''}" ${item.value === attr.value ? "checked" : ""}
+						data-type="${attr.dataType}"
+				>
+				<span class="form-check-sign">
+					<span class="check"></span>
+				</span>
+				${item.name}
+				</label>
+			</div>
 		</div>`;
 	}).join("");
 
@@ -106,7 +108,7 @@ exports.select = (attr) => {
 			${attr.required ? 'required' : ''}
 			${attr.multiple ? "multiple" : ""} 
 	>
-		<option value="" ${attr.value === "" ? "selected" : ""}>Please select</option>
+		<option value="" ${attr.value === "" ? "selected" : ""}>Select ${attr.name} (or leave null)</option>
 	${options.map(item =>
 		`<option value="${item.value}" ${attr.value === item.value ? "selected" : ""}>
 			${item.name}

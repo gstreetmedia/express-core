@@ -185,7 +185,7 @@ module.exports = function (model, key, value, lookup) {
 			attr.type = "json-editor";
 			break;
 		case "boolean" :
-			attr.type = "radio";
+			attr.type = "select";
 			attr.dataType = 'boolean';
 			attr.options = ['true', 'false'];
 			break;

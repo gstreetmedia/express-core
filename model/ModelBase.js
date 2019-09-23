@@ -1440,6 +1440,14 @@ module.exports = class ModelBase extends EventEmitter {
 		return "createdAt";
 	}
 
+	get relations() {
+		return {};
+	}
+
+	get foreignKeys() {
+		return {};
+	}
+
 	loadModel(modelName) {
 		if (typeof modelName !== "string") {
 			return modelName;

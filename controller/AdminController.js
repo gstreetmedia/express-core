@@ -195,9 +195,9 @@ module.exports = class AdminController extends ViewControllerBase {
 		let controller = AdminController.getController(req);
 
 		let data;
-		if (controller.adminEdit) {
+		if (controller.adminUpdate) {
 			//If desired, create items in data for input field options (e.g select)
-			data = await controller.adminEdit(req);
+			data = await controller.adminUpdate(req);
 		} else {
 			data = await controller.read(req);
 		}
