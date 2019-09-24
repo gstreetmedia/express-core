@@ -7,6 +7,7 @@ router.use(authentication);
 
 router.use(async (req, res, next) => {
 	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
+	req.addRole('super-admin')
 	return next();
 });
 

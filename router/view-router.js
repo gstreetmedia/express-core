@@ -1,10 +1,7 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-
 let UserController = require("../../controller/UserController");
 let viewSelector = require("../helper/view/view-selector");
-
-router.use(authentication);
 
 router.use(
 	async (req, res, next) => {
@@ -13,6 +10,7 @@ router.use(
 );
 
 router.get('/', async (req, res, next) => {
+	authentication(req, res);
 	if (req.hasRole("super-admin")) {
 		return res.redirect("/admin");
 	}
@@ -20,12 +18,11 @@ router.get('/', async (req, res, next) => {
 });
 
 router.get('/admin/login', async (req, res, next) => {
+	authentication(req, res);
 	req.allowRole("guest");
-
 	if (req.hasRole("super-admin")) {
 		return res.redirect("/admin");
 	}
-
 	return viewSelector(res, 'page-login', {});
 });
 

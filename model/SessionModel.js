@@ -5,6 +5,7 @@ const getIpAddress = require("../helper/get-ip-address");
 const jwt = require('jsonwebtoken');
 const moment = require("moment");
 const uuid = require("node-uuid");
+const now = require("../../core/helper/now");
 
 
 module.exports = class SessionModel extends ModelBase {
@@ -157,6 +158,41 @@ module.exports = class SessionModel extends ModelBase {
 		);
 		// All done.
 		return token;
+	}
+
+	async verifyToken(token) {
+		let decoded;
+
+		try {
+			decoded = jwt.decode(token);
+		} catch (e) {
+			return {
+				error : {
+					message : "Could not decoded token",
+					statusCode : 401
+				}
+			}
+		}
+
+		let result = await this.findOne(
+			{
+				where : {
+					token : token,
+					expiresAt : {">" : now()}
+				}
+			}
+		);
+
+		if (result) {
+			return result;
+		}
+
+		return {
+			error : {
+				message : "Could not find token",
+				statusCode : 404
+			}
+		};
 	}
 
 

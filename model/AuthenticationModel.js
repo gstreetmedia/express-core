@@ -90,7 +90,7 @@ module.exports = class AuthenticationModel {
 			token.config.settings &&
 			token.config.settings.hosts
 		) {
-			if (Authentication.checkWhitelist(token.config.settings.hosts, req.hostname) === false) {
+			if (AuthenticationModel.checkWhitelist(token.config.settings.hosts, req.hostname) === false) {
 				return 'Token not allowed for this host';
 			}
 		}
@@ -218,22 +218,22 @@ module.exports = class AuthenticationModel {
 		let context = this;
 		let localRequest = false;
 
-		Authentication.checkLocalRequest(req);
+		AuthenticationModel.checkLocalRequest(req);
 
-		if (Authentication.hasValidCookie(req)
+		if (AuthenticationModel.hasValidCookie(req)
 		) {
-			await Authentication.bearerToken(req);
+			await AuthenticationModel.bearerToken(req);
 		}
 
 		if (req.headers['application-key']) {
-			let keyResult = await Authentication.applicationKey(req);
+			let keyResult = await AuthenticationModel.applicationKey(req);
 			if (keyResult !== true) {
 				console.log("keyResult => " + keyResult);
 			}
 		}
 
 		if (req.header['authorization']) {
-			let authResult = await Authentication.bearerToken(req);
+			let authResult = await AuthenticationModel.bearerToken(req);
 			if (authResult !== true) {
 				console.log("authResult => " + authResult);
 			}
