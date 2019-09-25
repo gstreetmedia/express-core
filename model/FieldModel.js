@@ -12,6 +12,7 @@ const knex = require("knex");
 
 module.exports = class FieldModel extends ModelBase {
 
+
 	constructor(req) {
 		super(req);
 		this.tableExists = null;
@@ -119,7 +120,6 @@ module.exports = class FieldModel extends ModelBase {
 
 		if (hasTable) {
 			let results = await this.find({where: {dataSource: {"in": dataSources}}});
-
 			results.forEach(
 				function (item) {
 					global.fieldCache[item.tableName] = item;
@@ -127,6 +127,16 @@ module.exports = class FieldModel extends ModelBase {
 				}
 			);
 		} else {
+
+			let keys = Object.keys(global.schemaCache).forEach(
+				(schemaKey) => {
+					let schema = global.schemaCache[schemaKey];
+					let file = inflector.dasherize(schema.tableName) + "-fields.js";
+					let fields = require("../../schema/fields/" + file);
+					global.fieldCache[schema.tableName] = fields;
+				}
+			)
+			/*
 			let files = fs.readdirSync(global.appRoot + '/src/schema/fields');
 			files.forEach(
 				function(file) {
@@ -134,11 +144,13 @@ module.exports = class FieldModel extends ModelBase {
 						return;
 					}
 					let tableName = inflector.underscore(file.split("-fields.js").join(""));
+					let field = require("../../schema/fields/" + file);
 
-					global.fieldCache[tableName] = require("../../schema/fields/" + file);
+					global.fieldCache[tableName] = ;
 					count++;
 				}
 			);
+			 */
 		}
 		console.log("Loaded " + Object.keys(global.fieldCache).length + " fields");
 		return true;
