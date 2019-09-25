@@ -262,14 +262,15 @@ module.exports = class ControllerBase {
 		}
 
 		properties.forEach(function(key){
-			if (m.properties[key].type === "string") {
+			let properties = m.schema.properties;
+			if (properties[key].type === "string") {
 				let validate = true;
 
-				if (m.properties.enum) {
+				if (properties[key].enum) {
 					validate = false;
 				}
 
-				switch (m.properties[key].format) {
+				switch (properties[key].format) {
 					case "date" :
 					case "date-time" :
 						return;
@@ -291,7 +292,7 @@ module.exports = class ControllerBase {
 				if (!validate || validateAgainstSchema(key, {[key]:search}, m.schema)) {
 
 				}
-			} else if (m.properties[key].type === "number" && !isNaN(queryNumber)) {
+			} else if (properties[key].type === "number" && !isNaN(queryNumber)) {
 				query.where.or.push(
 					{
 						[key]: {"startsWith": queryNumber}
@@ -395,6 +396,8 @@ module.exports = class ControllerBase {
 		let m = new this.Model();
 		let keys = Object.keys(m.foreignKeys);
 		req.query.join = req.query.join || {};
+
+		console.log(m.tableName);
 		let fields = global.fieldCache[m.tableName].adminIndex;
 
 		while (keys.length > 0) {
