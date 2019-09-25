@@ -13,7 +13,7 @@ let SessionModel = require("../../model/SessionModel");
 
 module.exports = class AuthenticationModel {
 
-	static checkLocalRequest(req) {
+	checkLocalRequest(req) {
 		if (req.headers['referer'] &&
 			req.headers['referer'].indexOf(req.headers['host']) !== -1
 		) {
@@ -23,7 +23,7 @@ module.exports = class AuthenticationModel {
 		return false;
 	}
 
-	static checkWhitelist(whitelist, req) {
+	checkWhitelist(whitelist, req) {
 		//console.log(req.headers);
 		if (req.headers.host.indexOf("localhost") === -1) {
 			return true;
@@ -46,7 +46,7 @@ module.exports = class AuthenticationModel {
 	 * @param req
 	 * @returns {Promise<*>}
 	 */
-	static async applicationKey(req) {
+	async applicationKey(req) {
 		//console.log("middlware/authentication::applicationKey " + req.hostname);
 		//Check header for application-key
 
@@ -90,7 +90,7 @@ module.exports = class AuthenticationModel {
 			token.config.settings &&
 			token.config.settings.hosts
 		) {
-			if (AuthenticationModel.checkWhitelist(token.config.settings.hosts, req.hostname) === false) {
+			if (this.checkWhitelist(token.config.settings.hosts, req.hostname) === false) {
 				return 'Token not allowed for this host';
 			}
 		}
@@ -127,7 +127,7 @@ module.exports = class AuthenticationModel {
 	 * @param req
 	 * @returns {Promise<*>}
 	 */
-	static async bearerToken(req) {
+	async bearerToken(req) {
 		let token;
 		let sm = new SessionModel(req);
 
@@ -193,7 +193,7 @@ module.exports = class AuthenticationModel {
 		return true;
 	}
 
-	static hasValidCookie(req) {
+	hasValidCookie(req) {
 		if (!req.cookies) {
 			return false;
 		}
@@ -213,27 +213,27 @@ module.exports = class AuthenticationModel {
 	 * Pretty much just an init
 	 * @returns {Promise<void>}
 	 */
-	static async verify(req) {
+	async verify(req) {
 
 		let context = this;
 		let localRequest = false;
 
-		AuthenticationModel.checkLocalRequest(req);
+		this.checkLocalRequest(req);
 
-		if (AuthenticationModel.hasValidCookie(req)
+		if (this.hasValidCookie(req)
 		) {
-			await AuthenticationModel.bearerToken(req);
+			await this.bearerToken(req);
 		}
 
 		if (req.headers['application-key']) {
-			let keyResult = await AuthenticationModel.applicationKey(req);
+			let keyResult = await this.applicationKey(req);
 			if (keyResult !== true) {
 				console.log("keyResult => " + keyResult);
 			}
 		}
 
 		if (req.header['authorization']) {
-			let authResult = await AuthenticationModel.bearerToken(req);
+			let authResult = await this.bearerToken(req);
 			if (authResult !== true) {
 				console.log("authResult => " + authResult);
 			}
