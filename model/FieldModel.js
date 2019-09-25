@@ -8,6 +8,7 @@ const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 const fs = require("fs");
 const knex = require("knex");
+const path = require("path");
 
 
 module.exports = class FieldModel extends ModelBase {
@@ -95,7 +96,7 @@ module.exports = class FieldModel extends ModelBase {
 	}
 
 	async loadFields(connectionStrings) {
-
+		connectionStrings = connectionStrings || [];
 		global.fieldCache = global.fieldCache || {};
 
 		if (!_.isArray(connectionStrings)) {
@@ -123,17 +124,20 @@ module.exports = class FieldModel extends ModelBase {
 			results.forEach(
 				function (item) {
 					global.fieldCache[item.tableName] = item;
-
 				}
 			);
 		} else {
-
+			console.log("loading local fields");
 			let keys = Object.keys(global.schemaCache).forEach(
 				(schemaKey) => {
 					let schema = global.schemaCache[schemaKey];
-					let file = inflector.dasherize(schema.tableName) + "-fields.js";
-					let fields = require("../../schema/fields/" + file);
-					global.fieldCache[schema.tableName] = fields;
+					let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(schema.tableName));
+					if (fs.existsSync(p)) {
+						let fields = require(p.split(".js").join(""));
+						global.fieldCache[schema.tableName] = fields;
+					}
+
+
 				}
 			)
 			/*
@@ -206,34 +210,44 @@ module.exports = class FieldModel extends ModelBase {
 			}
 			return null;
 		} else {
-			let path = global.appRoot + "/src/schemas/fields/" + inflector.dasherize(tableName);
-			if (fs.existsSync(path + ".js")) {
-				global.fieldCache[tableName] = require(path);
+			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
+			if (fs.existsSync(p)) {
+				global.fieldCache[tableName] = require(p.split(".js").join(""));
+				return global.fieldCache[tableName];
+			} else {
+				console.log("missing table " + p);
 			}
-			//if (fs.existsSync(global.appRoot + "/src/schemas/fields/" ))
+			//if (fs.existsSync(global.appRoot + "/src/schema/fields/" ))
 		}
 	}
 
 	async set(tableName, data) {
 		let table = await this.get(tableName, false);
-		if (table) {
+		let hasTable = await this.hasTable();
+
+		console.log(tableName + " => " + hasTable);
+
+		if (table && hasTable) {
+			console.log("save db");
 			let result = await this.update(table.id, data, true);
 			if (!result.error) {
 				global.fieldCache = global.fieldCache || {};
 				global.fieldCache[tableName] = result;
 			}
-		} else {
-			let hasTable = await this.hasTable();
-			if (hasTable) {
-				table = this.create(data);
-				if (table.error) {
-					console.log("fields set error " + table.error);
-				} else {
-					await cache.set("fields_" + tableName, table);
-				}
-				return table;
+		} else if (table) {
+			console.log("save local");
+			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
+
+			if (fs.existsSync(p)) {
+				fs.writeFileSync(p, "module.exports = " + JSON.stringify(data));
+				global.fieldCache[tableName] = data;
 			}
 		}
+	}
+
+	getLocalFileName(tableName) {
+		let file = inflector.dasherize(tableName.toLowerCase()) + "-fields.js";
+		return file;
 	}
 
 	async createTable() {
