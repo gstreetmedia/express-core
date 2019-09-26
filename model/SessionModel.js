@@ -144,7 +144,7 @@ module.exports = class SessionModel extends ModelBase {
 			{
 				id : userId,
 				data : data,
-				signedBy : process.env.JWT_TOKEN_ID || "core"
+				systemId : process.env.JWT_TOKEN_SYSTEM_ID || "core"
 			},
 			process.env.JWT_TOKEN_SECRET,
 			{
