@@ -128,6 +128,7 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async bearerToken(req) {
+		console.log("bearertoken adult");
 		let token;
 		let sm = new SessionModel(req);
 
@@ -141,8 +142,12 @@ module.exports = class AuthenticationModel {
 		if (token) {
 			let decodedToken;
 			try {
-				decodedToken = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
+				decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET);
+				console.log(decodedToken);
 			} catch (e) {
+
+				console.log("WTFFFFFFFFFFFFFFFFFFFFF");
+
 				await sm.destroyWhere(
 					{
 						token: token
@@ -161,7 +166,7 @@ module.exports = class AuthenticationModel {
 				{
 					userId: decodedToken.id,
 					token: token,
-					expiresAt: {">": moment().format("YYYY-MM-DD HH:mm:ss.SSS")}
+					expiresAt: {">": now()}
 				},
 				true
 			);
@@ -222,7 +227,10 @@ module.exports = class AuthenticationModel {
 
 		if (this.hasValidCookie(req)
 		) {
-			await this.bearerToken(req);
+			let keyResult = await this.bearerToken(req);
+			if (keyResult !== true) {
+				console.log("keyResult => " + keyResult);
+			}
 		}
 
 		if (req.headers['application-key']) {

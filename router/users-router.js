@@ -96,20 +96,11 @@ router.put('/:id', async function (req, res, next) {
 	return next();
 });
 
-router.patch('/:id', async function (req, res, next) {
-	if(req.checkRole()){
-		return await c.update(req, res);
-	}
-	return next();
-});
-
 router.delete('/:id', async function (req, res, next) {
 	if(req.checkRole()){
 		return await c.destroy(req, res);
 	}
 	return next();
 });
-
-
 
 module.exports = router;

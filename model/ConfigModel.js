@@ -44,12 +44,10 @@ module.exports = class ConfigModel extends ModelBase {
 	}
 
 	get relations() {
-		let Token = require("../../model/TokenModel");
-
 		return {
 			config: {
 				relation: "HasMany",
-				modelClass: Token,
+				modelClass: "TokenModel",
 				join: {
 					from: "id",
 					to: "configId"

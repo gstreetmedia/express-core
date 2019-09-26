@@ -31,6 +31,7 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 	async create(data) {
+		console.log("SM::create");
 		return await super.create(data);
 	}
 
@@ -48,6 +49,10 @@ module.exports = class SessionModel extends ModelBase {
 
 	async destroy(id) {
 		return await super.destroy(id);
+	}
+
+	async destroyWhere(query) {
+		return await super.destroyWhere(id);
 	}
 
 	/**
@@ -75,7 +80,7 @@ module.exports = class SessionModel extends ModelBase {
 				let decoded;
 
 				try {
-					decoded = jwt.verify(sessions[i].token, process.env.JWT_TOKEN_SECRET);
+					decoded = jwt.decode(sessions[i].token, process.env.JWT_TOKEN_SECRET);
 				} catch (e) {
 					decoded = null;
 				}
@@ -138,7 +143,8 @@ module.exports = class SessionModel extends ModelBase {
 		let token = jwt.sign(
 			{
 				id : userId,
-				data : data
+				data : data,
+				signedBy : process.env.JWT_TOKEN_ID || "core"
 			},
 			process.env.JWT_TOKEN_SECRET,
 			{
@@ -146,7 +152,7 @@ module.exports = class SessionModel extends ModelBase {
 			}
 		);
 
-		await this.create(
+		let result = await this.create(
 			{
 				id: uuid.v4(),
 				userId: userId,
@@ -156,6 +162,7 @@ module.exports = class SessionModel extends ModelBase {
 				ipAddress: ipAddress
 			}
 		);
+		console.log(result);
 		// All done.
 		return token;
 	}

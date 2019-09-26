@@ -8,7 +8,9 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication
 	module.exports = async function (req, res, next) {
 		try {
 			await m.verify(req);
-			next();
+			if (next) {
+				next();
+			}
 		} catch (e) {
 			console.log(e);
 			res.error("Unknown Server Error", 500);

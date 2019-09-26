@@ -71,7 +71,7 @@ module.exports = class UserController extends ControllerBase {
 			res.cookie('token', result.token, args);
 			res.cookie('application-key', hashPassword(result.token), args);
 		}
-
+		
 		res.success(result);
 	}
 

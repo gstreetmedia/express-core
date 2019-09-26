@@ -60,15 +60,6 @@ router.put('/:id', async (req, res, next) => {
 	return next();
 });
 
-
-router.patch('/:id', async (req, res, next) => {
-	if (req.checkRole()) {
-		return await c.update(req, res);
-	}
-	return next();
-});
-
-
 router.delete('/:id', async (req, res, next) => {
 	if (req.checkRole()) {
 		return await c.destroy(req, res);
