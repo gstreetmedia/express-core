@@ -237,8 +237,11 @@ async function convert(destination, connectionString, options) {
 		}
 
 		keys = filtered;
-
 		item.properties = properties;
+
+		if (name.indexOf("_") === 0) {
+			name = name.substring(1,name.length-1);
+		}
 
 		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
 		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
@@ -279,23 +282,25 @@ async function convert(destination, connectionString, options) {
 						property: k,
 						visible: true
 					});
-					fieldSchema.adminCreate.push({
-						property: k,
-						visible: true
-					});
-					fieldSchema.adminRead.push({
-						property: k,
-						visible: true
-					});
-					fieldSchema.adminUpdate.push({
-						property: k,
-						visible: true
-					});
 					fieldSchema.publicIndex.push({
 						property: k,
 						visible: true
 					});
+
+					let visible = true;
+					if (k !== "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
+						visible = false;
+					}
+					fieldSchema.adminCreate.push({
+						property: k,
+						visible: visible
+					});
 					fieldSchema.publicCreate.push({
+						property: k,
+						visible: visible
+					});
+
+					fieldSchema.adminRead.push({
 						property: k,
 						visible: true
 					});
@@ -303,9 +308,14 @@ async function convert(destination, connectionString, options) {
 						property: k,
 						visible: true
 					});
+
+					fieldSchema.adminUpdate.push({
+						property: k,
+						visible: visible
+					});
 					fieldSchema.publicUpdate.push({
 						property: k,
-						visible: true
+						visible: visible
 					});
 				}
 			);
