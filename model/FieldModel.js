@@ -224,18 +224,20 @@ module.exports = class FieldModel extends ModelBase {
 	async set(tableName, data) {
 		let table = await this.get(tableName, false);
 		let hasTable = await this.hasTable();
-
-		console.log(tableName + " => " + hasTable);
-
-		if (table && hasTable) {
-			console.log("save db");
-			let result = await this.update(table.id, data, true);
+		if (hasTable) {
+			let result;
+			if (table) {
+				result = await this.update(table.id, data, true);
+			} else {
+				result = await this.create(data, true);
+			}
 			if (!result.error) {
 				global.fieldCache = global.fieldCache || {};
 				global.fieldCache[tableName] = result;
+			} else {
+				console.log(result.error);
 			}
 		} else if (table) {
-			console.log("save local");
 			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
 
 			if (fs.existsSync(p)) {

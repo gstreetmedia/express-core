@@ -6,7 +6,8 @@ const inflector = require("../helper/inflector");
 const _ = require("lodash");
 const connectionStringParser = require("../helper/connection-string-parser");
 const SchemaModel = require("../model/SchemaModel");
-const FieldModel = require("../model/FieldModel")
+const FieldModel = require("../model/FieldModel");
+const jsonFix = require("json-beautify");
 
 //used to format output
 const stt = require('spaces-to-tabs');
@@ -92,7 +93,7 @@ async function convert(destination, connectionString, options) {
 		} //TODO elastic?
 
 		cs = connectionStringParser(cs);
-		console.log(cs);
+		//console.log(cs);
 
 		let schema = await converter(
 			_.extend({
@@ -107,25 +108,25 @@ async function convert(destination, connectionString, options) {
 
 		schema.forEach(
 			function (item) {
-				console.log(item.tableName);
+				//console.log(item.tableName);
 				item.dataSource = cs.database;
 				if (options.settings && options.settings[i].ignore) {
 					if (_.indexOf(options.settings[i].ignore, item.tableName) === -1) {
-						console.log("Adding item " + item.tableName);
+						//console.log("Adding item " + item.tableName);
 						return schemas.push(item);
 					} else {
 						console.log("Not adding item " + item.tableName);
 					}
 				} else if (options.settings && options.settings[i].include) {
 					if (_.indexOf(options.settings[i].include, item.tableName) !== -1) {
-						console.log("Adding item " + item.tableName);
+						//console.log("Adding item " + item.tableName);
 						return schemas.push(item);
 					} else {
 						console.log("Not adding item " + item.tableName);
 					}
 				} else {
 					return schemas.push(item);
-					console.log("Adding Item " + item.tableName)
+					//console.log("Adding Item " + item.tableName)
 				}
 			}
 		)
@@ -240,8 +241,10 @@ async function convert(destination, connectionString, options) {
 		item.properties = properties;
 
 		if (name.indexOf("_") === 0) {
-			name = name.substring(1,name.length-1);
+			name = name.substring(1,name.length);
 		}
+
+		console.log("Name => " + name);
 
 		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
 		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
@@ -278,19 +281,26 @@ async function convert(destination, connectionString, options) {
 		if (!fields) {
 			keysSorted.forEach(
 				function (k) {
+
+					let visible = true;
+					if (k === "createdAt" || k === "updatedAt") {
+						visible = false;
+					}
+
 					fieldSchema.adminIndex.push({
 						property: k,
-						visible: true
+						visible: visible
 					});
 					fieldSchema.publicIndex.push({
 						property: k,
-						visible: true
+						visible: visible
 					});
 
-					let visible = true;
-					if (k !== "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
+					visible = true;
+					if (k === "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
 						visible = false;
 					}
+
 					fieldSchema.adminCreate.push({
 						property: k,
 						visible: visible
@@ -298,15 +308,6 @@ async function convert(destination, connectionString, options) {
 					fieldSchema.publicCreate.push({
 						property: k,
 						visible: visible
-					});
-
-					fieldSchema.adminRead.push({
-						property: k,
-						visible: true
-					});
-					fieldSchema.publicRead.push({
-						property: k,
-						visible: true
 					});
 
 					fieldSchema.adminUpdate.push({
@@ -317,6 +318,22 @@ async function convert(destination, connectionString, options) {
 						property: k,
 						visible: visible
 					});
+
+					visible = true;
+					if (k === "createdAt" || k === "updatedAt") {
+						visible = false;
+					}
+
+					fieldSchema.adminRead.push({
+						property: k,
+						visible: true
+					});
+					fieldSchema.publicRead.push({
+						property: k,
+						visible: visible
+					});
+
+
 				}
 			);
 		} else {
@@ -376,16 +393,8 @@ async function convert(destination, connectionString, options) {
 
 
 		if (options.overwrite || !fs.existsSync(fieldPath)) {
-			let s = 'module.exports = {\n';
-			s += "\tadminIndex : " + JSON.stringify(fieldSchema.adminIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tadminCreate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tadminRead : " + JSON.stringify(fieldSchema.adminRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tadminUpdate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicIndex : " + JSON.stringify(fieldSchema.publicIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicCreate : " + JSON.stringify(fieldSchema.publicCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicRead : " + JSON.stringify(fieldSchema.publicRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicUpdate : " + JSON.stringify(fieldSchema.publicCreate).split('"property"').join("property").split('"visible"').join("visible") + "\n";
-			s += "}";
+			let template = require("./templates/fields");
+			let s=template(fieldSchema);
 			fs.writeFileSync(fieldPath, s);
 		}
 

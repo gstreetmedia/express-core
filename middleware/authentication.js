@@ -1,11 +1,13 @@
 const fs = require("fs");
 const path = require("path");
 
-if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js"))) {
-	let Authentication = require("../model/AuthenticationModel");
+if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication.js"))) {
+	console.log("using core authentication");
+	let AuthenticationModel = require("../model/AuthenticationModel");
+	let m = new AuthenticationModel();
 	module.exports = async function (req, res, next) {
 		try {
-			await Authentication.verify(req);
+			await m.verify(req);
 			next();
 		} catch (e) {
 			console.log(e);
@@ -14,5 +16,6 @@ if (!fs.existsSync(path.resolve(__dirname + "/../../middleware/authentication.js
 	};
 
 } else {
-	module.exports = require(path.resolve(__dirname + "/../../middleware/authentication"))
+	console.log("using local authentication");
+	module.exports = require(global.appRoot + "/src/middleware/authentication");
 }

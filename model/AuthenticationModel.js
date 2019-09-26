@@ -47,7 +47,7 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async applicationKey(req) {
-		//console.log("middlware/authentication::applicationKey " + req.hostname);
+		console.log("AuthenticationModel::applicationKey")
 		//Check header for application-key
 
 		let key = req.headers['application-key'];
