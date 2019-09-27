@@ -74,5 +74,20 @@ module.exports = async function (req, res, next) {
 		res.status(400).send({error:true,message:message});
 	};
 
+	res.file = (path) => {
+		let now = new Date();
+		let time = now.getTime() - startTime.getTime();
+
+		res.sendFile(path,
+			{
+				cacheControl : true,
+				maxAge : 365 * 24 * 60 * 60 * 1000,
+				headers : {
+					"execution-time" : time
+				}
+			}
+		);
+	}
+
 	next();
 }
