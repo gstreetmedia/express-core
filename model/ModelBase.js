@@ -127,9 +127,7 @@ module.exports = class ModelBase extends EventEmitter {
 				continue;
 			}
 
-			let path = cs.path && cs.path.length > 0 ? cs.path[0] : null;
-
-			if (path.indexOf(dataSource) !== -1) {
+			if (cs.database === dataSource) {
 				this._connectionString = process.env[key];
 				break;
 			}
@@ -171,6 +169,8 @@ module.exports = class ModelBase extends EventEmitter {
 		let builder;
 
 		if (this.connectionString.indexOf("postgresql://") !== -1) {
+			builder = require("../helper/query-to-pgsql");
+		} else if (this.connectionString.indexOf("postgres://") !== -1) {
 			builder = require("../helper/query-to-pgsql");
 		} else if (this.connectionString.indexOf("mysql://") !== -1) {
 			builder = require("../helper/query-to-mysql");
