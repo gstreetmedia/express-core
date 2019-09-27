@@ -248,8 +248,15 @@ module.exports = class AuthenticationModel {
 			let keyResult = await this.bearerToken(req);
 			if (keyResult !== true) {
 				console.log("keyResult => " + keyResult);
+			} else {
+				console.log("Has Valid Cookie!!!");
+			}
+			if (req.currentRoles.indexOf("super-admin") !== -1) {
+				return;
 			}
 		}
+
+		console.log(req.currentRoles);
 
 		if (req.headers['application-key']) {
 			let keyResult = await this.applicationKey(req);

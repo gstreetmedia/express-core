@@ -1,6 +1,7 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const uuid = require("node-uuid");
+const hashPassword = require("../helper/hash-password");
 
 module.exports = class TokenModel extends ModelBase {
 
@@ -68,4 +69,4 @@ module.exports = class TokenModel extends ModelBase {
 		}
 	}
 
-}
+};
