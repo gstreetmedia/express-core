@@ -4,10 +4,7 @@
  * @returns {{password: string, protocol: (*|string), port: string, host: string, db: string, username: string}}
  */
 module.exports = function (value) {
-
-	//mssql://WCTY:HG@R!835$@72.26.113.116:4308/WCTY_RAPDATA?encrypt=true&connectionTimeout=86400000
 	try {
-
 		let parts = value.split("://");
 		let protocol = parts[0];
 
@@ -25,7 +22,6 @@ module.exports = function (value) {
 				host : parts[1]
 			}
 		}
-
 
 		let credentials = parts[1].substr(0, parts[1].lastIndexOf("@"));
 		let username = credentials.split(":")[0];
@@ -70,6 +66,7 @@ module.exports = function (value) {
 
 		return obj;
 	} catch (e) {
-		console.error("Connection String Could not parse " + value)
+		console.error("Connection String Could not parse " + value);
+		return null;
 	}
 };
