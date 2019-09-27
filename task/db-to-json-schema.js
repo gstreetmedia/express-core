@@ -238,7 +238,7 @@ async function convert(destination, connectionString, options) {
 		item.properties = properties;
 
 		if (name.indexOf("_") === 0) {
-			name = name.substring(1,name.length);
+			name = name.substring(1, name.length);
 		}
 
 		console.log("Name => " + name);
