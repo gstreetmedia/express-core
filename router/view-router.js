@@ -4,7 +4,7 @@ let UserController = require("../../controller/UserController");
 let viewSelector = require("../helper/view/view-selector");
 
 router.get('/', async (req, res, next) => {
-	authentication(req, res);
+	await authentication(req, res);
 	if (req.hasRole("super-admin")) {
 		return res.redirect("/admin");
 	}
