@@ -107,14 +107,12 @@ module.exports = class AuthenticationModel {
 
 		let key = req.headers['application-key'];
 		if (!key) {
-			return 'Missing Application Key';
+			return {error : 'Missing Application Key'};
 		}
 
 		let secret = req.headers['application-secret'];
 		if (secret) {
 			key = md5(key + secret);
-		} else {
-			return 'Missing Secret';
 		}
 
 		let configuration = await cache.get("configuration_" + key);
@@ -125,27 +123,33 @@ module.exports = class AuthenticationModel {
 			return true;
 		}
 
-		let tm = new TokenModel(req);
-		let token = await tm.findOne(
-			{
-				where: {
-					key: req.headers['application-key'],
-					secret: req.headers['application-secret']
-				},
-				join: "*"
-			}
-		);
+		let query = {
+			where: {
+				key: req.headers['application-key']
+			},
+			join: "*"
+		};
 
-		if (!token) {
-			return 'Invalid Application Key';
+		if (secret) {
+			query.where.secret = req.headers['application-secret'];
+		}
+
+		let tm = new TokenModel(req);
+		let tokenRecord = await tm.findOne(query, true);
+
+		if (!tokenRecord) {
+			if (secret) {
+				return {error : 'Invalid Application Key or Secret'};
+			}
+			return {error : 'Invalid Application Key'};
 		}
 
 		if (
 			req.hostname.indexOf("localhost") === -1 &&
-			token.config.settings &&
-			token.config.settings.hosts
+			tokenRecord.config.settings &&
+			tokenRecord.config.settings.hosts
 		) {
-			if (this.checkWhitelist(token.config.settings.hosts, req.hostname) === false) {
+			if (this.checkWhitelist(tokenRecord.config.settings.hosts, req.hostname) === false) {
 				return 'Token not allowed for this host';
 			}
 		}
@@ -154,24 +158,26 @@ module.exports = class AuthenticationModel {
 			token: null
 		};
 
+
+		//surface all relations to top level eg : {token:{},config:{},dataset:{}}
 		let relations = Object.keys(tm.relations);
 
 		relations.forEach(
 			function (key) {
-				if (token[key]) {
-					obj[key] = token[key];
-					delete token[key];
+				if (tokenRecord[key]) {
+					obj[key] = tokenRecord[key];
+					delete tokenRecord[key];
 				}
 			}
 		);
 
-		obj.token = token;
+		obj.token = tokenRecord;
 
 		_.extend(req, obj);
 
-		req.addRole(token.role || "api-user");
+		req.addRole(tokenRecord.role || "api-user");
 
-		await cache.set("configuration_" + key, obj);
+		await cache.set("configuration_" + key, obj, process.env.CACHE_DURATION_LONG);
 
 		return true;
 	}
@@ -255,8 +261,6 @@ module.exports = class AuthenticationModel {
 				return;
 			}
 		}
-
-		console.log(req.currentRoles);
 
 		if (req.headers['application-key']) {
 			let keyResult = await this.applicationKey(req);
