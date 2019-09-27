@@ -102,7 +102,7 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async applicationKey(req) {
-		console.log("AuthenticationModel::applicationKey")
+		console.log("applicationKey.parent");
 		//Check header for application-key
 
 		let key = req.headers['application-key'];
@@ -183,7 +183,7 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async bearerToken(req) {
-		console.log("bearertoken adult");
+		console.log("bearerToken.parent");
 		let token;
 		let decodedToken = this.getDecodedTokenFromRequest(req);
 		if (decodedToken.error) {
@@ -256,13 +256,17 @@ module.exports = class AuthenticationModel {
 			if (keyResult !== true) {
 				console.log("keyResult => " + keyResult);
 			}
+		} else {
+			console.log("No Application Key. Hacker ???");
 		}
 
-		if (req.header['authorization']) {
+		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req);
 			if (authResult !== true) {
 				console.log("authResult => " + authResult);
 			}
+		} else {
+			console.log("No Auth");
 		}
 	}
 }
