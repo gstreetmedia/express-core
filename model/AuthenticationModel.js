@@ -37,6 +37,61 @@ module.exports = class AuthenticationModel {
 		return true;
 	}
 
+	getTokenFromRequest(req) {
+		if (req.cookies.token) {
+			return req.cookies.token;
+		}
+		return req.headers['authorization'] && req.headers['authorization'].indexOf("Bearer") !== -1
+			? req.headers['authorization'].replace("Bearer ", "") : {
+			error : "Missing Token"
+			};
+	}
+
+	getDecodedTokenFromRequest(req) {
+		if (req.jwt) {
+			return req.jwt;
+		}
+
+		let token = this.getTokenFromRequest(req);
+
+		if (token.error) {
+			return token.error;
+		}
+
+		let decodedToken;
+		try {
+			decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET);
+		} catch (e) {
+			return {
+				error : "Expired Token"
+			}
+		}
+
+		req.jwt = decodedToken;
+
+		return decodedToken;
+	}
+
+	async getSessionFromRequest(req) {
+		let sm = new SessionModel();
+		let decodedToken = this.getDecodedTokenFromRequest(req);
+		let token = this.getTokenFromRequest(req);
+		let session = await sm.findOne(
+			{
+				userId: decodedToken.id,
+				token: token,
+				expiresAt: {">": moment().format("YYYY-MM-DD HH:mm:ss.SSS")}
+			},
+			true
+		);
+		if (session && !session.error) {
+			return session;
+		}
+		return {
+			error : "Missing, Expired or Invalid Session"
+		}
+	}
+
 	/**
 	 * Check to make sure the request has a valid
 	 * application-key
@@ -130,70 +185,34 @@ module.exports = class AuthenticationModel {
 	async bearerToken(req) {
 		console.log("bearertoken adult");
 		let token;
-		let sm = new SessionModel(req);
-
-		if (req.cookies.token) {
-			token = req.cookies.token;
-		} else {
-			token = req.headers['authorization'] && req.headers['authorization'].indexOf("Bearer") !== -1
-				? req.headers['authorization'].replace("Bearer ", "") : null;
+		let decodedToken = this.getDecodedTokenFromRequest(req);
+		if (decodedToken.error) {
+			return decodedToken.error;
 		}
 
-		if (token) {
-			let decodedToken;
-			try {
-				decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET);
-				console.log(decodedToken);
-			} catch (e) {
+		let session = await this.getSessionFromRequest(req);
 
-				console.log("WTFFFFFFFFFFFFFFFFFFFFF");
-
-				await sm.destroyWhere(
-					{
-						token: token
-					});
-				return "Expired Token";
-			}
-
-			if (!decodedToken) {
-				if (req.session.token) {
-					delete req.session.token;
-				}
-				return "Invalid token"; //Not a valid token
-			}
-
-			let session = await sm.findOne(
-				{
-					userId: decodedToken.id,
-					token: token,
-					expiresAt: {">": now()}
-				},
-				true
-			);
-
-			if (!session) {
-				return "Expired Session"; //Not a valid token
-			}
-
-			let cacheKey = "authenticated_user_" + decodedToken.id; //accountId
-
-			//Check the memory cache for this Account
-			let user = await cache.get(cacheKey); //Try Cache first
-
-			if (!user) {
-				let um = new UserModel(req);
-				user = await um.read(decodedToken.data.id);
-				await cache.set(cacheKey, user);
-			}
-
-			if (user) {
-				req.addRole(user.role);
-			}
-
-			req.user = user;
-			req.jwt = token;
-
+		if (session.error) {
+			return session.error; //Not a valid token
 		}
+
+		let cacheKey = "authenticated_user_" + decodedToken.id; //accountId
+
+		//Check the memory cache for this Account
+		let user = await cache.get(cacheKey); //Try Cache first
+
+		if (!user) {
+			let um = new UserModel(req);
+			user = await um.read(decodedToken.data.id);
+			await cache.set(cacheKey, user);
+		}
+
+		if (user) {
+			req.addRole(user.role);
+		}
+
+		req.user = user;
+		req.jwt = token;
 
 		return true;
 	}
@@ -202,12 +221,15 @@ module.exports = class AuthenticationModel {
 		if (!req.cookies) {
 			return false;
 		}
+
 		if (!req.cookies.token || !req.cookies['application-key']) {
 			return false;
 		}
+
 		if (!req.cookies.token || !req.cookies['application-key']) {
 			return false;
 		}
+
 		if (hashPassword(req.cookies.token) === req.cookies['application-key']) {
 			return true;
 		}
@@ -219,10 +241,6 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<void>}
 	 */
 	async verify(req) {
-
-		let context = this;
-		let localRequest = false;
-
 		this.checkLocalRequest(req);
 
 		if (this.hasValidCookie(req)
@@ -246,8 +264,6 @@ module.exports = class AuthenticationModel {
 				console.log("authResult => " + authResult);
 			}
 		}
-
-		return;
 	}
 }
 
