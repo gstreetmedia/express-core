@@ -64,7 +64,8 @@ module.exports = class UserController extends ControllerBase {
 
 		if (req.isLocal) {
 			let args = {
-				path: '/' //domain: req.headers['host'],
+				path: '/',
+				domain: req.headers['host'].split(":")[0]
 			};
 
 			args.expires = moment().add(1, 'year').toDate();
