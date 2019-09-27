@@ -3,7 +3,7 @@ const moment = require("moment");
 const beautify = require("json-beautify");
 const _ = require("lodash");
 
-module.exports = function(model, key, value) {
+module.exports = function(model, key, value, name) {
 
 
 	if (!value) {
@@ -54,6 +54,10 @@ module.exports = function(model, key, value) {
 					}
 				}
 			}
+	}
+
+	if (name) {
+		return `<span title="${key + ": " + value}" data-toggle="tooltip" data-placement="bottom">${name}</span>`
 	}
 
 	return value;

@@ -39,7 +39,7 @@ module.exports = async function (req, res, next) {
 
 	res.error = (e) => {
 		if (e.statusCode) {
-
+			res.status(e.statusCode).send(e);
 		} else {
 			res.status(500).send(e);
 		}

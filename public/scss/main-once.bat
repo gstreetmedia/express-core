@@ -1,0 +1,1 @@
+node-sass --sourceMap=true -r ./main.scss ../css/main.css

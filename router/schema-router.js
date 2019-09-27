@@ -32,6 +32,8 @@ router.get('/:id', async function (req, res, next) {
 	return next();
 });
 
+/*
+
 router.post('/', async function (req, res, next) {
 	if(req.checkRole()){
 		return await c.create(req, res);
@@ -59,5 +61,7 @@ router.delete('/:id', async function (req, res, next) {
 	}
 	return next();
 });
+
+ */
 
 module.exports = router;

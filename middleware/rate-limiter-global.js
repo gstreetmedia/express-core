@@ -1,7 +1,7 @@
 let rateLimiterMiddleware;
 let limiter;
 
-if (process.env.CACHE_REDIS) {
+if (process.env.CACHE_REDIS && !limiter) {
 
 	const redis = require('redis');
 	const {RateLimiterRedis: RateLimiterGlobal} = require('rate-limiter-flexible');
@@ -9,8 +9,8 @@ if (process.env.CACHE_REDIS) {
 
 	let connection = connectionStringParser(process.env.CACHE_REDIS);
 
-	console.log("Rate limiter Redis");
-	console.log(connection);
+	//console.log("Rate limiter Redis");
+	//console.log(connection);
 
 	const redisClient = redis.createClient({
 		host: connection.host,
@@ -30,7 +30,7 @@ if (process.env.CACHE_REDIS) {
 	});
 
 
-} else {
+} else if (!limiter) {
 	const {RateLimiterMemory: RateLimiterMemory} = require('rate-limiter-flexible');
 
 	limiter = new RateLimiterMemory({

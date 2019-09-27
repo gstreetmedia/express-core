@@ -73,7 +73,7 @@ module.exports = class ${ModelName}Model extends ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async update(id, data, fetch) {
-		return await super.update(id, data, query);
+		return await super.update(id, data, fetch);
 	}
 
 	/**
