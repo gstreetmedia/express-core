@@ -11,13 +11,6 @@ router.use(async function(req, res, next){
 	return next();
 });
 
-router.get('/index', async function (req, res, next) {
-	if(req.checkRole()){
-		return await c.index(req, res);
-	}
-	return next();
-});
-
 router.get('/', async function (req, res, next) {
 	if(req.checkRole()){
 		return await c.query(req, res);
