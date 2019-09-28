@@ -1,3 +1,5 @@
+const _ = require("lodash");
+
 exports.checkBoxOrRadio = (attr) => {
 
 	let count = -1;
@@ -33,6 +35,25 @@ exports.checkBoxOrRadio = (attr) => {
 		)
 	}
 
+	let getIsSelected = (itemValue, attributeValue, type) => {
+		console.log(itemValue + " vs " + attributeValue);
+		if (_.isArray(attributeValue)) {
+			if (itemValue.indexOf(attributeValue) === -1) {
+				return '';
+			}
+		} else if (itemValue !== attributeValue) {
+			return '';
+		}
+		console.log("Matched!");
+		switch (type) {
+			case "radio" :
+				return "checked";
+			case "checkbox" :
+				return "checked";
+			case "select" :
+				return "selected"
+		}
+	}
 
 	let value = options.map(
 		(item) => {
@@ -45,7 +66,7 @@ exports.checkBoxOrRadio = (attr) => {
 						type="${attr.type}"
 						name="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}"
 						id="${item.name}[${count}]"
-						value="${item.value ? item.value : ''}" ${item.value === attr.value ? "checked" : ""}
+						value="${item.value ? item.value : ''}" ${getIsSelected(item.value ,attr.value, attr.type)}
 						data-type="${attr.dataType}"
 				>
 				<span class="form-check-sign">
