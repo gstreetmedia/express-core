@@ -674,6 +674,8 @@ module.exports = class ModelBase extends EventEmitter {
 			query.select = _.intersection(['id', 'updatedAt', 'status'], keys);
 		}
 
+		delete query.join;
+
 		return await this.query(query);
 	}
 

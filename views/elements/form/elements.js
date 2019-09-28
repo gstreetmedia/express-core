@@ -53,13 +53,11 @@ exports.checkBoxOrRadio = (attr) => {
 		)
 	}
 
-
-
-	let value = options.map(
+	let items = options.map(
 		(item) => {
 		count++;
 		return `
-		<div class="col-md-4">
+		
 			<div class="form-check ${css}">
 				<label class="form-check-label" for="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}">
 				<input  class="form-check-input"
@@ -75,8 +73,19 @@ exports.checkBoxOrRadio = (attr) => {
 				${item.name}
 				</label>
 			</div>
-		</div>`;
-	}).join("");
+		`;
+	});
+
+	let value = "";
+	let start = 0;
+	let end = Math.floor(items.length / 3);
+	value += "<div class='col-lg-4'>" + items.slice(start, end).join("") + "</div>";
+	start = end;
+	end = start + end;
+	value += "<div class='col-lg-4'>" + items.slice(start, end).join("") + "</div>";
+	start = end;
+	end = start + end;
+	value += "<div class='col-lg-4'>" + items.slice(start, end).join("") + "</div>";
 
 	return `<div class="form-row">${value}</div>`;
 };
