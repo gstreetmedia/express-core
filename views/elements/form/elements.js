@@ -1,5 +1,23 @@
 const _ = require("lodash");
 
+let getIsSelected = (itemValue, attributeValue, type) => {
+	if (_.isArray(attributeValue)) {
+		if (itemValue.indexOf(attributeValue) === -1) {
+			return '';
+		}
+	} else if ("" + itemValue !==  "" + attributeValue) {
+		return '';
+	}
+	switch (type) {
+		case "radio" :
+			return "checked";
+		case "checkbox" :
+			return "checked";
+		case "select" :
+			return "selected"
+	}
+};
+
 exports.checkBoxOrRadio = (attr) => {
 
 	let count = -1;
@@ -35,25 +53,7 @@ exports.checkBoxOrRadio = (attr) => {
 		)
 	}
 
-	let getIsSelected = (itemValue, attributeValue, type) => {
-		console.log(itemValue + " vs " + attributeValue);
-		if (_.isArray(attributeValue)) {
-			if (itemValue.indexOf(attributeValue) === -1) {
-				return '';
-			}
-		} else if (itemValue !== attributeValue) {
-			return '';
-		}
-		console.log("Matched!");
-		switch (type) {
-			case "radio" :
-				return "checked";
-			case "checkbox" :
-				return "checked";
-			case "select" :
-				return "selected"
-		}
-	}
+
 
 	let value = options.map(
 		(item) => {
@@ -81,11 +81,27 @@ exports.checkBoxOrRadio = (attr) => {
 	return `<div class="form-row">${value}</div>`;
 };
 
+exports.switch = (attr) => {
+	return `
+	<div class="switch-group pt-1 pr-2 pb-1">
+		<label class="switch" for="${attr.name}">
+		<input type="checkbox" 
+			id="${attr.name}"
+			name="${attr.name}" 
+			data-type="${attr.dataType}"
+			value="true" 
+			${attr.value ? 'checked' : '' }
+			 >
+			<span class="switch-slide round"></span>
+		</label>
+	</div>`
+};
+
 exports.input = (attr) => {
 	return `
 	<input class="form-control" id="${attr.id}"
 	   name="${attr.name}"
-	   value="${attr.value}"
+	   value="${!attr.value ? '' : attr.value}"
 	   type="${attr.type}"
 		${attr.required ? 'required' : ''}
 	   maxlength="${attr.maxlength || ""}"
@@ -122,6 +138,8 @@ exports.select = (attr) => {
 		)
 	}
 
+	console.log(options);
+
 	return `
 	<select class="form-control" 
 			id="${attr.id}" 
@@ -129,9 +147,9 @@ exports.select = (attr) => {
 			${attr.required ? 'required' : ''}
 			${attr.multiple ? "multiple" : ""} 
 	>
-		<option value="" ${attr.value === "" ? "selected" : ""}>Select ${attr.name} (or leave null)</option>
+		<option value="" ${!attr.value || attr.value === "" ? "selected" : ""}>Select ${attr.name} (or leave null)</option>
 	${options.map(item =>
-		`<option value="${item.value}" ${attr.value === item.value ? "selected" : ""}>
+		`<option value="${item.value}" ${getIsSelected(item.value, attr.value, "select")}>
 			${item.name}
 		</option>`
 	).join('')}
