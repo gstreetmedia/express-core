@@ -104,7 +104,7 @@ $(document).ready(
 
 				}
 			}
-		)
+		);
 
 		var initForm = function (target) {
 			console.log("FORM!");
@@ -129,7 +129,7 @@ $(document).ready(
 						case "post" :
 							message += " created";
 							break;
-						case "patch" :
+						case "put" :
 							message += " updated";
 							break;
 
@@ -173,7 +173,6 @@ $(document).ready(
 										name = parts[0];
 										var index = parts[1].split("]").join("");
 										if (!_.isArray(data[name])) {
-											console.log("WTF!!!");
 											data[name] = [];
 										}
 										if (value !== "") {
@@ -190,8 +189,13 @@ $(document).ready(
 									}
 									break;
 								case "boolean" :
-									console.log("fix bool");
-									data[name] === "true" || data[name] === true ? true : false
+									console.log("fix bool " + name + " => " + value);
+									if (inputType === "checkbox" && this.checked) {
+										data[name] = true;
+									} else if (inputType === "checkbox") {
+										data[name] = false;
+									}
+
 									break;
 
 							}
@@ -211,7 +215,10 @@ $(document).ready(
 									console.log("Success. Going to => " + target.attr("data-success"));
 									window.location = target.attr("data-success");
 								} else {
-									swal("Success!", message, "success");
+									swal("Success!", message, "success").then((willDelete) => {
+										window.location = window.location;
+									});
+									$("#edit-modal").modal("hide");
 								}
 							},
 							error: function (error) {
@@ -223,7 +230,7 @@ $(document).ready(
 					);
 				}
 			).addClass("ajaxed");
-		}
+		};
 
 		var view = function (slug, id, modelTitle) {
 			var modal = $("#view-modal");
@@ -257,11 +264,9 @@ $(document).ready(
 					}
 				}
 			);
-		}
+		};
 
 		var onViewReady = function (body, id) {
-
-
 			body.find(".gridded-relation").each(
 				function () {
 					var target = $(this);
@@ -272,13 +277,13 @@ $(document).ready(
 							//col.width(col.width());
 							w += 150;
 						}
-					)
+					);
 					target.find(".inner").width(w);
 					target.height(target.find(".inner").height() + 17);
 					target.parent().height(target.height());
 					target.addClass("gridded-relation-active")
 				}
-			)
+			);
 
 			body.find("[data-json-view]").each(
 				function () {
@@ -295,7 +300,7 @@ $(document).ready(
 
 			index();
 
-		}
+		};
 
 		var edit = function (slug, id, modelTitle) {
 			var modal = $("#edit-modal");
@@ -360,7 +365,7 @@ $(document).ready(
 						} catch (e) {
 							//Not quite ready
 						}
-					})
+					});
 					$(this).hide();
 				}
 			);
@@ -486,7 +491,7 @@ $(document).ready(
 					saveFieldInterval = setInterval(saveFields, 100);
 				}
 			)
-		}
+		};
 
 		let saveFields = function () {
 			clearInterval(saveFieldInterval);
