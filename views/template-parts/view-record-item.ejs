@@ -27,7 +27,7 @@
                         <% if (key === "url") { %>
                         <img src="<%- value %>" class="w-100" />
                         <% } %>
-                        <%- value %>
+                        <%- helpers.format(model, key, value) %>
                     </div>
                 </div>
             </div>
@@ -65,7 +65,7 @@
                         <%
                         } else {
                         %>
-                            <%- value %>
+                            <%- helpers.format(model, key, value) %>
                         <%
                         }
                         %>

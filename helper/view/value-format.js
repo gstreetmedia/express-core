@@ -27,7 +27,7 @@ module.exports = function(model, key, value, name) {
 			value = beautify(value, null, 2, 80);
 			break;
 		case "boolean" :
-			value = value
+			value ? value = '<i class="material-icons text-success">done</i>' : '<i class="material-icons text-danger">block</i>';
 			break;
 		default :
 			if (properties[key].format) {
