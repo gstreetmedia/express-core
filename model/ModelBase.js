@@ -1225,8 +1225,6 @@ module.exports = class ModelBase extends EventEmitter {
 			console.log(sql.toString());
 		}
 
-
-
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			let pool = await this.getPool("read");
 

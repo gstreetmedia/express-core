@@ -2,7 +2,7 @@ const _ = require("lodash");
 
 let getIsSelected = (itemValue, attributeValue, type) => {
 	if (_.isArray(attributeValue)) {
-		if (itemValue.indexOf(attributeValue) === -1) {
+		if (attributeValue.indexOf(itemValue) === -1) {
 			return '';
 		}
 	} else if ("" + itemValue !==  "" + attributeValue) {

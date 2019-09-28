@@ -15,9 +15,7 @@ module.exports = function(model, key, value, name) {
 		return value;
 	}
 
-
 	let properties = model.schema.properties;
-
 
 	switch (properties[key].type) {
 		case "number" :
@@ -27,7 +25,11 @@ module.exports = function(model, key, value, name) {
 			value = beautify(value, null, 2, 80);
 			break;
 		case "boolean" :
-			value ? value = '<i class="material-icons text-success">done</i>' : '<i class="material-icons text-danger">block</i>';
+			return value===true ? '<i class="material-icons text-success">done</i>' :
+				'<i class="material-icons text-danger">block</i>';
+			break;
+		case "array" :
+			value = beautify(value, null, 2, 80).split(",").join('<br/>');
 			break;
 		default :
 			if (properties[key].format) {
