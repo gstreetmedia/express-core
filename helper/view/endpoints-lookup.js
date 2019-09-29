@@ -20,6 +20,8 @@ module.exports = (app) => {
 		return [];
 	}
 
+	let hash = {};
+
 	endPoints.forEach(
 		function(item) {
 			let path = item.path;
@@ -31,6 +33,8 @@ module.exports = (app) => {
 					return;
 				}
 			}
+			hash[path] = hash[path] || {name:'',value:'',methods:[]};
+
 			list.push(
 				{
 					name : path + " [" + item.methods.join(", ").toLowerCase() + "]",

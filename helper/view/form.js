@@ -202,10 +202,8 @@ module.exports = function (model, key, value, lookup) {
 
 	if (lookup && lookup[key]) {
 		attr.options = lookup[key];
-		if (attr.options.length < 10) {
-			attr.type = attr.multiple ? "checkbox" : "radio";
-		} else {
-			attr.type = "select";
+		if (attr.multiple) {
+			attr.type = "checkbox";
 		}
 
 		attr.value = value;

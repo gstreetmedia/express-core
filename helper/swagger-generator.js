@@ -11,6 +11,8 @@ module.exports = (app, options) => {
 		endPoints = global.endPoints = listEndpoints(app);
 	}
 
+	endPoints = _.clone(endPoints);
+
 	let obj = {
 		openapi: "3.0.0",
 		info: {
@@ -206,25 +208,25 @@ module.exports = (app, options) => {
 			}
 
 			parameters.forEach(
-				(item) => {
-					if (_.isObject(item)) {
-						item.in = "path";
-						delete item.prefix;
-						delete item.delimiter;
-						if (item.optional === false) {
-							item.required = true;
+				(parameter) => {
+					if (_.isObject(parameter)) {
+						parameter.in = "path";
+						delete parameter.prefix;
+						delete parameter.delimiter;
+						if (parameter.optional === false) {
+							parameter.required = true;
 						}
-						delete item.optional;
-						delete item.repeat;
-						delete item.pattern;
-						item.schema = {
+						delete parameter.optional;
+						delete parameter.repeat;
+						delete parameter.pattern;
+						parameter.schema = {
 							type: "string"
 						}
-						if (schema && schema.properties[item.name]) {
-							item.schema.type = schema.properties[item.name].type;
-							item.description = schema.properties[item.name].description;
+						if (schema && schema.properties[parameter.name]) {
+							parameter.schema.type = schema.properties[parameter.name].type;
+							parameter.description = schema.properties[parameter.name].description;
 						}
-						routeParameters.push(item);
+						routeParameters.push(parameter);
 					} else {
 					}
 				}
