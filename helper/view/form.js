@@ -204,8 +204,9 @@ module.exports = function (model, key, value, lookup) {
 		attr.options = lookup[key];
 		if (attr.multiple) {
 			attr.type = "checkbox";
+		} else {
+			attr.type = "select";
 		}
-
 		attr.value = value;
 	}
 
