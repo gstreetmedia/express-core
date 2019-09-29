@@ -37,7 +37,7 @@ module.exports = (app) => {
 
 			list.push(
 				{
-					name : path + " [" + item.methods.join(", ").toLowerCase() + "]",
+					name : path + " <span class='text-secondary'>[" + item.methods.join(", ").toLowerCase() + "]</span>",
 					value : path
 				}
 			)
