@@ -5,9 +5,14 @@ const _ = require("lodash");
 
 module.exports = function(model, key, value, name) {
 
+	let properties = model.schema.properties;
 
 	if (!value) {
 		return "";
+	}
+
+	if (!properties[key]) {
+		return value;
 	}
 
 	if (!model) {
@@ -15,7 +20,7 @@ module.exports = function(model, key, value, name) {
 		return value;
 	}
 
-	let properties = model.schema.properties;
+
 
 	switch (properties[key].type) {
 		case "number" :

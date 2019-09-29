@@ -150,7 +150,7 @@ exports.select = (attr) => {
 	console.log(options);
 
 	return `
-	<select class="form-control" 
+	<select class="select" 
 			id="${attr.id}" 
 			name="${attr.name}" 
 			${attr.required ? 'required' : ''}

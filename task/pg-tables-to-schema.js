@@ -25,7 +25,7 @@ module.exports = async function (options, pool) {
              where isc.table_schema = 'public'`
 	);
 
-	console.log(data);
+	//console.log(data);
 
 	let enums = await pool.query(
 			`SELECT 

@@ -91,13 +91,13 @@ $(document).ready(
 								}
 							)
 						}
-					)
+					);
 
 					return {suggestions: results};
 				},
 				onSelect: function (suggestion) {
 					console.log(suggestion);
-					window.location = "/admin/" + app.slug + '/?where={"' + suggestion.data.field + '":{"contains":"' + suggestion.value + '"}}';
+					window.location = "/admin/" + app.slug + '/?where={"' + suggestion.data.field + '":{"=":"' + suggestion.value + '"}}';
 
 				},
 				onSearchComplete: function () {
@@ -114,7 +114,6 @@ $(document).ready(
 			target.on("submit",
 				function (e) {
 					e.preventDefault();
-
 
 					var url = target.attr("data-endpoint");
 					if (!url) {
@@ -230,6 +229,13 @@ $(document).ready(
 					);
 				}
 			).addClass("ajaxed");
+
+			$('.select').prettyDropdown(
+				{
+					width: "100%"
+				}
+			);
+
 		};
 
 		var view = function (slug, id, modelTitle) {
