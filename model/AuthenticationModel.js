@@ -154,6 +154,12 @@ module.exports = class AuthenticationModel {
 			}
 		}
 
+		if (secret) {
+			req.addRole("api-secret");
+		}
+
+		req.addRole("api-key");
+
 		let obj = {
 			token: null
 		};
@@ -175,7 +181,7 @@ module.exports = class AuthenticationModel {
 
 		_.extend(req, obj);
 
-		req.addRole(tokenRecord.role || "api-user");
+		req.addRole(tokenRecord.role);
 
 		await cache.set("configuration_" + key, obj, process.env.CACHE_DURATION_LONG);
 
@@ -252,8 +258,8 @@ module.exports = class AuthenticationModel {
 		if (this.hasValidCookie(req)
 		) {
 			let keyResult = await this.bearerToken(req);
-			if (keyResult !== true) {
-				console.log("keyResult => " + keyResult);
+			if (keyResult.error) {
+				console.log("keyResult => " + keyResult.error);
 			} else {
 				console.log("Has Valid Cookie!!!");
 			}
@@ -264,8 +270,8 @@ module.exports = class AuthenticationModel {
 
 		if (req.headers['application-key']) {
 			let keyResult = await this.applicationKey(req);
-			if (keyResult !== true) {
-				console.log("keyResult => " + keyResult);
+			if (keyResult.error) {
+				console.log("keyResult => " + keyResult.error);
 			}
 		} else {
 			console.log("No Application Key. Hacker ???");
@@ -273,8 +279,8 @@ module.exports = class AuthenticationModel {
 
 		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req);
-			if (authResult !== true) {
-				console.log("authResult => " + authResult);
+			if (authResult.error) {
+				console.log("authResult => " + authResult.error);
 			}
 		} else {
 			console.log("No Auth");
