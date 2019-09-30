@@ -93,7 +93,7 @@ $(document).ready(
 						case "post" :
 							message += " created";
 							break;
-						case "patch" :
+						case "put" :
 							message += " updated";
 							break;
 

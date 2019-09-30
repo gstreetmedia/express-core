@@ -1,3 +1,23 @@
+const _ = require("lodash");
+
+let getIsSelected = (itemValue, attributeValue, type) => {
+	if (_.isArray(attributeValue)) {
+		if (attributeValue.indexOf(itemValue) === -1) {
+			return '';
+		}
+	} else if ("" + itemValue !==  "" + attributeValue) {
+		return '';
+	}
+	switch (type) {
+		case "radio" :
+			return "checked";
+		case "checkbox" :
+			return "checked";
+		case "select" :
+			return "selected"
+	}
+};
+
 exports.checkBoxOrRadio = (attr) => {
 
 	let count = -1;
@@ -33,19 +53,18 @@ exports.checkBoxOrRadio = (attr) => {
 		)
 	}
 
-
-	let value = options.map(
+	let items = options.map(
 		(item) => {
 		count++;
 		return `
-		<div class="col-md-4">
+		
 			<div class="form-check ${css}">
 				<label class="form-check-label" for="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}">
 				<input  class="form-check-input"
 						type="${attr.type}"
 						name="${attr.name + (attr.type === "checkbox" ? `[${count}]` : '')}"
 						id="${item.name}[${count}]"
-						value="${item.value ? item.value : ''}" ${item.value === attr.value ? "checked" : ""}
+						value="${item.value ? item.value : ''}" ${getIsSelected(item.value ,attr.value, attr.type)}
 						data-type="${attr.dataType}"
 				>
 				<span class="form-check-sign">
@@ -54,17 +73,44 @@ exports.checkBoxOrRadio = (attr) => {
 				${item.name}
 				</label>
 			</div>
-		</div>`;
-	}).join("");
+		`;
+	});
+
+	let value = "";
+	let start = 0;
+	let end = Math.floor(items.length / 3);
+	value += "<div class='col-lg-4'>" + items.slice(start, end).join("") + "</div>";
+	start = end;
+	end = start + end;
+	value += "<div class='col-lg-4'>" + items.slice(start, end).join("") + "</div>";
+	start = end;
+	end = start + end;
+	value += "<div class='col-lg-4'>" + items.slice(start, end).join("") + "</div>";
 
 	return `<div class="form-row">${value}</div>`;
+};
+
+exports.switch = (attr) => {
+	return `
+	<div class="switch-group pt-1 pr-2 pb-1">
+		<label class="switch" for="${attr.name}">
+		<input type="checkbox" 
+			id="${attr.name}"
+			name="${attr.name}" 
+			data-type="${attr.dataType}"
+			value="true" 
+			${attr.value ? 'checked' : '' }
+			 >
+			<span class="switch-slide round"></span>
+		</label>
+	</div>`
 };
 
 exports.input = (attr) => {
 	return `
 	<input class="form-control" id="${attr.id}"
 	   name="${attr.name}"
-	   value="${attr.value}"
+	   value="${!attr.value ? '' : attr.value}"
 	   type="${attr.type}"
 		${attr.required ? 'required' : ''}
 	   maxlength="${attr.maxlength || ""}"
@@ -101,16 +147,18 @@ exports.select = (attr) => {
 		)
 	}
 
+	console.log(options);
+
 	return `
-	<select class="form-control" 
+	<select class="select" 
 			id="${attr.id}" 
 			name="${attr.name}" 
 			${attr.required ? 'required' : ''}
 			${attr.multiple ? "multiple" : ""} 
 	>
-		<option value="" ${attr.value === "" ? "selected" : ""}>Select ${attr.name} (or leave null)</option>
+		<option value="" ${!attr.value || attr.value === "" ? "selected" : ""}>Select ${attr.name} (or leave null)</option>
 	${options.map(item =>
-		`<option value="${item.value}" ${attr.value === item.value ? "selected" : ""}>
+		`<option value="${item.value}" ${getIsSelected(item.value, attr.value, "select")}>
 			${item.name}
 		</option>`
 	).join('')}

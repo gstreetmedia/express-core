@@ -1,55 +1,56 @@
-var _ = require( 'lodash' );
+var _ = require('lodash');
 const inflector = require("../helper/inflector");
 var fs = require("fs");
 
 var emptySchema = {
-	$schema:     'http://json-schema.org/draft-06/schema#',
-	id:          '',
+	$schema: 'http://json-schema.org/draft-06/schema#',
+	id: '',
 	description: '',
-	properties:  {},
-	required:    [],
-	type:        'object'
+	properties: {},
+	required: [],
+	type: 'object'
 };
 
-module.exports = async function( options, pool ) {
-	
-	let data =  await pool.query("Select\n" +
-		" isc.*,\n" +
-		//" kcu.*,\n" +
-		"    tc.constraint_type\n" +
-		"\t\tFrom information_schema.columns as isc\n" +
-		"\t\tLEFT JOIN information_schema.key_column_usage as kcu on kcu.table_name = isc.table_name and kcu.column_name = isc.column_name\n" +
-		"\t\tLEFT JOIN information_schema.table_constraints as tc on tc.constraint_name = kcu.constraint_name\n" +
-		"\t\twhere isc.table_schema ='public'");
+module.exports = async function (options, pool) {
 
-	let enums = await pool.query("SELECT\n" +
-		"  t.typname as key,\n" +
-		"  e.enumlabel as value\n" +
-		"FROM pg_enum e\n" +
-		"JOIN pg_type t ON e.enumtypid = t.oid");
+	console.log("querying");
+
+	let data = await pool.query(
+			`Select isc.*,
+                    tc.constraint_type
+             From information_schema.columns as isc
+                      LEFT JOIN information_schema.key_column_usage as kcu
+                                on kcu.table_name = isc.table_name and kcu.column_name = isc.column_name
+                      LEFT JOIN information_schema.table_constraints as tc on tc.constraint_name = kcu.constraint_name
+             where isc.table_schema = 'public'`
+	);
+
+	//console.log(data);
+
+	let enums = await pool.query(
+			`SELECT 
+       			t.typname as key,
+                 e.enumlabel as value
+             FROM pg_enum e
+                 JOIN pg_type t  ON e.enumtypid = t.oid
+		`);
 
 	enums = enums.rows;
 
 	let views = await pool.query("SELECT view_name FROM information_schema.view_table_usage");
 	views = _.uniq(_.map(views.rows, "view_name"));
 
-	let descriptions = await pool.query("SELECT\n" +
-		//"  cols.table_name,\n" +
-		//"  cols.column_name,\n" +
-		"  cols.*, " +
-		"  (\n" +
-		"    SELECT\n" +
-		"      pg_catalog.col_description(c.oid, cols.ordinal_position::int)\n" +
-		"    FROM\n" +
-		"      pg_catalog.pg_class c\n" +
-		"    WHERE\n" +
-		"      c.oid = (SELECT ('\"' || cols.table_name || '\"')::regclass::oid)\n" +
-		"      AND c.relname = cols.table_name\n" +
-		"  ) AS column_comment\n" +
-		"FROM\n" +
-		"  information_schema.columns cols\n" +
-		"WHERE\n" +
-		"  cols.table_schema = 'public';");
+	let descriptions = await pool.query(`
+        SELECT cols.*,
+               (
+                   SELECT pg_catalog.col_description(c.oid, cols.ordinal_position::int)
+                   FROM pg_catalog.pg_class c
+                   WHERE c.oid = (SELECT ('"' || cols.table_name || '"')::regclass::oid)
+                     AND c.relname = cols.table_name
+               ) AS column_comment
+        FROM information_schema.columns cols
+        WHERE cols.table_schema = 'public';
+	`);
 
 	descriptions = descriptions.rows;
 
@@ -59,7 +60,7 @@ module.exports = async function( options, pool ) {
 	//fs.writeFileSync("./data-" + new Date().getTime() + ".json", JSON.stringify(data));
 
 	data.rows.forEach(
-		function(column) {
+		function (column) {
 
 			if (_.indexOf(views, column.table_name) !== -1) { //don't do views
 				//return;
@@ -78,23 +79,26 @@ module.exports = async function( options, pool ) {
 
 			if (!schema[tableName]) {
 				schema[tableName] = {
-					$schema:              'http://json-schema.org/draft-06/schema#',
-					$id:                  options.baseUrl + tableName + '.json',
-					title:                inflector.classify(inflector.singularize(tableName)),
+					$schema: 'http://json-schema.org/draft-06/schema#',
+					$id: options.baseUrl + tableName + '.json',
+					title: inflector.classify(inflector.singularize(tableName)),
 					dataSource: null,
-					tableName:            tableName,
-					description:          'Generated: ' + new Date(),
-					primaryKey : null,
-					properties:           {},
-					required:             [],
-					readOnly:             [],
-					type:                 'object',
+					tableName: tableName,
+					description: 'Generated: ' + new Date(),
+					primaryKey: null,
+					properties: {},
+					required: [],
+					readOnly: [],
+					type: 'object',
 					additionalProperties: options.additionalProperties === undefined ? false : !!options.additionalProperties
 				}
 			}
 			schema[tableName].properties[columnName] = convertColumnType(column, enums);
 
-			let desc = _.find(descriptions, {table_name:tableName, column_name:columnName});
+			let desc = _.find(descriptions, {
+				table_name: tableName,
+				column_name: columnName
+			});
 			//console.log(desc);
 			schema[tableName].properties[columnName].description = desc.column_comment || "";
 
@@ -113,13 +117,13 @@ module.exports = async function( options, pool ) {
 				schema[tableName].properties[columnName].unique = true;
 			}
 
-			if ( column.is_nullable === "NO" && column.column_default === null ) {
-				schema[tableName].required.push( columnName );
+			if (column.is_nullable === "NO" && column.column_default === null) {
+				schema[tableName].required.push(columnName);
 				schema[tableName].required = _.uniq(schema[tableName].required);
 			}
 
-			if ( column.is_updatable === "NO") {
-				schema[tableName].readOnly.push( columnName );
+			if (column.is_updatable === "NO") {
+				schema[tableName].readOnly.push(columnName);
 			}
 
 			/*
@@ -155,8 +159,7 @@ module.exports = async function( options, pool ) {
 }
 
 
-var convertColumnType = function( column, enums )
-{
+var convertColumnType = function (column, enums) {
 	var schemaProperty = {
 		type: 'null'
 	};
@@ -169,13 +172,11 @@ var convertColumnType = function( column, enums )
 	if ("column_default" in column) {
 		defaultValue = column.column_default;
 	}
-	
-	switch( column.data_type )
-	{
+
+	switch (column.data_type) {
 		case 'text':
 		case '"char"':
-		case 'character varying':
-		{
+		case 'character varying': {
 			schemaProperty.type = 'string';
 			let list = _.filter(enums, {key: column.table_name + "_" + column.column_name});
 			if (list.length > 0) {
@@ -190,7 +191,8 @@ var convertColumnType = function( column, enums )
 				schemaProperty.maxLength = column.character_maximum_length = 1000000
 			}
 
-		} break;
+		}
+			break;
 
 		case 'uuid': {
 			schemaProperty.type = 'string';
@@ -259,32 +261,32 @@ var convertColumnType = function( column, enums )
 			break;
 		}
 
-		case 'date':
-		{
-			schemaProperty.type   = 'string';
+		case 'date': {
+			schemaProperty.type = 'string';
 			schemaProperty.format = 'date';
 			if (defaultValue === "CURRENT_TIMESTAMP") {
 				schemaProperty.default = "now";
 			}
-		} break;
+		}
+			break;
 
 		case 'timestamp with time zone':
 		case 'timestamp without time zone':
-		case 'timestamp':
-		{
-			schemaProperty.type   = 'string';
+		case 'timestamp': {
+			schemaProperty.type = 'string';
 			schemaProperty.format = 'date-time';
 			if (defaultValue === "CURRENT_TIMESTAMP") {
 				schemaProperty.default = "now";
 			}
-		} break;
+		}
+			break;
 
-		case 'boolean':
-		{
+		case 'boolean': {
 			schemaProperty.type = 'boolean';
 			schemaProperty.default = defaultValue === "true" || defaultValue === true
 
-		} break;
+		}
+			break;
 
 		case 'real':
 		case 'float8':
@@ -293,8 +295,7 @@ var convertColumnType = function( column, enums )
 		case 'bigint':
 		case 'integer':
 		case 'double precision':
-		case 'numeric':
-		{
+		case 'numeric': {
 			schemaProperty.type = 'number';
 			switch (column.data_type) {
 				case 'int':
@@ -308,38 +309,38 @@ var convertColumnType = function( column, enums )
 				schemaProperty.precision = column.numeric_precision;
 			}
 
-		} break;
+		}
+			break;
 
 		case 'json':
-		case 'jsonb':
-		{
-			schemaProperty.type       = 'object';
+		case 'jsonb': {
+			schemaProperty.type = 'object';
 			schemaProperty.properties = {};
-		} break;
+		}
+			break;
 
-		case 'interval':
-		{
+		case 'interval': {
 			schemaProperty = {
 				oneOf: [
 					{
-						type:         'number',
-						description:  'Duration in seconds'
+						type: 'number',
+						description: 'Duration in seconds'
 					},
 					{
-						type:         'string',
-						description:  'Descriptive duration i.e. 8 hours'
+						type: 'string',
+						description: 'Descriptive duration i.e. 8 hours'
 					},
 					{
-						type:         'object',
-						description:  'Duration object',
+						type: 'object',
+						description: 'Duration object',
 						properties: {
-							years:        { type: 'number' },
-							months:       { type: 'number' },
-							days:         { type: 'number' },
-							hours:        { type: 'number' },
-							minutes:      { type: 'number' },
-							seconds:      { type: 'number' },
-							milliseconds: { type: 'number' }
+							years: {type: 'number'},
+							months: {type: 'number'},
+							days: {type: 'number'},
+							hours: {type: 'number'},
+							minutes: {type: 'number'},
+							seconds: {type: 'number'},
+							milliseconds: {type: 'number'}
 						}
 					},
 				]
@@ -347,11 +348,10 @@ var convertColumnType = function( column, enums )
 			break;
 		}
 
-		case 'USER-DEFINED':
-		{
+		case 'USER-DEFINED': {
 
 			let list = [];
-			list = _.filter(enums, {key:column.udt_name});
+			list = _.filter(enums, {key: column.udt_name});
 			list = _.map(list, 'value');
 
 			if (list.length > 0) {
@@ -365,13 +365,13 @@ var convertColumnType = function( column, enums )
 			break;
 		}
 
-		default:
-		{
+		default: {
 			//console.warn( 'UNKNOWN TYPE: ' + column.data_type );
 			//console.log(column.data_type);
 			//console.log(column);
 			schemaProperty.type = column.data_type;
-		} break;
+		}
+			break;
 	}
 
 	if (defaultValue && !"default" in schemaProperty) {
@@ -391,7 +391,6 @@ var convertColumnType = function( column, enums )
 			delete schemaProperty.default;
 		}
 	}
-
 
 
 	//console.log(column.column_name + " => " + schemaProperty.default);

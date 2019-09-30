@@ -418,8 +418,12 @@ module.exports = class ControllerBase {
 			lookup :{},
 			search : {}
 		};
+
+		console.log(m.tableName);
+
 		while (keys.length > 0) {
-			let M = require("../../model/" + foreignKeys[keys[0]].modelClass);
+			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
+			let M = require(path);
 			let m = new M(req);
 			let count = await m.count();
 			if (count < 25) {
@@ -443,7 +447,8 @@ module.exports = class ControllerBase {
 		data.search = {};
 
 		while (keys.length > 0) {
-			let M = require("../../model/" + foreignKeys[keys[0]].modelClass);
+			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
+			let M = require(path);
 			let m = new M(req);
 			let count = await m.count();
 			if (count < 25) {

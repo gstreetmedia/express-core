@@ -97,7 +97,7 @@ module.exports = class UserModel extends ModelBase {
 
 		await this.update(user.id,
 			{
-				lastLogin: now()
+				lastLoginAt: now()
 			}
 		);
 

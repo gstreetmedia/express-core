@@ -97,6 +97,8 @@ function createElement(attr) {
 			return elements.select(attr);
 		case "select-multi" :
 			return elements.select(attr, true);
+		case "switch" :
+			return elements.switch(attr);
 		case "checkbox" :
 		case "radio" :
 			return elements.checkBoxOrRadio(attr);
@@ -173,7 +175,7 @@ module.exports = function (model, key, value, lookup) {
 			attr.value = value ? value.join(",") : '';
 			attr.dataType = 'array';
 			if (attribute.enum) {
-				attr.type = attribute.enum.length > 25 ? "select-multi" : "checkbox";
+				attr.type = "checkbox";
 			} else {
 				attr.type = "text";
 			}
@@ -185,7 +187,7 @@ module.exports = function (model, key, value, lookup) {
 			attr.type = "json-editor";
 			break;
 		case "boolean" :
-			attr.type = "select";
+			attr.type = "switch";
 			attr.dataType = 'boolean';
 			attr.options = ['true', 'false'];
 			break;
@@ -200,7 +202,11 @@ module.exports = function (model, key, value, lookup) {
 
 	if (lookup && lookup[key]) {
 		attr.options = lookup[key];
-		attr.type = attr.options.length < 10 ? "select" : attr.multiple ? "checkbox" : "radio";
+		if (attr.multiple) {
+			attr.type = "checkbox";
+		} else {
+			attr.type = "select";
+		}
 		attr.value = value;
 	}
 

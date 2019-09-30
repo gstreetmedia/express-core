@@ -15,7 +15,7 @@
 	<% } %>
 	<form class='form'
 		  data-endpoint="<%- global.apiRoot %>/<%- slug %><%- action === "edit" ? '/' + data[model.primaryKey] : '' %>"
-		  method="<%- action === "edit" ? "patch" : "post" %>"
+		  method="<%- action === "edit" ? "put" : "post" %>"
 	>
 
 			<%

@@ -1,14 +1,24 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
 const Controller = require('../controller/AdminController');
+const viewSelector = require("../helper/view/view-selector");
 let c = new Controller()
 
 router.use(authentication);
 
 router.use(async (req, res, next) => {
 	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
-	req.addRole('super-admin')
+	req.allowRole('super-admin')
 	return next();
+});
+
+router.get('/login', async (req, res, next) => {
+	console.log("Admin login");
+	req.allowRole("guest");
+	if (req.hasRole("super-admin")) {
+		return res.redirect("/admin");
+	}
+	return viewSelector(res, 'page-login', {});
 });
 
 router.get('/', async (req, res, next) => {
@@ -83,13 +93,15 @@ router.get("/:model/:id/edit", async (req, res, next) => {
 	}
 );
 
-router.get("/search/:countroller", async (req, res, next) => {
+router.get("/search/:controller", async (req, res, next) => {
 		if (req.checkRole()) {
 			return await c.search(req, res);
 		}
 		return res.redirect("/");
 	}
 );
+
+
 
 
 module.exports = router;

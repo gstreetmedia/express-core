@@ -11,13 +11,6 @@ router.use(async function(req, res, next){
 	return next();
 });
 
-router.get('/index', async function (req, res, next) {
-	if(req.checkRole()){
-		return await c.index(req, res);
-	}
-	return next();
-});
-
 router.get('/', async function (req, res, next) {
 	if(req.checkRole()){
 		return await c.query(req, res);
@@ -31,6 +24,8 @@ router.get('/:id', async function (req, res, next) {
 	}
 	return next();
 });
+
+/*
 
 router.post('/', async function (req, res, next) {
 	if(req.checkRole()){
@@ -59,5 +54,7 @@ router.delete('/:id', async function (req, res, next) {
 	}
 	return next();
 });
+
+ */
 
 module.exports = router;

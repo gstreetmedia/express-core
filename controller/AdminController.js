@@ -4,7 +4,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const inflector = require("../helper/inflector");
 let helpers = require("../helper/view/index");
-let FieldModel = require("../model/FieldModel");
+const FieldModel = require("../model/FieldModel");
 let schemaList;
 
 module.exports = class AdminController extends ViewControllerBase {

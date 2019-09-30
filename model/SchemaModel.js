@@ -206,29 +206,28 @@ module.exports = class SchemaModel extends ModelBase {
 	async createTable() {
 		//TODO need to do this for mssql and mysql as well
 		await this.execute(
-			'drop table _schemas;\n' +
-			'create table "_schemas"\n' +
-			'(\n' +
-			'  id          uuid        not null\n' +
-			'    constraint schemas_pkey\n' +
-			'    primary key,\n' +
-			'  data_source varchar(64),\n' +
-			'  title       varchar(255),\n' +
-			'  table_name  varchar(64) not null,\n' +
-			'  primary_key varchar(64) default \'id\' :: character varying,\n' +
-			'  properties  jsonb       not null,\n' +
-			'  required    varchar(64) [],\n' +
-			'  read_only   varchar(64) [],\n' +
-			'  created_at  timestamp   default now(),\n' +
-			'  updated_at  timestamp   default now()\n' +
-			');\n' +
-			'\n' +
-			'create unique index schemas_id_uindex\n' +
-			'  on "_schemas" (id);\n' +
-			'\n' +
-			'create unique index schemas_table_name_uindex\n' +
-			'  on "_schemas" (table_name);\n' +
-			'\n'
+			`create table if not exists _schemas
+			(
+				id uuid not null
+					constraint schemas_pkey
+						primary key,
+				data_source varchar(64),
+				title varchar(255),
+				table_name varchar(64) not null,
+				primary_key varchar(64) default 'id'::character varying,
+				properties jsonb not null,
+				required varchar(64) [],
+				read_only varchar(64) [],
+				created_at timestamp with time zone default now(),
+				updated_at timestamp with time zone default now()
+			);
+			
+			create unique index if not exists schemas_id_uindex
+				on _schemas (id);
+			
+			create unique index if not exists schemas_table_name_uindex
+				on _schemas (table_name);
+			`
 		)
 	}
 

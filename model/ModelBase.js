@@ -6,7 +6,7 @@ const inflector = require("../helper/inflector");
 const processType = require("../helper/process-type");
 const validateAgainstSchema = require("../helper/validate-against-schema");
 const md5 = require("md5");
-const connectionStringParser = require("connection-string");
+const connectionStringParser = require("../helper/connection-string-parser");
 const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
 const EventEmitter = require("events");
@@ -119,9 +119,7 @@ module.exports = class ModelBase extends EventEmitter {
 				continue;
 			}
 
-			let path = cs.path && cs.path.length > 0 ? cs.path[0] : null;
-
-			if (path.indexOf(dataSource) !== -1) {
+			if (cs.database === dataSource) {
 				this._connectionString = process.env[key];
 				break;
 			}
@@ -163,6 +161,8 @@ module.exports = class ModelBase extends EventEmitter {
 		let builder;
 
 		if (this.connectionString.indexOf("postgresql://") !== -1) {
+			builder = require("../helper/query-to-pgsql");
+		} else if (this.connectionString.indexOf("postgres://") !== -1) {
 			builder = require("../helper/query-to-pgsql");
 		} else if (this.connectionString.indexOf("mysql://") !== -1) {
 			builder = require("../helper/query-to-mysql");
@@ -665,6 +665,8 @@ module.exports = class ModelBase extends EventEmitter {
 		if (!query.select || query.select.length === 0) {
 			query.select = _.intersection(['id', 'updatedAt', 'status'], keys);
 		}
+
+		delete query.join;
 
 		return await this.query(query);
 	}
@@ -1216,8 +1218,6 @@ module.exports = class ModelBase extends EventEmitter {
 		if (this.debug) {
 			console.log(sql.toString());
 		}
-
-
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			let pool = await this.getPool("read");
