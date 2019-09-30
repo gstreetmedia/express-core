@@ -114,6 +114,7 @@ module.exports = class SchemaModel extends ModelBase {
 				}
 			);
 		} else {
+			console.log("Loading Local Schemas");
 			let files = fs.readdirSync(global.appRoot + '/src/schema');
 			files.forEach(
 				function(file) {
