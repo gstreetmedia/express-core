@@ -60,10 +60,11 @@ module.exports = class AdminController extends ViewControllerBase {
 		}
 
 		req.query.select = req.query.select || [];
+		let properties = controller.Model.schema.properties;
 
 		rawfields.forEach(
 			function(item) {
-				if (item.property && item.visible) {
+				if (item.property && item.visible && properties[item.property]) {
 					req.query.select.push(item.property);
 				}
 			}
@@ -174,7 +175,7 @@ module.exports = class AdminController extends ViewControllerBase {
 				title : req.params.model,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
 				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : new controller.Model(),
+				model : new controller.Model(req),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
 				action : "view",
@@ -271,6 +272,7 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		let fm = new FieldModel(req);
 		let result = await fm.set(model.tableName, req.body);
+
 		if (global.fieldCache[model.tableName]) {
 			return res.success(global.fieldCache[model.tableName])
 		}
@@ -310,7 +312,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		}
 
 		req.query.properties = [];
-
+		console.log(fields);
 		fields.forEach(
 			function(item) {
 				if (item.visible) {
@@ -318,6 +320,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				}
 			}
 		);
+
+
 
 		if (c) {
 			return await c.search(req, res);

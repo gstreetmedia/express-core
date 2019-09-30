@@ -29,17 +29,11 @@ module.exports = class ModelBase extends EventEmitter {
 	}
 
 	static getFields(tableName) {
-		if (global.fieldCache && global.fieldCache[tableName]) {
-			return global.fieldCache[tableName]
-		}
-		return require('../../schema/fields/' + tableName + '-fields');
+		return getFields(tableName);
 	}
 
 	static getSchema(tableName) {
-		if (global.schemaCache && global.schemaCache[tableName]) {
-			return global.schemaCache[tableName]
-		}
-		return require('../../schema/' + tableName + '-schema');
+		return getSchema(tableName);
 	}
 
 	set tableName(value) {
@@ -105,9 +99,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 		//Allow for generic naming like DEFAULT_DB
 		if (process.env[dataSource]) {
-
 			this._connectionString = process.env[dataSource];
-
 		}
 
 		//TODO Convert this to use a connection string parser

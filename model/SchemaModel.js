@@ -8,7 +8,8 @@ const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 let schemaModel;
 let knex = require("knex");
-let fs = require("fs");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = class SchemaModel extends ModelBase {
 
@@ -78,6 +79,7 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async loadSchemas(connectionStrings) {
+		connectionStrings = connectionStrings || [];
 
 		global.schemaCache = global.schemaCache || {};
 
@@ -86,6 +88,7 @@ module.exports = class SchemaModel extends ModelBase {
 		}
 
 		let dataSources = [];
+		let localSources = [];
 		let count = 0;
 
 		connectionStrings.forEach(
@@ -100,10 +103,9 @@ module.exports = class SchemaModel extends ModelBase {
 		);
 
 		let hasTable = await this.hasTable();
+
 		if (hasTable) {
-
 			let results = await this.find({where: {dataSource: {"in": dataSources}}});
-
 			//TODO we really need to have a key that is datasource_tablename;
 
 			results.forEach(
@@ -118,8 +120,8 @@ module.exports = class SchemaModel extends ModelBase {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
-					global.schemaCache[tableName] = require(global.appRoot + '/src/schema/' + file);
+					let schema = require(global.appRoot + '/src/schema/' + file.split(".js").join(""));
+					global.schemaCache[schema.tableName] = schema;
 					count++;
 				}
 			);
@@ -154,19 +156,30 @@ module.exports = class SchemaModel extends ModelBase {
 			}
 		}
 
-		let result = await this.find(
-			{
-				where: {
-					tableName: tableName
+		if (await this.hasTable()) {
+			let result = await this.find(
+				{
+					where: {
+						tableName: tableName
+					}
 				}
-			}
-		);
+			);
 
-		if (result.length === 1) {
-			global.schemaCache[tableName] = result[0];
-			return result[0];
+			if (result.length === 1) {
+				global.schemaCache[tableName] = result[0];
+				return result[0];
+			}
+			return null;
+		} else {
+			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
+			if (fs.existsSync(p)) {
+				let schema = require(p.split(".js").join(""));
+				global.schemaCache[schema.tableName] = schema;
+				return schema;
+			}
+			return null;
 		}
-		return null;
+
 
 	}
 
@@ -216,6 +229,11 @@ module.exports = class SchemaModel extends ModelBase {
 			'  on "_schemas" (table_name);\n' +
 			'\n'
 		)
+	}
+
+	getLocalFileName(tableName) {
+		let file = inflector.dasherize(tableName.toLowerCase()) + "-fields.js";
+		return file;
 	}
 
 }
