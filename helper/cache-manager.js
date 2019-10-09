@@ -13,8 +13,8 @@ let destroyFunction;
 if (process.env.CACHE_REDIS) {
 
 	let connection = connectionStringParser(process.env.CACHE_REDIS);
-	//console.log("cache redis");
-	//console.log(connection);
+	console.log("cache redis");
+	console.log(connection);
 
 	const redisStore = require('cache-manager-redis');
 	config = {
@@ -30,60 +30,68 @@ if (process.env.CACHE_REDIS) {
 		console.log("Redis Error @ => " + new Date().toUTCString());
 		console.log(error);
 	});
-	setFunction = (key, value, ttl) => {
-		return new Promise(function (resolve, reject) {
-			manager.set(cachePrefix + "_" + key, value, ttl, function (err) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(true);
-				}
-			});
-		});
-	};
-	getFunction = (key, value, ttl) => {
-		return new Promise(function (resolve, reject) {
-			manager.get(cachePrefix + "_" + key, function (err, result) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-	};
-	resetFunction = (key, value, ttl) => {
-		return new Promise(function (resolve, reject) {
-			manager.reset(function (err, result) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-	};
 
-	destroyFunction = (key) => {
-		return new Promise(function (resolve, reject) {
-			manager.del(key, function (err, result) {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-	};
 
 } else {
+
+  console.log("cache files");
+
 	config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
 	manager = cacheManager.caching(config);
+
+  /*
 	setFunction = manager.set;
 	getFunction = manager.get;
 	destroyFunction = manager.del;
 	resetFunction = manager.reset;
+   */
 }
+
+setFunction = (key, value, ttl) => {
+  return new Promise(function (resolve, reject) {
+    manager.set(cachePrefix + "_" + key, value, ttl, function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(true);
+      }
+    });
+  });
+};
+getFunction = (key, value, ttl) => {
+  return new Promise(function (resolve, reject) {
+    manager.get(cachePrefix + "_" + key, function (err, result) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
+resetFunction = (key, value, ttl) => {
+  return new Promise(function (resolve, reject) {
+    manager.reset(function (err, result) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
+
+destroyFunction = (key) => {
+  return new Promise(function (resolve, reject) {
+    manager.del(key, function (err, result) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
 
 exports.set = async (key, value, ttl) => {
 	//console.log("cache-manager set " + key);
