@@ -5,6 +5,7 @@ const getIpAddress = require("../helper/get-ip-address");
 const jwt = require('jsonwebtoken');
 const moment = require("moment");
 const uuid = require("node-uuid");
+const now = require("../../core/helper/now");
 
 
 module.exports = class SessionModel extends ModelBase {
@@ -30,6 +31,7 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 	async create(data) {
+		console.log("SM::create");
 		return await super.create(data);
 	}
 
@@ -47,6 +49,10 @@ module.exports = class SessionModel extends ModelBase {
 
 	async destroy(id) {
 		return await super.destroy(id);
+	}
+
+	async destroyWhere(query) {
+		return await super.destroyWhere(id);
 	}
 
 	/**
@@ -74,7 +80,7 @@ module.exports = class SessionModel extends ModelBase {
 				let decoded;
 
 				try {
-					decoded = jwt.verify(sessions[i].token, process.env.JWT_TOKEN_SECRET);
+					decoded = jwt.decode(sessions[i].token, process.env.JWT_TOKEN_SECRET);
 				} catch (e) {
 					decoded = null;
 				}
@@ -99,41 +105,54 @@ module.exports = class SessionModel extends ModelBase {
 
 	/**
 	 * Get a session token for this user record
-	 * @param userRecord - can be anything, but should include at least the user.id
+	 * @param data - can be anything, but should include at least the user.id as either data.id or data.user.id or data.userId
 	 * @param req
 	 * @param maxAge
 	 * @returns {Promise<*>}
 	 */
-	async getToken(userRecord, req, maxAge) {
-		let userId = userRecord.id;
+	async getToken(data, req, maxAge) {
+		let userId = data.user ? data.user.id : data.userId ? data.userId : data.id;
+
+		if (!userId) {
+			throw new Error(
+				"Cannot create session without user id"
+			)
+		}
+
+		data.userId = userId;
+
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
 
-		if (!userRecord || !userRecord.id) {
+		if (!userId) {
 			return {
 				error : "Missing User Record or valid id"
 			};
 		}
 
-		await this.houseKeeping(userRecord.id);
+		await this.houseKeeping(userId);
 
-		let obj = _.cloneDeep(userRecord);
-		obj.ipAddress = ipAddress;
-		obj.userAgent = userAgent;
+		data = _.cloneDeep(data);
+		data.ipAddress = ipAddress;
+		data.userAgent = userAgent;
 
-		if (obj.password) {
-			delete obj.password;
+		if (data.password) {
+			delete data.password;
 		}
 
 		let token = jwt.sign(
-			obj,
+			{
+				id : userId,
+				data : data,
+				systemId : process.env.JWT_TOKEN_SYSTEM_ID || "core"
+			},
 			process.env.JWT_TOKEN_SECRET,
 			{
-				expiresIn: "720 days"
+				expiresIn: process.env.CORE_JWT_DURATION || "30 days"
 			}
 		);
 
-		await this.create(
+		let result = await this.create(
 			{
 				id: uuid.v4(),
 				userId: userId,
@@ -143,21 +162,64 @@ module.exports = class SessionModel extends ModelBase {
 				ipAddress: ipAddress
 			}
 		);
+		console.log(result);
 		// All done.
 		return token;
 	}
 
+	async verifyToken(token) {
+		let decoded;
+
+		try {
+			decoded = jwt.decode(token);
+		} catch (e) {
+			return {
+				error : {
+					message : "Could not decoded token",
+					statusCode : 401
+				}
+			}
+		}
+
+		let result = await this.findOne(
+			{
+				where : {
+					token : token,
+					expiresAt : {">" : now()}
+				}
+			}
+		);
+
+		if (result) {
+			return result;
+		}
+
+		return {
+			error : {
+				message : "Could not find token",
+				statusCode : 404
+			}
+		};
+	}
+
 
 	get relations() {
-
-
+		return {
+			user : {
+				relation : "HasOne",
+				modelClass : "UserModel",
+				join : {
+					from : "userId",
+					to : "id"
+				}
+			}
+		}
 	}
 
 	get foreignKeys () {
-		const UserModel = require("./UserModel");
 		return {
 			userId : {
-				modelClass : UserModel,
+				modelClass : "UserModel",
 				to : "id"
 			}
 		}

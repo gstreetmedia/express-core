@@ -3,11 +3,16 @@ const moment = require("moment");
 const beautify = require("json-beautify");
 const _ = require("lodash");
 
-module.exports = function(model, key, value) {
+module.exports = function(model, key, value, name) {
 
+	let properties = model.schema.properties;
 
 	if (!value) {
 		return "";
+	}
+
+	if (!properties[key]) {
+		return value;
 	}
 
 	if (!model) {
@@ -15,8 +20,6 @@ module.exports = function(model, key, value) {
 		return value;
 	}
 
-
-	let properties = model.schema.properties;
 
 
 	switch (properties[key].type) {
@@ -27,7 +30,11 @@ module.exports = function(model, key, value) {
 			value = beautify(value, null, 2, 80);
 			break;
 		case "boolean" :
-			value = value
+			return value===true ? '<i class="material-icons text-success">done</i>' :
+				'<i class="material-icons text-danger">block</i>';
+			break;
+		case "array" :
+			value = beautify(value, null, 2, 80).split(",").join('<br/>');
 			break;
 		default :
 			if (properties[key].format) {
@@ -54,6 +61,10 @@ module.exports = function(model, key, value) {
 					}
 				}
 			}
+	}
+
+	if (name) {
+		return `<span title="${key + ": " + value}" data-toggle="tooltip" data-placement="bottom">${name}</span>`
 	}
 
 	return value;

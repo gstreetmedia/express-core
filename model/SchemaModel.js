@@ -8,7 +8,8 @@ const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 let schemaModel;
 let knex = require("knex");
-let fs = require("fs");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = class SchemaModel extends ModelBase {
 
@@ -51,8 +52,9 @@ module.exports = class SchemaModel extends ModelBase {
 		return SchemaModel.fields;
 	}
 
-	async index(key, value) {
-		return await super.index(key, value);
+	async index(query) {
+		query.sort = "title ASC";
+		return await super.index(query);
 	}
 
 	async create(data) {
@@ -68,6 +70,7 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async query(query) {
+		query.sort = "title ASC";
 		return await super.query(query);
 	}
 
@@ -76,6 +79,7 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 	async loadSchemas(connectionStrings) {
+		connectionStrings = connectionStrings || [];
 
 		global.schemaCache = global.schemaCache || {};
 
@@ -84,6 +88,7 @@ module.exports = class SchemaModel extends ModelBase {
 		}
 
 		let dataSources = [];
+		let localSources = [];
 		let count = 0;
 
 		connectionStrings.forEach(
@@ -98,10 +103,9 @@ module.exports = class SchemaModel extends ModelBase {
 		);
 
 		let hasTable = await this.hasTable();
+
 		if (hasTable) {
-
 			let results = await this.find({where: {dataSource: {"in": dataSources}}});
-
 			//TODO we really need to have a key that is datasource_tablename;
 
 			results.forEach(
@@ -110,14 +114,15 @@ module.exports = class SchemaModel extends ModelBase {
 				}
 			);
 		} else {
+			console.log("Loading Local Schemas");
 			let files = fs.readdirSync(global.appRoot + '/src/schema');
 			files.forEach(
 				function(file) {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let tableName = inflector.dasherize(file.split("-schema.js").join(""));
-					global.fieldCache[tableName] = require(global.appRoot + '/src/schema/' + file);
+					let schema = require(global.appRoot + '/src/schema/' + file.split(".js").join(""));
+					global.schemaCache[schema.tableName] = schema;
 					count++;
 				}
 			);
@@ -152,19 +157,30 @@ module.exports = class SchemaModel extends ModelBase {
 			}
 		}
 
-		let result = await this.find(
-			{
-				where: {
-					tableName: tableName
+		if (await this.hasTable()) {
+			let result = await this.find(
+				{
+					where: {
+						tableName: tableName
+					}
 				}
-			}
-		);
+			);
 
-		if (result.length === 1) {
-			global.schemaCache[tableName] = result[0];
-			return result[0];
+			if (result.length === 1) {
+				global.schemaCache[tableName] = result[0];
+				return result[0];
+			}
+			return null;
+		} else {
+			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
+			if (fs.existsSync(p)) {
+				let schema = require(p.split(".js").join(""));
+				global.schemaCache[schema.tableName] = schema;
+				return schema;
+			}
+			return null;
 		}
-		return null;
+
 
 	}
 
@@ -190,30 +206,34 @@ module.exports = class SchemaModel extends ModelBase {
 	async createTable() {
 		//TODO need to do this for mssql and mysql as well
 		await this.execute(
-			'drop table _schemas;\n' +
-			'create table "_schemas"\n' +
-			'(\n' +
-			'  id          uuid        not null\n' +
-			'    constraint schemas_pkey\n' +
-			'    primary key,\n' +
-			'  data_source varchar(64),\n' +
-			'  title       varchar(255),\n' +
-			'  table_name  varchar(64) not null,\n' +
-			'  primary_key varchar(64) default \'id\' :: character varying,\n' +
-			'  properties  jsonb       not null,\n' +
-			'  required    varchar(64) [],\n' +
-			'  read_only   varchar(64) [],\n' +
-			'  created_at  timestamp   default now(),\n' +
-			'  updated_at  timestamp   default now()\n' +
-			');\n' +
-			'\n' +
-			'create unique index schemas_id_uindex\n' +
-			'  on "_schemas" (id);\n' +
-			'\n' +
-			'create unique index schemas_table_name_uindex\n' +
-			'  on "_schemas" (table_name);\n' +
-			'\n'
+			`create table if not exists _schemas
+			(
+				id uuid not null
+					constraint schemas_pkey
+						primary key,
+				data_source varchar(64),
+				title varchar(255),
+				table_name varchar(64) not null,
+				primary_key varchar(64) default 'id'::character varying,
+				properties jsonb not null,
+				required varchar(64) [],
+				read_only varchar(64) [],
+				created_at timestamp with time zone default now(),
+				updated_at timestamp with time zone default now()
+			);
+			
+			create unique index if not exists schemas_id_uindex
+				on _schemas (id);
+			
+			create unique index if not exists schemas_table_name_uindex
+				on _schemas (table_name);
+			`
 		)
+	}
+
+	getLocalFileName(tableName) {
+		let file = inflector.dasherize(tableName.toLowerCase()) + "-fields.js";
+		return file;
 	}
 
 }

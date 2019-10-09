@@ -1,12 +1,13 @@
 require('dotenv').config();
-const md5 = require("md5");
+
 const fs = require('fs');
 const path = require("path");
 const inflector = require("../helper/inflector");
 const _ = require("lodash");
 const connectionStringParser = require("../helper/connection-string-parser");
 const SchemaModel = require("../model/SchemaModel");
-const FieldModel = require("../model/FieldModel")
+const FieldModel = require("../model/FieldModel");
+const jsonFix = require("json-beautify");
 
 //used to format output
 const stt = require('spaces-to-tabs');
@@ -79,7 +80,7 @@ async function convert(destination, connectionString, options) {
 		cs = connectionString[i];
 		let pool;
 
-		if (cs.indexOf("postgresql") === 0) {
+		if (cs.indexOf("postgres") === 0) {
 			converter = require("./pg-tables-to-schema");
 			pool = await require("../helper/postgres-pool")(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
@@ -92,8 +93,7 @@ async function convert(destination, connectionString, options) {
 		} //TODO elastic?
 
 		cs = connectionStringParser(cs);
-
-		console.log(cs);
+		//console.log(cs);
 
 		let schema = await converter(
 			_.extend({
@@ -103,33 +103,31 @@ async function convert(destination, connectionString, options) {
 				connectionString: cs
 			}, options), pool);
 
-
-		//console.log(schema);
-
 		schema.forEach(
 			function (item) {
-				console.log(item.tableName);
+				//console.log(item.tableName);
 				item.dataSource = cs.database;
 				if (options.settings && options.settings[i].ignore) {
 					if (_.indexOf(options.settings[i].ignore, item.tableName) === -1) {
-						console.log("Adding item " + item.tableName);
+						//console.log("Adding item " + item.tableName);
 						return schemas.push(item);
 					} else {
 						console.log("Not adding item " + item.tableName);
 					}
 				} else if (options.settings && options.settings[i].include) {
 					if (_.indexOf(options.settings[i].include, item.tableName) !== -1) {
-						console.log("Adding item " + item.tableName);
+						//console.log("Adding item " + item.tableName);
 						return schemas.push(item);
 					} else {
 						console.log("Not adding item " + item.tableName);
 					}
 				} else {
 					return schemas.push(item);
-					console.log("Adding Item " + item.tableName)
+					//console.log("Adding Item " + item.tableName)
 				}
 			}
 		)
+
 	}
 
 
@@ -141,12 +139,13 @@ async function convert(destination, connectionString, options) {
 	for (let q = 0; q < schemas.length; q++) {
 		let item = schemas[q];
 
+		let existingSchema = await schemaModel.get(item.tableName, false);
+
 		if (item.tableName.indexOf("_") === 0) { //private tables
 			//continue;
 		}
 
 		let name = item.tableName;
-
 
 		if (options.removePrefix) {
 			if (_.isString(options.removePrefix)) {
@@ -177,10 +176,24 @@ async function convert(destination, connectionString, options) {
 			primaryKey = 'id';
 		}
 
+		//TODO we need to see if the column name exist already, but the developer may have changed the property name
+		//TODO in this case, we should leave the property name intact
 		for (let key in item.properties) {
+			//TODO allow developer to choose type, (snake_case, camelCase, PascalCase)
 			let k = inflector.camelize(inflector.underscore(key), false);
 			if (k.length === 2) {
 				k = k.toLowerCase();
+			}
+			if (existingSchema) { //Allow developer override of property names
+				Object.keys(existingSchema.properties).forEach(
+					function(propertyName) {
+						if (item.columnName === key) {
+							if (propertyName !== k) {
+								k = propertyName;
+							}
+						}
+					}
+				)
 			}
 			properties[k] = _.clone(item.properties[key]);
 			properties[k].columnName = key;
@@ -223,8 +236,13 @@ async function convert(destination, connectionString, options) {
 		}
 
 		keys = filtered;
-
 		item.properties = properties;
+
+		if (name.indexOf("_") === 0) {
+			name = name.substring(1, name.length);
+		}
+
+		console.log("Name => " + name);
 
 		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
 		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
@@ -261,38 +279,59 @@ async function convert(destination, connectionString, options) {
 		if (!fields) {
 			keysSorted.forEach(
 				function (k) {
+
+					let visible = true;
+					if (k === "createdAt" || k === "updatedAt") {
+						visible = false;
+					}
+
 					fieldSchema.adminIndex.push({
 						property: k,
-						visible: true
-					});
-					fieldSchema.adminCreate.push({
-						property: k,
-						visible: true
-					});
-					fieldSchema.adminRead.push({
-						property: k,
-						visible: true
-					});
-					fieldSchema.adminUpdate.push({
-						property: k,
-						visible: true
+						visible: visible
 					});
 					fieldSchema.publicIndex.push({
 						property: k,
-						visible: true
+						visible: visible
+					});
+
+					visible = true;
+					if (k === "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
+						visible = false;
+					}
+
+					fieldSchema.adminCreate.push({
+						property: k,
+						visible: visible
 					});
 					fieldSchema.publicCreate.push({
+						property: k,
+						visible: visible
+					});
+
+					fieldSchema.adminUpdate.push({
+						property: k,
+						visible: visible
+					});
+					fieldSchema.publicUpdate.push({
+						property: k,
+						visible: visible
+					});
+
+					visible = true;
+					if (k === "createdAt" || k === "updatedAt") {
+						visible = false;
+					}
+
+					fieldSchema.adminRead.push({
 						property: k,
 						visible: true
 					});
 					fieldSchema.publicRead.push({
 						property: k,
-						visible: true
+						visible: visible
 					});
-					fieldSchema.publicUpdate.push({
-						property: k,
-						visible: true
-					});
+
+
 				}
 			);
 		} else {
@@ -352,16 +391,8 @@ async function convert(destination, connectionString, options) {
 
 
 		if (options.overwrite || !fs.existsSync(fieldPath)) {
-			let s = 'module.exports = {\n';
-			s += "\tadminIndex : " + JSON.stringify(fieldSchema.adminIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tadminCreate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tadminRead : " + JSON.stringify(fieldSchema.adminRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tadminUpdate : " + JSON.stringify(fieldSchema.adminCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicIndex : " + JSON.stringify(fieldSchema.publicIndex).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicCreate : " + JSON.stringify(fieldSchema.publicCreate).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicRead : " + JSON.stringify(fieldSchema.publicRead).split('"property"').join("property").split('"visible"').join("visible") + ",\n";
-			s += "\tpublicUpdate : " + JSON.stringify(fieldSchema.publicCreate).split('"property"').join("property").split('"visible"').join("visible") + "\n";
-			s += "}";
+			let template = require("./templates/fields");
+			let s=template(fieldSchema);
 			fs.writeFileSync(fieldPath, s);
 		}
 

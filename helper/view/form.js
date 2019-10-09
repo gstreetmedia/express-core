@@ -4,14 +4,7 @@ const moment = require("moment");
 const _ = require("lodash");
 const now = require("../now");
 
-const selectTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/select.ejs", 'utf-8'));
-const radioTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/radio.ejs", 'utf-8'));
-const checkboxTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/checkbox.ejs", 'utf-8'));
-const textAreaTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/text-area.ejs", 'utf-8'));
-const inputTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/input.ejs", 'utf-8'));
-const jsonEditorTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/json-editor.ejs", 'utf-8'));
-const textEditorTemplate = ejs.compile(fs.readFileSync(__dirname + "/../../views/elements/form/text-editor.ejs", 'utf-8'));
-
+const elements = require("../../views/elements/form/elements.js");
 function findStringType(attribute, attr) {
 
 	if (attribute.enum) {
@@ -24,6 +17,7 @@ function findStringType(attribute, attr) {
 		attr.type = "text-editor";
 		return;
 	}
+
 	if (attribute.maxLength > 255) {
 		attr.type = "text-area";
 		return;
@@ -98,31 +92,30 @@ function findRefType(attribute, attr) {
 }
 
 function createElement(attr) {
-
-
 	switch (attr.type) {
 		case "select" :
-			return selectTemplate(attr);
+			return elements.select(attr);
 		case "select-multi" :
-			return selectTemplate(attr, true);
-		case "radio" :
-			return radioTemplate(attr);
+			return elements.select(attr, true);
+		case "switch" :
+			return elements.switch(attr);
 		case "checkbox" :
-		return checkboxTemplate(attr);
+		case "radio" :
+			return elements.checkBoxOrRadio(attr);
 		case "checkbox-multi" :
-			return checkboxTemplate(attr, true);
+			return elements.checkBoxOrRadio(attr);
 		case "text-area" :
-			return textAreaTemplate(attr);
+			return elements.textArea(attr);
 		case "text-editor" :
-			return textEditorTemplate(attr);
+			return elements.textEditor(attr);
 		case "json-editor" :
-			return jsonEditorTemplate(attr);
+			return elements.jsonEditor(attr);
 		default :
-			return inputTemplate(attr);
+			return elements.input(attr);
 	}
 }
 
-module.exports = function (model, key, value) {
+module.exports = function (model, key, value, lookup) {
 	let attribute = model.properties[key];
 
 	if (!attribute) {
@@ -137,7 +130,12 @@ module.exports = function (model, key, value) {
 				break;
 			default :
 				if(attribute.default) {
-					value = attribute.default.split("{").join("{").split("}").join("");
+					if (typeof attribute.default === "string") {
+						value = attribute.default.split("{").join("{").split("}").join("");
+					} else {
+						value = attribute.default;
+					}
+
 				}
 		}
 	}
@@ -156,14 +154,15 @@ module.exports = function (model, key, value) {
 		id: key + "Field",
 		options: attribute.enum || null,
 		multiple : false,
-		disabled: false
+		disabled: false,
+
 	};
 
 	if (_.indexOf(model.schema.required, key) !== -1) {
-		attr.required = "required";
+		attr.required = true;
+	} else {
+		attr.required = false;
 	}
-
-	//console.log(model.schema.required);
 
 	switch (attribute.type) {
 		case "string" :
@@ -176,7 +175,7 @@ module.exports = function (model, key, value) {
 			attr.value = value ? value.join(",") : '';
 			attr.dataType = 'array';
 			if (attribute.enum) {
-				attr.type = attribute.enum.length > 4 ? "select-multi" : "checkbox";
+				attr.type = "checkbox";
 			} else {
 				attr.type = "text";
 			}
@@ -188,7 +187,8 @@ module.exports = function (model, key, value) {
 			attr.type = "json-editor";
 			break;
 		case "boolean" :
-			attr.type = "radio";
+			attr.type = "switch";
+			attr.dataType = 'boolean';
 			attr.options = ['true', 'false'];
 			break;
 
@@ -198,6 +198,16 @@ module.exports = function (model, key, value) {
 		attr.value = moment(attr.value).format("YYYY-MM-DD");
 	} else if (attr.type === "datetime-local" && typeof attr.value === "object") {
 		attr.value = moment(attr.value).format("YYYY-MM-DDTHH:mm:ss");
+	}
+
+	if (lookup && lookup[key]) {
+		attr.options = lookup[key];
+		if (attr.multiple) {
+			attr.type = "checkbox";
+		} else {
+			attr.type = "select";
+		}
+		attr.value = value;
 	}
 
 	if (key === model.primaryKey) {

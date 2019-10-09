@@ -6,7 +6,7 @@ module.exports = (res, view, options) => {
 	let extension = process.env.CORE_TEMPLATE_EXTENSION || ".ejs";
 
 	if (fs.existsSync(global.appRoot + "/src/views/" + view + "." + extension)) {
-		console.log("Render local login")
+		console.log("Render local view " + view);
 		return res.render(
 			view,
 			options

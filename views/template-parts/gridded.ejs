@@ -4,16 +4,18 @@ if (data.length > 0) {
 	var keys = model.fields.adminIndex || Object.keys(data[0]);
 	keys = _.filter(keys, {visible:true});
 	keys = _.map(keys, "property");
+
+	//console.log(data);
 %>
 <div id="table_<%- instance %>" class="container-fluid gridded">
 	<div style="min-width:100%;width:<%- keys.length <= 8 ? "100%;margin-right:17px;" : (keys.length + 1) * 150 + "px" %>;position: absolute;">
 		<div class="row header m-0">
-			<% keys.forEach(function(attribute) {
-                if (!attribute) {
+			<% keys.forEach(function(property) {
+                if (!property) {
                     return;
                 }
             %>
-			<div class="col-1 border-right border-top p-1"><%- helpers.inflector.classify(helpers.inflector.underscore(attribute)) %></div>
+			<div class="col-1 border-right border-top p-1"><%- helpers.inflector.classify(helpers.inflector.underscore(property)) %></div>
 			<% }) %>
 			<div class="col-1 border-top text-right p-1">Actions</div>
 		</div>
@@ -23,15 +25,22 @@ if (data.length > 0) {
 		%>
 		<div class="row m-0 border-top row-striped" data-row-id="<%- row[model.primaryKey] %>" data-bindid="view">
 			<%
-			keys.forEach(function(attribute) {
-				if (!attribute) {
+			keys.forEach(function(property) {
+				//
+				if (!property) {
 					return;
                 }
-			//if (attribute !== model.primaryKey) {
+				let name;
+				if (row.foreignKeys && row.foreignKeys[property] && row.foreignKeys[property].name) {
+                    name = row.foreignKeys[property].name
+                } else {
+
+                }
+			//if (property !== model.primaryKey) {
 			%>
 			%>
 			<div class="col-1 p-1 border-right">
-				<%- helpers.format(model, attribute, row[attribute]) %>
+				<%- helpers.format(model, property, row[property], name) %>
 			</div>
 			<%
 			//}

@@ -41,9 +41,12 @@ module.exports = class UserController extends ControllerBase {
 
 	async login(req, res) {
 
-		const retryAfterOrOk = await rateLimitRoute.check("user/login", req.params.email, req, res);
+		let username = req.body.username || req.query.username || req.query.email || req.body.email;
+		let password = req.body.password || req.query.password;
+
+		const retryAfterOrOk = await rateLimitRoute.check("user/login", username, req, res);
 		if (retryAfterOrOk !== true) {
-			rateLimitRoute.fail("user/login", req.params.email);
+			rateLimitRoute.fail("user/login", username);
 			res.set('Retry-After', String(retryAfterOrOk));
 			return res.status(429).send('Too Many Requests');
 		}
@@ -51,8 +54,8 @@ module.exports = class UserController extends ControllerBase {
 		let m = new this.Model(req);
 
 		let result = await m.login(
-			req.body.email,
-			req.body.password
+			username,
+			password
 		);
 
 		if (result.error) {
@@ -61,14 +64,15 @@ module.exports = class UserController extends ControllerBase {
 
 		if (req.isLocal) {
 			let args = {
-				path: '/' //domain: req.headers['host'],
+				path: '/',
+				domain: req.headers['host'].split(":")[0]
 			};
 
 			args.expires = moment().add(1, 'year').toDate();
 			res.cookie('token', result.token, args);
 			res.cookie('application-key', hashPassword(result.token), args);
 		}
-
+		
 		res.success(result);
 	}
 

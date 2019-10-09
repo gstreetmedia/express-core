@@ -1,0 +1,304 @@
+.autocomplete-suggestions .row .card {
+  margin-bottom: 4px; }
+
+.autocomplete-suggestions {
+  border: 1px solid #999;
+  background: #FFF;
+  overflow: auto; }
+
+.autocomplete-suggestion {
+  padding: 2px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer; }
+
+.autocomplete-selected {
+  background: #F0F0F0; }
+
+.autocomplete-suggestions strong {
+  font-weight: normal;
+  color: #3399FF; }
+
+.autocomplete-group {
+  padding: 2px 5px;
+  width: 100%;
+  padding: 4px;
+  font-weight: bold; }
+
+.autocomplete-group strong {
+  display: block;
+  border-bottom: 1px solid #000; }
+
+.container-fluid.gridded {
+  position: absolute;
+  overflow: scroll;
+  top: 50px;
+  bottom: 40px;
+  right: 0;
+  left: 0;
+  padding: 0; }
+
+.container-fluid.gridded-inline {
+  bottom: auto;
+  top: 0;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  border-left: 1px solid #DDD;
+  border-right: 1px solid #DDD; }
+
+.container-fluid.gridded-inline .col-1 {
+  max-width: 150px;
+  min-width: 150px; }
+
+.row-striped:nth-of-type(odd) {
+  background-color: #efefef; }
+
+.row-striped:nth-of-type(even) {
+  background-color: #ffffff; }
+
+.row-striped:hover {
+  background-color: #EAEAEA;
+  cursor: pointer; }
+
+.row-striped:hover a {
+  color: white; }
+
+.gridded .col-1.actions {
+  width: 100px; }
+
+.gridded .col-1.actions form {
+  width: auto;
+  display: inline-block; }
+
+.gridded .col-1.actions .btn-link {
+  width: auto;
+  display: inline-block;
+  line-height: 1;
+  padding: 0; }
+
+.form-signin {
+  width: 100%;
+  max-width: 330px;
+  padding: 15px;
+  margin: auto; }
+
+.form-signin .checkbox {
+  font-weight: 400; }
+
+.form-signin .form-control {
+  position: relative;
+  box-sizing: border-box;
+  height: auto;
+  padding: 10px;
+  font-size: 16px; }
+
+.form-signin .form-control:focus {
+  z-index: 2; }
+
+.form-signin input[type="email"] {
+  margin-bottom: -1px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0; }
+
+.form-signin input[type="password"] {
+  margin-bottom: 10px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0; }
+
+.modal-full-screen {
+  z-index: 2000;
+  overflow: hidden; }
+
+.modal-full-screen > .modal-dialog {
+  width: 95%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0; }
+
+@media (max-width: 768px) {
+  .modal-full-screen > .modal-dialog {
+    width: 100%; } }
+
+.modal-full-screen > .modal-dialog .modal-header {
+  padding: 0;
+  height: 50px;
+  position: relative;
+  line-height: 1; }
+
+.modal-full-screen > .modal-dialog .modal-header .close {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translate(0, -50%);
+  padding: 0;
+  margin: 0; }
+
+.modal-full-screen > .modal-dialog .modal-header .modal-title {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translate(0, -50%);
+  padding: 0;
+  margin: 0; }
+
+.modal-full-screen > .modal-dialog .modal-header .btn {
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 40px; }
+
+.modal-full-screen > .modal-dialog .modal-content {
+  height: auto;
+  min-height: 100%;
+  border-radius: 0;
+  background-color: white; }
+
+.modal-full-screen > .modal-dialog .modal-body {
+  position: absolute;
+  background-color: white;
+  padding: 0;
+  top: 50px;
+  bottom: 0;
+  width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch; }
+
+.modal-full-screen > .modal-dialog .modal-body .controller {
+  padding-top: 0; }
+
+.modal-open .modal-full-screen {
+  overflow: hidden; }
+
+html,
+body {
+  height: 100%; }
+
+body {
+  padding-top: 3rem;
+  background-color: #f5f5f5; }
+
+[role="main"] {
+  position: absolute;
+  top: 50px;
+  bottom: 0;
+  right: 0; }
+
+td {
+  vertical-align: center; }
+
+.activity-indicator {
+  position: absolute;
+  text-align: center;
+  left: 50%;
+  transform: translate(-50%, 0); }
+
+.float-right .activity-indicator {
+  right: 0;
+  transform: none; }
+
+.float-left .activity-indicator {
+  left: 0;
+  transform: none; }
+
+.spinner {
+  animation: rotator 1.4s linear infinite; }
+
+@keyframes rotator {
+  0% {
+    transform: rotate(0deg); }
+  100% {
+    transform: rotate(270deg); } }
+
+.path {
+  stroke-dasharray: 187;
+  stroke-dashoffset: 0;
+  transform-origin: center;
+  animation: dash 1.4s ease-in-out infinite, colors 5.6s ease-in-out infinite; }
+
+@keyframes colors {
+  0% {
+    stroke: #4285F4; }
+  25% {
+    stroke: #DE3E35; }
+  50% {
+    stroke: #F7C223; }
+  75% {
+    stroke: #1B9A59; }
+  100% {
+    stroke: #4285F4; } }
+
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 187; }
+  50% {
+    stroke-dashoffset: 46.75;
+    transform: rotate(135deg); }
+  100% {
+    stroke-dashoffset: 187;
+    transform: rotate(450deg); } }
+
+/* The switch - the box around the slider */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 30px;
+  /* Hide default HTML checkbox */
+  /* The slider */
+  /* Rounded sliders */ }
+  .switch input {
+    display: none;
+    margin: 0; }
+  .switch label {
+    margin: 0 !important; }
+  .switch .switch-slide {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s; }
+  .switch .switch-slide:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 2px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s; }
+  .switch input:checked + .switch-slide {
+    background-color: #1c9ad6; }
+  .switch input:focus + .switch-slide {
+    box-shadow: 0 0 1px #1c9ad6; }
+  .switch input:checked + .switch-slide:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px); }
+  .switch .switch-slide.round {
+    border-radius: 34px; }
+  .switch .switch-slide.round:before {
+    border-radius: 50%; }
+
+.switch-group {
+  font-size: 14px;
+  display: flex !important;
+  justify-content: space-between !important; }
+  .switch-group > span {
+    display: block;
+    line-height: 33px;
+    max-width: 50%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden; }
+
+label {
+  display: inline-block;
+  margin-bottom: 0; }
+
+/*# sourceMappingURL=main.css.map */

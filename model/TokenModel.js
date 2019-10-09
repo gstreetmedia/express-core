@@ -1,8 +1,7 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../../schema/tokens-schema');
-const fields = require('../../schema/fields/tokens-fields');
 const uuid = require("node-uuid");
+const hashPassword = require("../helper/hash-password");
 
 module.exports = class TokenModel extends ModelBase {
 
@@ -49,12 +48,10 @@ module.exports = class TokenModel extends ModelBase {
 	}
 
 	get relations() {
-		let Config = require("../../model/ConfigModel");
-
 		return {
 			config: {
 				relation: "HasOne",
-				modelClass: Config,
+				modelClass: "ConfigModel",
 				join: {
 					from: "configId",
 					to: "id"
@@ -64,14 +61,12 @@ module.exports = class TokenModel extends ModelBase {
 	}
 
 	get foreignKeys() {
-		let Config = require("../../model/ConfigModel");
-
 		return {
 			configId : {
-				modelClass : Config,
+				modelClass : "ConfigModel",
 				to : "id"
 			}
 		}
 	}
 
-}
+};

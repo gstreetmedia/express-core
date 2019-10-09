@@ -15,7 +15,7 @@
 	<% } %>
 	<form class='form'
 		  data-endpoint="<%- global.apiRoot %>/<%- slug %><%- action === "edit" ? '/' + data[model.primaryKey] : '' %>"
-		  method="<%- action === "edit" ? "patch" : "post" %>"
+		  method="<%- action === "edit" ? "put" : "post" %>"
 	>
 
 			<%
@@ -50,7 +50,7 @@
 						return;
 				}
 
-				var element = helpers.form(model, key, value);
+				var element = helpers.form(model, key, value, typeof data === "object" ? data.lookup : null);
 			%>
 			<div class="form-group row clearfix">
 				<label class="label col-md-3">

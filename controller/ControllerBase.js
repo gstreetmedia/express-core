@@ -30,14 +30,16 @@ module.exports = class ControllerBase {
 		try {
 			let m = new this.Model(req);
 			let count = await m.count(req.query);
-
-			if (count > 500) {
-				req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
-				req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
-				req.limit = req.query.limit;
-				req.offset = req.query.offset;
+			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+			if (isNaN(req.query.limit)) {
+				req.query.limit = 500;
 			}
-
+			req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
+			if (isNaN(req.query.offset)) {
+				req.query.offset = 0;
+			}
+			req.limit = req.query.limit;
+			req.offset = req.query.offset || 0;
 			req.count = parseInt(count);
 			let result = await m.index(req.query);
 			if (res) {
@@ -205,12 +207,16 @@ module.exports = class ControllerBase {
 
 		let m = new this.Model(req);
 		let count = await m.count(req.query);
-		if (count > 500) {
-			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
-			req.query.offset = req.query.offset ? parseInt(req.query.offset) : 0;
-			req.limit = req.query.limit;
-			req.offset = req.query.offset;
+		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		if (isNaN(req.query.limit)) {
+			req.query.limit = 500;
 		}
+		req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
+		if (isNaN(req.query.offset)) {
+			req.query.offset = 0;
+		}
+		req.limit = req.query.limit;
+		req.offset = req.query.offset || 0;
 		req.count = parseInt(count);
 		let result = await m.query(req.query);
 
@@ -256,14 +262,15 @@ module.exports = class ControllerBase {
 		}
 
 		properties.forEach(function(key){
-			if (m.properties[key].type === "string") {
+			let properties = m.schema.properties;
+			if (properties[key].type === "string") {
 				let validate = true;
 
-				if (m.properties.enum) {
+				if (properties[key].enum) {
 					validate = false;
 				}
 
-				switch (m.properties[key].format) {
+				switch (properties[key].format) {
 					case "date" :
 					case "date-time" :
 						return;
@@ -285,7 +292,7 @@ module.exports = class ControllerBase {
 				if (!validate || validateAgainstSchema(key, {[key]:search}, m.schema)) {
 
 				}
-			} else if (m.properties[key].type === "number" && !isNaN(queryNumber)) {
+			} else if (properties[key].type === "number" && !isNaN(queryNumber)) {
 				query.where.or.push(
 					{
 						[key]: {"startsWith": queryNumber}
@@ -382,6 +389,77 @@ module.exports = class ControllerBase {
 				return false;
 			}
 		}
+	}
+
+
+	async adminIndex(req) {
+		let m = new this.Model();
+		let keys = Object.keys(m.foreignKeys);
+		req.query.join = req.query.join || {};
+
+		console.log(m.tableName);
+		let fields = global.fieldCache[m.tableName].adminIndex;
+
+		while (keys.length > 0) {
+			if (_.find(fields, {"visible": true, "property": keys[0]})) {
+				req.query.join[keys[0]] = true;
+			}
+			keys.shift();
+		}
+
+		return await this.query(req);
+	}
+
+	async adminCreate(req) {
+		let m = new this.Model();
+		let foreignKeys = _.clone(m.foreignKeys);
+		let keys = Object.keys(foreignKeys);
+		let data = {
+			lookup :{},
+			search : {}
+		};
+
+		console.log(m.tableName);
+
+		while (keys.length > 0) {
+			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
+			let M = require(path);
+			let m = new M(req);
+			let count = await m.count();
+			if (count < 25) {
+				data.lookup[keys[0]] = await m.find({select:['id','name'],sort:"name ASC", limit:25});
+			} else {
+				data.search[keys[0]] = m.tableName;
+			}
+			keys.shift();
+		}
+
+		return data;
+	}
+
+	async adminUpdate(req) {
+		let m = new this.Model();
+		let foreignKeys = _.clone(m.foreignKeys);
+		let keys = Object.keys(foreignKeys);
+		let data = await this.read(req);
+
+		data.lookup = {};
+		data.search = {};
+
+		while (keys.length > 0) {
+			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
+			let M = require(path);
+			let m = new M(req);
+			let count = await m.count();
+			if (count < 25) {
+				data.lookup[keys[0]] = await m.find({select:['id','name'],sort:"name ASC", limit:25});
+			} else {
+				data.search[keys[0]] = m.tableName;
+			}
+			keys.shift();
+		}
+
+		return data;
 	}
 
 

@@ -1,0 +1,1 @@
+node-sass --sourceMap=true -r ./admin.scss ../css/admin.css

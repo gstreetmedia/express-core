@@ -1,0 +1,8 @@
+
+.autocomplete-suggestions .row .card {margin-bottom:4px;}
+.autocomplete-suggestions { border: 1px solid #999; background: #FFF; overflow: auto; }
+.autocomplete-suggestion { padding: 2px 5px; white-space: nowrap; overflow: hidden;cursor: pointer }
+.autocomplete-selected { background: #F0F0F0; }
+.autocomplete-suggestions strong { font-weight: normal; color: #3399FF; }
+.autocomplete-group { padding: 2px 5px; width:100%; padding:4px; font-weight: bold }
+.autocomplete-group strong { display: block; border-bottom: 1px solid #000; }
