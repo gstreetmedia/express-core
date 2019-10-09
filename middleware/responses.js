@@ -22,6 +22,9 @@ module.exports = async function (req, res, next) {
 		if (req.count) {
 			obj.count = req.count;
 		}
+		if (result instanceof Array) {
+		  obj.records = result.length;
+    }
 		res.status(200).send(obj);
 	};
 
