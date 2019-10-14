@@ -142,23 +142,31 @@ module.exports = class AuthenticationModel {
 				return {error : 'Invalid Application Key or Secret'};
 			}
 			return {error : 'Invalid Application Key'};
+		} else {
+			//This is at the very least a request using an API KEY
+			req.addRole("api-key");
 		}
 
-		if (
-			req.hostname.indexOf("localhost") === -1 &&
-			tokenRecord.config.settings &&
-			tokenRecord.config.settings.hosts
-		) {
-			if (this.checkWhitelist(tokenRecord.config.settings.hosts, req.hostname) === false) {
-				return 'Token not allowed for this host';
+		//in theory, if there is no secret limits should be applied by referring url
+		//this will all break down server to server where there won't be one. As such,
+		//when requesting server to server we should enforce the use of the secret.
+		if (!secret && !req.get('Referrer')) {
+			return {error : 'Server / Application Calls require an Application Secret'};
+		} else if (!secret && req.get('Referrer')) {
+			if (
+				req.hostname.indexOf("localhost") === -1 &&
+				tokenRecord.config.settings &&
+				tokenRecord.config.settings.hosts
+			) {
+				if (this.checkWhitelist(tokenRecord.config.settings.hosts, req.get('Referrer')) === false) {
+					return 'Token not allowed for this host';
+				}
 			}
-		}
-
-		if (secret) {
+		} else if (secret && req.get('Referrer')) {
+			return {error : 'Please do not include an Application Secret when making requests from a browser.'};
+		} else if (secret) {
 			req.addRole("api-secret");
 		}
-
-		req.addRole("api-key");
 
 		let obj = {
 			token: null
@@ -213,7 +221,7 @@ module.exports = class AuthenticationModel {
 		//Check the memory cache for this Account
 		let user = await cache.get(cacheKey); //Try Cache first
 
-		if (!user) {
+		if (!user && decodedToken.data && decodedToken.data.id) {
 			let um = new UserModel(req);
 			user = await um.read(decodedToken.data.id);
 			await cache.set(cacheKey, user);
