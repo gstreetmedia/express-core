@@ -263,6 +263,9 @@ module.exports = class ControllerBase {
 
 		properties.forEach(function(key){
 			let properties = m.schema.properties;
+			if (!properties[key]) {
+				return;
+			}
 			if (properties[key].type === "string") {
 				let validate = true;
 
@@ -280,6 +283,7 @@ module.exports = class ControllerBase {
 					//it's okay, we
 					default :
 				}
+
 
 				query.where.or.push(
 					{
