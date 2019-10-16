@@ -117,6 +117,9 @@ module.exports = class FieldModel extends ModelBase {
 			}
 		);
 
+		if (connectionStrings.length === 0) {
+			this.tableExists = false;
+		}
 		let hasTable = await this.hasTable();
 
 		if (hasTable) {
