@@ -196,6 +196,28 @@ module.exports = class ControllerBase {
 
 		//console.log("ControllerBase::query");
 
+		if (req.body) {
+
+			if (req.body.where) {
+				req.query.where = req.body.where;
+			}
+			if (req.body.select) {
+				req.query.select = req.body.select;
+			}
+			if (req.body.limit) {
+				req.query.limit = req.body.limit;
+			}
+			if (req.body.offset) {
+				req.query.offset = req.body.offset;
+			}
+			if (req.body.join) {
+				req.query.join = req.body.join;
+			}
+			if (req.body.sort) {
+				req.query.sort = req.body.sort;
+			}
+		}
+
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
 			if (res) {
@@ -207,6 +229,7 @@ module.exports = class ControllerBase {
 
 		let m = new this.Model(req);
 		let count = await m.count(req.query);
+
 		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		if (isNaN(req.query.limit)) {
 			req.query.limit = 500;
@@ -520,9 +543,9 @@ module.exports = class ControllerBase {
 			} else {
 				req.query.select = req.query.select.split(",");  //comma sepparated field1,field2,field3
 			}
-
-
 		}
+
+		console.log(req.query);
 
 		return req.query;
 	}
