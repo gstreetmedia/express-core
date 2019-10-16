@@ -59,8 +59,7 @@ module.exports = class ModelBase extends EventEmitter {
 		if (this._schema) {
 			return this._schema;
 		}
-		this._schema = require('../../schema/' + inflector.dasherize(this.tableName) + '-schema');
-		return this._schema;
+		return getSchema(this.tableName);
 	}
 
 	set schema(_value) {
@@ -74,8 +73,7 @@ module.exports = class ModelBase extends EventEmitter {
 		if (this._fields) {
 			return this._fields;
 		}
-		this._fields = require('../../schema/fields/' + inflector.dasherize(this.tableName) + '-fields');
-		return this._fields;
+		return getFields(this.tableName);
 	}
 
 	set fields(_value) {
