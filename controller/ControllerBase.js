@@ -238,9 +238,11 @@ module.exports = class ControllerBase {
 		if (isNaN(req.query.offset)) {
 			req.query.offset = 0;
 		}
+
 		req.limit = req.query.limit;
 		req.offset = req.query.offset || 0;
 		req.count = parseInt(count);
+
 		let result = await m.query(req.query);
 
 		//console.log(m.lastCommand.toString());
@@ -425,7 +427,7 @@ module.exports = class ControllerBase {
 		req.query.join = req.query.join || {};
 
 		console.log(m.tableName);
-		let fields = global.fieldCache[m.tableName].adminIndex;
+		let fields = m.fields.adminIndex;
 
 		while (keys.length > 0) {
 			if (_.find(fields, {"visible": true, "property": keys[0]})) {
@@ -445,8 +447,6 @@ module.exports = class ControllerBase {
 			lookup :{},
 			search : {}
 		};
-
-		console.log(m.tableName);
 
 		while (keys.length > 0) {
 			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
@@ -544,8 +544,6 @@ module.exports = class ControllerBase {
 				req.query.select = req.query.select.split(",");  //comma sepparated field1,field2,field3
 			}
 		}
-
-		console.log(req.query);
 
 		return req.query;
 	}
