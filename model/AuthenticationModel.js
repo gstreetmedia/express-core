@@ -102,7 +102,7 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async applicationKey(req) {
-		console.log("applicationKey.parent");
+		//console.log("applicationKey.parent");
 		//Check header for application-key
 
 		let key = req.headers['application-key'];
