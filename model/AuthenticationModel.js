@@ -290,8 +290,6 @@ module.exports = class AuthenticationModel {
 			if (authResult.error) {
 				console.log("authResult => " + authResult.error);
 			}
-		} else {
-			console.log("No Auth");
 		}
 	}
 }
