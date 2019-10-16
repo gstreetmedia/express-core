@@ -123,9 +123,7 @@ module.exports = class ModelBase extends EventEmitter {
 				this._connectionString = process.env[key];
 				break;
 			}
-
 		}
-
 
 		return this._connectionString || process.env.DEFAULT_DB;
 	}
@@ -901,6 +899,8 @@ module.exports = class ModelBase extends EventEmitter {
 						join[key].where[joinTo] = {in: targetKeys};
 						join[key].sort = join[key].sort || null;
 
+						console.log(join[key].select);
+
 						if (relations[key].select) {
 							join[key].select = join[key].select || [];
 							relations[key].select.forEach(
@@ -911,8 +911,11 @@ module.exports = class ModelBase extends EventEmitter {
 							join[key].select = _.uniq(join[key].select);
 						}
 
+						let removeJoinTo = false; //keys not requested
+
 						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
 							join[key].select.push(joinTo);
+							removeJoinTo = true;
 						}
 
 						list = await hasOneModel.find(join[key]);
@@ -931,7 +934,11 @@ module.exports = class ModelBase extends EventEmitter {
 										function(throughItem) {
 											try {
 												let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												if (removeJoinTo) {
+													delete row[joinTo];
+												}
 												results[resultsIndex][key] = row;
+
 											} catch (e) {
 												console.log("join through error " + item.throughClass);
 											}
@@ -942,6 +949,9 @@ module.exports = class ModelBase extends EventEmitter {
 						} else {
 							for (let i = 0; i < list.length; i++) {
 								results[fromIndex[list[i][joinTo]]][key] = list[i];
+								if (removeJoinTo) {
+									delete results[fromIndex[list[i][joinTo]]][key][joinTo];
+								}
 							}
 						}
 
