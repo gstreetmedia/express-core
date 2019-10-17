@@ -196,6 +196,28 @@ module.exports = class ControllerBase {
 
 		//console.log("ControllerBase::query");
 
+		if (req.body) {
+
+			if (req.body.where) {
+				req.query.where = req.body.where;
+			}
+			if (req.body.select) {
+				req.query.select = req.body.select;
+			}
+			if (req.body.limit) {
+				req.query.limit = req.body.limit;
+			}
+			if (req.body.offset) {
+				req.query.offset = req.body.offset;
+			}
+			if (req.body.join) {
+				req.query.join = req.body.join;
+			}
+			if (req.body.sort) {
+				req.query.sort = req.body.sort;
+			}
+		}
+
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
 			if (res) {
@@ -207,6 +229,7 @@ module.exports = class ControllerBase {
 
 		let m = new this.Model(req);
 		let count = await m.count(req.query);
+
 		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		if (isNaN(req.query.limit)) {
 			req.query.limit = 500;
@@ -215,9 +238,11 @@ module.exports = class ControllerBase {
 		if (isNaN(req.query.offset)) {
 			req.query.offset = 0;
 		}
+
 		req.limit = req.query.limit;
 		req.offset = req.query.offset || 0;
 		req.count = parseInt(count);
+
 		let result = await m.query(req.query);
 
 		//console.log(m.lastCommand.toString());
@@ -263,6 +288,9 @@ module.exports = class ControllerBase {
 
 		properties.forEach(function(key){
 			let properties = m.schema.properties;
+			if (!properties[key]) {
+				return;
+			}
 			if (properties[key].type === "string") {
 				let validate = true;
 
@@ -280,6 +308,7 @@ module.exports = class ControllerBase {
 					//it's okay, we
 					default :
 				}
+
 
 				query.where.or.push(
 					{
@@ -398,7 +427,7 @@ module.exports = class ControllerBase {
 		req.query.join = req.query.join || {};
 
 		console.log(m.tableName);
-		let fields = global.fieldCache[m.tableName].adminIndex;
+		let fields = m.fields.adminIndex;
 
 		while (keys.length > 0) {
 			if (_.find(fields, {"visible": true, "property": keys[0]})) {
@@ -418,8 +447,6 @@ module.exports = class ControllerBase {
 			lookup :{},
 			search : {}
 		};
-
-		console.log(m.tableName);
 
 		while (keys.length > 0) {
 			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
@@ -516,8 +543,6 @@ module.exports = class ControllerBase {
 			} else {
 				req.query.select = req.query.select.split(",");  //comma sepparated field1,field2,field3
 			}
-
-
 		}
 
 		return req.query;
