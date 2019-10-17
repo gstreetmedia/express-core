@@ -150,7 +150,7 @@ module.exports = class AuthenticationModel {
 			tokenRecord.config.settings.hosts
 		) {
 			if (this.checkWhitelist(tokenRecord.config.settings.hosts, req.hostname) === false) {
-				return 'Token not allowed for this host';
+				return {error:'Token not allowed for this host'};
 			}
 		}
 
