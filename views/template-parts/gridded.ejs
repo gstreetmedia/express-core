@@ -31,6 +31,7 @@ if (data.length > 0) {
 					return;
                 }
 				let name;
+				//console.log(row.foreignKeys);
 				if (row.foreignKeys && row.foreignKeys[property] && row.foreignKeys[property].name) {
                     name = row.foreignKeys[property].name
                 } else {
