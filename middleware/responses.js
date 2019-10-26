@@ -52,7 +52,7 @@ module.exports = async function (req, res, next) {
 		let now = new Date();
 
 		let obj = {
-			success:status === 200 ? "success" : false,
+			success:status === 200 || status === 201 ? "success" : false,
 			results:result,
 			time : now.getTime() - startTime.getTime(),
 
@@ -91,6 +91,16 @@ module.exports = async function (req, res, next) {
 			}
 		);
 	}
+
+	/**
+	 * For use with rate limiting
+	 * @param retryAfter
+	 * @returns {*}
+	 */
+	res.tooManyRequests = (retryAfter)=> {
+		res.set('Retry-After', String(retryAfter));
+		return res.status(429).send('Too Many Requests');
+	};
 
 	next();
 }
