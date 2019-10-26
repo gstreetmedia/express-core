@@ -1,8 +1,9 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-
 const Controller = require('../controller/UserController');
+const rateLimitRoute = require("../helper/rate-limit-route");
 let c = new Controller()
+
 
 router.use(authentication);
 
@@ -14,7 +15,15 @@ router.use(async function(req, res, next){
 
 router.post('/login', async function (req, res, next) {
 	req.allowRole("guest");
+
 	if(req.checkRole()){
+		const rateLimiter = rateLimitRoute();
+		const retryAfter = await rateLimiter.check("user/login");
+		if (retryAfter) {
+			await rateLimiter.fail("user/login");
+			return res.tooManyRequests(retryAfter)
+		}
+
 		let result = await c.login(req, res);
 		return;
 	}
@@ -30,7 +39,7 @@ router.get('/logout', async function (req, res, next) {
 });
 
 router.post('/lost-password', async function (req, res, next) {
-	req.allowRole("user");
+	req.allowRole("api-user");
 	if(req.checkRole()){
 		return await c.lostPasswordStart(req, res);
 	}
@@ -38,14 +47,38 @@ router.post('/lost-password', async function (req, res, next) {
 });
 
 router.put('/lost-password', async function (req, res, next) {
-	req.allowRole("user");
+	req.allowRole("api-user");
 	if(req.checkRole()){
 		return await c.lostPasswordComplete(req, res);
 	}
 	return next();
 });
 
-router.post('/update-email', async function (req, res, next) {
+router.post('/register', async function (req, res, next) {
+	req.allowRole("api-user");
+	if(req.checkRole()){
+
+		const rateLimiter = rateLimitRoute();
+		const retryAfter = await rateLimiter.check("user/register");
+		if (retryAfter) {
+			await rateLimiter.fail("user/register");
+			return res.tooManyRequests(retryAfter)
+		}
+
+		return await c.register(req, res);
+	}
+	return next();
+});
+
+router.put('/register', async function (req, res, next) {
+	req.allowRole("api-user");
+	if(req.checkRole()){
+		return await c.registerComplete(req, res);
+	}
+	return next();
+});
+
+router.post('/:id/update-email', async function (req, res, next) {
 	req.allowRole("user");
 	if(req.checkRole()){
 		return await c.updateEmailComplete(req, res);
@@ -53,7 +86,7 @@ router.post('/update-email', async function (req, res, next) {
 	return next();
 });
 
-router.put('/update-email', async function (req, res, next) {
+router.put('/:id/update-email', async function (req, res, next) {
 	req.allowRole("user");
 	if(req.checkRole()){
 		return await c.updateEmailComplete(req, res);

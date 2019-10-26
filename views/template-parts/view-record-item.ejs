@@ -1,16 +1,20 @@
 <% if (
         (model.schema.properties[key] && model.schema.properties[key].type === "object") ||
         (model.relations && model.relations[key])
-) { %>
+) {
+
+    let instance = new Date().getTime();
+
+%>
     <div class="col-lg-12">
         <div class="form-group form-row">
             <label class="label col-lg-1 col-md-2"><%- helpers.inflector.classify(helpers.inflector.underscore(key)) %></label>
             <div class="col-lg-11 col-md-10 ">
                 <div class="card">
                     <script>
-						var <%- key %> = <%- JSON.stringify(value) %>;
+						var <%= key + "_" + instance %> = <%- JSON.stringify(value) %>;
                     </script>
-                    <div class="card-body " data-json-view="<%- key %>">
+                    <div class="card-body" data-json-view="<%= key + "_" + instance %>">
                     </div>
                 </div>
             </div>
