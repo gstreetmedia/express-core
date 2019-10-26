@@ -808,8 +808,10 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		let join = _.clone(query.join);
+		let fullJoin = false;
 
 		if (join === "*") {
+			fullJoin = true;
 			join = Object.keys(relations);
 			join = join.concat(Object.keys(foreignKeys));
 		}
@@ -883,6 +885,13 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 				}
 
+				//console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
+
+				//console.log("joinFrom => " + joinFrom);
+				//console.log("joinThroughTo => " + joinThroughTo);
+				//console.log("joinThroughFrom => " + joinThroughFrom);
+				//console.log("joinTo => " + joinTo);
+
 				if (item.throughClass) { //build new targetKey based on the pivot table
 					const ThroughModel = this.loadModel(item.throughClass);
 					let throughModel = new ThroughModel(this.req);
@@ -897,7 +906,9 @@ module.exports = class ModelBase extends EventEmitter {
 					throughList = await throughModel.query(joinThrough);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
 
-					console.log(targetKeys);
+
+					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
+					//console.log(targetKeys);
 				}
 
 				let j = _.clone(join[key]);
@@ -921,6 +932,10 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where = j.where || {};
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
+
+						if (fullJoin) {
+							j.join = "*"
+						}
 
 						if (relations[key].select) {
 							j.select = j.select || [];
@@ -1016,6 +1031,10 @@ module.exports = class ModelBase extends EventEmitter {
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
 							removeJoinTo = true;
 							j.select.push(joinTo);
+						}
+
+						if (fullJoin) {
+							j.join = "*"
 						}
 
 						//console.log("condition 2 "  + this.tableName);
