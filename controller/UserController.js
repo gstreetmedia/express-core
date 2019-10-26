@@ -4,14 +4,11 @@ const hashPassword = require("../helper/hash-password");
 const SessionModel = require("../model/SessionModel");
 const now = require("../helper/now");
 const moment = require("moment-timezone");
-const rateLimitRoute = require("../helper/rate-limit-route");
+const Model = require("../../model/UserModel");
 
 module.exports = class UserController extends ControllerBase {
 
-	constructor(Model) {
-		if(!Model) {
-			Model = require('../model/UserModel');
-		}
+	constructor() {
 		super(Model);
 	}
 
@@ -20,36 +17,29 @@ module.exports = class UserController extends ControllerBase {
 	}
 
 	async create(req, res){
-		return await super.create(req, res);
+		return super.create(req, res);
 	}
 
 	async read(req, res){
-		return await super.read(req, res);
+		return super.read(req, res);
 	}
 
 	async update(req, res){
-		return await super.update(req, res);
+		return super.update(req, res);
 	}
 
 	async query(req, res){
-		return await super.query(req, res);
+		return super.query(req, res);
 	}
 
 	async destroy(req, res){
-		return await super.destroy(req, res);
+		return super.destroy(req, res);
 	}
 
 	async login(req, res) {
 
 		let username = req.body.username || req.query.username || req.query.email || req.body.email;
 		let password = req.body.password || req.query.password;
-
-		const retryAfterOrOk = await rateLimitRoute.check("user/login", username, req, res);
-		if (retryAfterOrOk !== true) {
-			rateLimitRoute.fail("user/login", username);
-			res.set('Retry-After', String(retryAfterOrOk));
-			return res.status(429).send('Too Many Requests');
-		}
 
 		let m = new this.Model(req);
 
@@ -90,14 +80,36 @@ module.exports = class UserController extends ControllerBase {
 		return res.success("Logged Out");
 	}
 
-	async lostPasswordStart(req, res) {
+	async register(req, res) {
+		let m = new this.Model();
+		let result = await m.register(req.body);
 
-		if (!req.query.email) {
+		if (result.error) {
+			return res.error(result.error);
+		}
+
+		return res.success(result);
+
+	}
+
+	async registerComplete(req, res) {
+		let m = new this.Model();
+		let result = await m.registerComplete(req.body.token, req.body.password);
+
+		if (result.error) {
+			return res.error(result.error);
+		}
+
+		return res.success(result);
+	}
+
+	async lostPasswordStart(req, res) {
+		if (!req.body.email && !req.body.username) {
 			return res.notFound();
 		}
 
 		let m = new this.Model(req);
-		let result = m.lostPasswordStart(req.query.email);
+		let result = m.lostPasswordStart(req.body.email || req.body.username);
 		if (!result.error) {
 			return res.success(result);
 		}
@@ -105,12 +117,12 @@ module.exports = class UserController extends ControllerBase {
 	}
 
 	async lostPasswordComplete(req, res) {
-		if (!req.query.token) {
+		if (!req.body.token) {
 			return res.notFound();
 		}
 
 		let m = new this.Model(req);
-		let result = m.lostPasswordComplete(req.query.token, req.query.password);
+		let result = m.lostPasswordComplete(req.body.token, req.body.password);
 		if (!result.error) {
 			return res.success(result);
 		}
@@ -118,12 +130,8 @@ module.exports = class UserController extends ControllerBase {
 	}
 
 	async updateEmailStart(req, res) {
-		if (!req.query.id) {
-			return res.notFound();
-		}
-
 		let m = new this.Model(req);
-		let result = m.updateEmailStart(req.query.token, req.query.password);
+		let result = m.updateEmailStart(req.body.email);
 		if (!result.error) {
 			return res.success(result);
 		}
@@ -131,7 +139,16 @@ module.exports = class UserController extends ControllerBase {
 	}
 
 	async updateEmailComplete(req, res) {
-
+		if (!req.query.token) {
+			return res.notFound();
+		}
+		let m = new this.Model(req);
+		let result = m.updateEmailComplete(req.body.token);
+		if (!result.error) {
+			return res.success(result);
+		}
+		return res.notFound(req.query.token);
 	}
+
 
 }
