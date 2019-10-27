@@ -177,6 +177,12 @@ exports.jsonEditor = (attr) => {
 };
 
 exports.textEditor = (attr) => {
+	let richContentTypes = ['content','body','html','description','postContent','notes','info']
+
+	if (richContentTypes.indexOf(attr.name) === -1) {
+		return exports.input(attr);
+	}
+
 	return `
 <div id="${attr.name}" class="text-editor" data-input="${attr.name}">
 	${attr.value}

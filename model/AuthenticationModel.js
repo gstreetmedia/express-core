@@ -105,6 +105,8 @@ module.exports = class AuthenticationModel {
 		//console.log("applicationKey.parent");
 		//Check header for application-key
 
+		req.locals = req.locals || {};
+
 		let key = req.headers['application-key'];
 		if (!key) {
 			return {error : 'Missing Application Key'};
@@ -119,6 +121,11 @@ module.exports = class AuthenticationModel {
 
 		if (configuration) {
 			_.extend(req, configuration);
+			_.extend(req.locals, configuration);
+			req.addRole("api-key");
+			if (secret) {
+				req.addRole("api-secret");
+			}
 			req.addRole(configuration.token.role || "api-user");
 			return true;
 		}
@@ -186,10 +193,12 @@ module.exports = class AuthenticationModel {
 		);
 
 		obj.token = tokenRecord;
-
+		_.extend(req.locals, obj);
 		_.extend(req, obj);
 
-		req.addRole(tokenRecord.role);
+		if (tokenRecord.role) {
+			req.addRole(tokenRecord.role);
+		}
 
 		await cache.set("configuration_" + key, obj, process.env.CACHE_DURATION_LONG);
 

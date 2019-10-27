@@ -806,8 +806,10 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		let join = _.clone(query.join);
+		let fullJoin = false;
 
 		if (join === "*") {
+			fullJoin = true;
 			join = Object.keys(relations);
 			join = join.concat(Object.keys(foreignKeys));
 		}
@@ -876,10 +878,22 @@ module.exports = class ModelBase extends EventEmitter {
 						targetKeys.push(value);
 						fromIndex[value] = i;
 					} else if (results[i][joinFrom]) {
-						targetKeys.push(results[i][joinFrom]);
+						if (_.isArray(results[i][joinFrom])) {
+							targetKeys.concat(results[i][joinFrom]);
+						} else {
+							targetKeys.push(results[i][joinFrom]);
+						}
+
 						fromIndex[results[i][joinFrom]] = i;
 					}
 				}
+
+				//console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
+
+				//console.log("joinFrom => " + joinFrom);
+				//console.log("joinThroughTo => " + joinThroughTo);
+				//console.log("joinThroughFrom => " + joinThroughFrom);
+				//console.log("joinTo => " + joinTo);
 
 				if (item.throughClass) { //build new targetKey based on the pivot table
 					const ThroughModel = this.loadModel(item.throughClass);
@@ -895,7 +909,9 @@ module.exports = class ModelBase extends EventEmitter {
 					throughList = await throughModel.query(joinThrough);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
 
-					console.log(targetKeys);
+
+					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
+					//console.log(targetKeys);
 				}
 
 				let j = _.clone(join[key]);
@@ -919,6 +935,11 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where = j.where || {};
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
+						j.limit = relations[key].limit || 500;
+
+						if (fullJoin) {
+							j.join = "*"
+						}
 
 						if (relations[key].select) {
 							j.select = j.select || [];
@@ -998,7 +1019,7 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = relations[key].sort || null;
 						j.offset = relations[key].offset || 0;
-						//j.limit = relations[key].limit || 100;
+						j.limit = relations[key].limit || 500;
 
 						if (relations[key].select) {
 							j.select = j.select || [];
@@ -1014,6 +1035,10 @@ module.exports = class ModelBase extends EventEmitter {
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
 							removeJoinTo = true;
 							j.select.push(joinTo);
+						}
+
+						if (fullJoin) {
+							j.join = "*"
 						}
 
 						//console.log("condition 2 "  + this.tableName);
@@ -1065,8 +1090,11 @@ module.exports = class ModelBase extends EventEmitter {
 									results[fromIndex[targetKey]][key].push(value);
 
 								} catch (e) {
+
 									console.log("Could not join " + key + " for " + this.tableName);
 									console.log("joinTo => " + joinTo);
+									console.log(fromIndex);
+									console.log(e);
 									//console.log(j.select);
 									//console.log(m.lastCommand.toString());
 								}
@@ -1089,10 +1117,17 @@ module.exports = class ModelBase extends EventEmitter {
 				results.forEach(
 					function (item) {
 						if (item[key] !== null) {
-							idList.push(item[key]);
+							if (_.isArray(item[key])) {
+								idList.concat(item[key]);
+							} else {
+								idList.push(item[key]);
+							}
 						}
 					}
 				);
+
+				console.log(this.tableName);
+				console.log(idList);
 
 				if (idList.length > 0) {
 					idList = _.uniq(idList);
@@ -1113,11 +1148,12 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 
 					let list = await foreignKeyModel.query(q);
-
+					let context = this;
 
 					if (!list.error) {
 						list.forEach(
 							function (item) {
+								//TODO support hookup when the property is an array
 								let matches = _.filter(results, {[key]: item[primaryKey]});
 								matches.forEach(
 									function (row) {
@@ -1125,6 +1161,7 @@ module.exports = class ModelBase extends EventEmitter {
 										row.foreignKeys[key] = item;
 									}
 								)
+
 							}
 						)
 					}
@@ -1511,7 +1548,9 @@ module.exports = class ModelBase extends EventEmitter {
 		if (typeof modelName !== "string") {
 			return modelName;
 		}
-		return require("../../model/" + modelName)
+		global.modelCache = global.modelCache || {};
+		global.modelCache[modelName] = require("../../model/" + modelName);
+		return global.modelCache[modelName];
 	}
 
 }
