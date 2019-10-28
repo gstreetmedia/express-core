@@ -55,7 +55,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (global.fieldCache && global.fieldCache[tableName]) {
 			rawfields = global.fieldCache[tableName].adminIndex;
 		} else {
-			console.log("or here");
+			//console.log("or here");
 			rawfields = controller.Model.fields.adminIndex;
 		}
 
@@ -65,7 +65,12 @@ module.exports = class AdminController extends ViewControllerBase {
 		rawfields.forEach(
 			function(item) {
 				if (item.property && item.visible && properties[item.property]) {
-					req.query.select.push(item.property);
+					if (_.isString(req.query.select)) {
+						req.query.select = req.query.select.split(",");
+					}
+					if (req.query.select.indexOf(item.property) === -1) {
+						req.query.select.push(item.property);
+					}
 				}
 			}
 		);
@@ -153,9 +158,16 @@ module.exports = class AdminController extends ViewControllerBase {
 	 */
 	async view(req, res) {
 		let controller = AdminController.getController(req);
-		req.query.join = "*";
+		req.query.join = {};
 		req.query.joinFieldSet = "adminIndex";
-		//console.log(controller);
+
+		let m = new controller.Model();
+		let relations = Object.keys(m.relations);
+		relations.forEach(
+			(key) => {
+				req.query.join[key] = true;
+			}
+		)
 
 		let data;
 		if (controller.adminView) {
@@ -307,7 +319,7 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (global.fieldCache && global.fieldCache[c.Model.tableName]) {
 			fields = global.fieldCache[c.Model.tableName].adminIndex;
 		} else {
-			console.log("or here");
+			//console.log("or here");
 			fields = c.Model.fields.adminIndex;
 		}
 
@@ -399,12 +411,17 @@ module.exports = class AdminController extends ViewControllerBase {
 	static getController(req) {
 		let baseName = inflector.classify(inflector.underscore(req.params.model));
 		let altName = inflector.singularize(baseName);
+
+		console.log(baseName);
+		console.log(altName);
+
 		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
 
 		if (fs.existsSync(c + ".js")) {
 			const Controller = require(c);
 			return new Controller();
 		} else {
+
 			c = global.appRoot + "/src/controller/" + altName + "Controller";
 			if (fs.existsSync(c + ".js")) {
 				const Controller = require(c);
