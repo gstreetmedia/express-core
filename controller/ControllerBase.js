@@ -195,29 +195,6 @@ module.exports = class ControllerBase {
 	async query(req, res) {
 
 		//console.log("ControllerBase::query");
-
-		if (req.body) {
-
-			if (req.body.where) {
-				req.query.where = req.body.where;
-			}
-			if (req.body.select) {
-				req.query.select = req.body.select;
-			}
-			if (req.body.limit) {
-				req.query.limit = req.body.limit;
-			}
-			if (req.body.offset) {
-				req.query.offset = req.body.offset;
-			}
-			if (req.body.join) {
-				req.query.join = req.body.join;
-			}
-			if (req.body.sort) {
-				req.query.sort = req.body.sort;
-			}
-		}
-
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
 			if (res) {
@@ -491,6 +468,27 @@ module.exports = class ControllerBase {
 
 
 	testQuery(req, res) {
+
+		if (req.body) {
+			if (req.body.where) {
+				req.query.where = req.body.where;
+			}
+			if (req.body.select) {
+				req.query.select = req.body.select;
+			}
+			if (req.body.limit) {
+				req.query.limit = req.body.limit;
+			}
+			if (req.body.offset) {
+				req.query.offset = req.body.offset;
+			}
+			if (req.body.join) {
+				req.query.join = req.body.join;
+			}
+			if (req.body.sort) {
+				req.query.sort = req.body.sort;
+			}
+		}
 
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
