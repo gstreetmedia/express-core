@@ -172,9 +172,32 @@ module.exports = class ModelBase extends EventEmitter {
 			//console.log(this.connectionString);
 		}
 
-		this._builder = new builder(this.schema);
+		this._builder = new builder(this);
 		return this._builder;
 		//TODO MSSQL, ElasticSearch, Mongo, Redis
+	}
+
+	addPrimaryKeyToQuery(id, query) {
+		query.where = query.where || {};
+		if (_.isArray(this.primaryKey)) {
+			id = id.split("|");
+			if (id.length !== this.primaryKey.length) {
+				return {
+					error : {
+						message : "Missing parts for primary key. Got " + id.length + " expected " + this.primaryKey.length,
+						statusCode : 500
+					}
+				}
+			}
+			this.primaryKey.forEach(
+				(key) => {
+					query.where[key] = id[0];
+					id.shift();
+				}
+			)
+		} else {
+			query.where[this.primaryKey] = id;
+		}
 	}
 
 	/**
@@ -201,7 +224,8 @@ module.exports = class ModelBase extends EventEmitter {
 			where: {}
 		};
 
-		obj.where[this.primaryKey] = id;
+		this.addPrimaryKeyToQuery(id, obj);
+
 		if (query && query.select) {
 			obj.select = query.select;
 		}
@@ -355,7 +379,7 @@ module.exports = class ModelBase extends EventEmitter {
 			//console.log(params);
 
 			let query = {};
-			query[this.primaryKey] = id;
+			this.addPrimaryKeyToQuery(id, query);
 
 			if (params[this.primaryKey]) {
 				delete params[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
@@ -603,13 +627,9 @@ module.exports = class ModelBase extends EventEmitter {
 			this.emit("beforeDestroy", id, record);
 
 			if (proceed !== false) {
-				let command = this.queryBuilder.delete(
-					{
-						where: {
-							[this.primaryKey]: id
-						}
-					},
-				);
+				let query = {};
+				this.addPrimaryKeyToQuery(id, query);
+				let command = this.queryBuilder.delete(query);
 
 				let result = await this.execute(command);
 
@@ -679,14 +699,14 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Promise<boolean>}
 	 */
 	async exists(id) {
-		let command = this.queryBuilder.select(
-			{
-				where: {
-					[this.primaryKey]: id,
-				},
-				limit: 1
-			}
-		);
+
+		let query = {
+			where : {},
+			limit : 1
+		};
+		this.addPrimaryKeyToQuery(id, query);
+
+		let command = this.queryBuilder.select(query);
 
 		this.lastCommand = command;
 
@@ -712,15 +732,17 @@ module.exports = class ModelBase extends EventEmitter {
 			return null;
 		}
 
+		let query = {
+			where: {
+			}
+		};
+		this.addPrimaryKeyToQuery(id, query);
+
 		let command = this.queryBuilder.update(
-			{
-				where: {
-					[this.primaryKey]: id
-				}
-			},
+			query,
 			{
 				[key]: value
-			},
+			}
 		);
 
 		try {
@@ -740,11 +762,14 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async getKey(id, key) {
+		let query = {
+			where: {
+			}
+		};
+		this.addPrimaryKeyToQuery(id, query);
 		let command = this.queryBuilder.select(
 			{
-				where: {
-					[this.primaryKey]: id
-				},
+				query,
 				select: [key]
 			}
 		);
@@ -777,7 +802,6 @@ module.exports = class ModelBase extends EventEmitter {
 						//TODO shouldn't we get the next
 					}
 			}
-
 		}
 	}
 
