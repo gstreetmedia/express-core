@@ -6,21 +6,25 @@ const knex = require("knex");
 
 module.exports = class QueryToSqlBase {
 
-	constructor(schema) {
-		this.schema = schema;
+	constructor(model) {
+		this.model = model;
 		//console.log("New Builder for " + this.tableName);
 	}
 
 	get properties() {
-		return this.schema.properties;
+		return this.model.properties;
 	}
 
 	get tableName() {
-		return this.schema.tableName;
+		return this.model.tableName;
 	}
 
 	get primaryKey() {
-		return this.schema.primaryKey;
+		return this.model.primaryKey;
+	}
+
+	get schema() {
+		return this.model.schema;
 	}
 
 	/**
@@ -205,6 +209,7 @@ module.exports = class QueryToSqlBase {
 		query = _.clone(query);
 		let queryBuilder = this.parseQuery(query);
 		//return queryBuilder.count("*");
+		//TODO support count by composite key
 		return queryBuilder.count(this.raw(this.properties[this.getPrimaryKey()].columnName));
 	}
 
