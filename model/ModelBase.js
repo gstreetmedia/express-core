@@ -869,6 +869,27 @@ module.exports = class ModelBase extends EventEmitter {
 
 		let keys = Object.keys(join);
 
+		let processWhere = (key, j)=> {
+			//console.log("process where " + key);
+			if (relations[key].where) {
+				j.where = j.where || {where: {}};
+				for (let p in relations[key].where) {
+					let expression = j.where[p] || relations[key].where[p];
+					if (_.isString(expression)) {
+						expression = {"=":expression}
+					}
+					let compare = Object.keys(expression)[0];
+					if (expression[compare].indexOf("{{") === 0) {
+						let targetKey = expression[compare].replace("{{", "").replace("}}","");
+						if (results[0][targetKey]) {
+							expression[compare] = results[0][targetKey];
+						}
+					}
+					j.where[p] = expression;
+				}
+			}
+		}
+
 		while (keys.length > 0) {
 			let key = keys[0];
 			if (relations[key]) {
@@ -894,6 +915,33 @@ module.exports = class ModelBase extends EventEmitter {
 				let removeJoinTo = false; //keys not requested
 
 				let targetKeys = [];
+				let joinFromKeys = {};
+				let joinThroughFromKeys = {};
+				let joinThroughToKeys = {};
+				let joinToKeys = {};
+
+				/*
+				if (_.isArray(joinFrom)) {
+					let i = 0;
+					joinFrom.forEach(
+						(joinFromItem) => {
+							let items = _.map(results, joinFromItem);
+							joinFromKeys[joinFromItem] = items;
+							joinToKeys[joinTo[i]] = items;
+							i++;
+						}
+					)
+					console.log(joinFromKeys);
+					return;
+				} else if (joinFrom.indexOf(".") !== -1) {
+
+				} else {
+					let items = _.map(results, joinFrom);
+					joinToKeys[joinTo] = items;
+					joinFromKeys[joinFrom] = items;
+				}
+
+				 */
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
 					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
@@ -932,8 +980,6 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 					throughList = await throughModel.query(joinThrough);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
-
-
 					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
 					//console.log(targetKeys);
 				}
@@ -941,7 +987,12 @@ module.exports = class ModelBase extends EventEmitter {
 				let j = _.clone(join[key]);
 
 				switch (item.relation) {
+
 					case "HasOne":
+
+						//console.log("HasOne " + key);
+
+
 						let HasOneModel = this.loadModel(item.modelClass);
 						let hasOneModel = new HasOneModel(this.req);
 
@@ -950,10 +1001,9 @@ module.exports = class ModelBase extends EventEmitter {
 						}
 
 						if (relations[key].where) {
-							j.where = j.where || {where: {}};
-							for (let p in relations[key].where) {
-								j.where[p] = j.where[p] || relations[key].where[p];
-							}
+							processWhere(key, j);
+						} else {
+							console.error("No where for " +key);
 						}
 
 						j.where = j.where || {};
@@ -979,10 +1029,6 @@ module.exports = class ModelBase extends EventEmitter {
 							j.select.push(joinTo);
 							removeJoinTo = true;
 						}
-
-						//console.log("condition 1 " + this.tableName);
-						//console.log("hasOneModel.tableName " + hasOneModel.tableName);
-						//console.log(j);
 
 						list = await hasOneModel.find(j);
 
@@ -1025,6 +1071,8 @@ module.exports = class ModelBase extends EventEmitter {
 						break;
 					case "HasMany" :
 
+						//console.log("HasMany " + key);
+
 						let HasManyModel = this.loadModel(item.modelClass);
 						let hasManyModel = new HasManyModel(this.req);
 
@@ -1033,13 +1081,15 @@ module.exports = class ModelBase extends EventEmitter {
 						}
 
 						if (relations[key].where) {
-							j.where = j.where || {where: {}};
-							for (let p in relations[key].where) {
-								j.where[p] = j.where[p] || relations[key].where[p];
-							}
+							processWhere(key, j);
+						} else {
+							console.error("No where for " +key);
 						}
 
 						j.where = j.where || {};
+						if (joinFromKeys) {
+
+						}
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = relations[key].sort || null;
 						j.offset = relations[key].offset || 0;
@@ -1150,8 +1200,8 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 				);
 
-				console.log(this.tableName);
-				console.log(idList);
+				//console.log(this.tableName);
+				//console.log(idList);
 
 				if (idList.length > 0) {
 					idList = _.uniq(idList);
@@ -1203,6 +1253,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 		return results;
 	}
+
 
 	/**
 	 * Converts any input types to the correct one (eg. string to int) and convert objects to JSON
