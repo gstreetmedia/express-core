@@ -230,6 +230,8 @@ module.exports = class ModelBase extends EventEmitter {
 			obj.select = query.select;
 		}
 
+		this.addJoinFromKeys(query, obj)
+
 		let command = this.queryBuilder.select(obj);
 
 		let result = await this.execute(command);
@@ -806,6 +808,38 @@ module.exports = class ModelBase extends EventEmitter {
 	}
 
 	/**
+	 * Make sure all the required keys of a join are present in the select.
+	 * @param query
+	 * @param obj
+	 */
+	addJoinFromKeys(query, obj) {
+		if (!query) {
+			return;
+		}
+		if (query.join) {
+			let keys;
+			let context = this;
+			obj.select = obj.select || [];
+			if (query.join === "*") {
+				keys = Object.keys(this.relations);
+			} else {
+				keys = Object.keys(query.join);
+			}
+			keys.forEach(
+				(k) => {
+					obj.select.push(context.relations[k].join.from)
+					if (context.relations[k].where) {
+						let whereKeys = Object.keys(context.relations[k].where);
+						obj.select = obj.select.concat(whereKeys);
+					}
+				}
+			)
+			obj.select = _.uniq(obj.select);
+		}
+
+	}
+
+	/**
 	 * Run secondary queries for relations and foreign keys
 	 * @param results
 	 * @param query
@@ -870,9 +904,8 @@ module.exports = class ModelBase extends EventEmitter {
 		let keys = Object.keys(join);
 
 		let processWhere = (key, j)=> {
-			//console.log("process where " + key);
 			if (relations[key].where) {
-				j.where = j.where || {where: {}};
+				j.where = j.where || {};
 				for (let p in relations[key].where) {
 					let expression = j.where[p] || relations[key].where[p];
 					if (_.isString(expression)) {
@@ -990,7 +1023,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 					case "HasOne":
 
-						//console.log("HasOne " + key);
+						console.log("HasOne " + key);
 
 
 						let HasOneModel = this.loadModel(item.modelClass);
