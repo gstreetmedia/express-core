@@ -221,16 +221,16 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		let obj = {
-			where: {}
+			where: {},
+			select : null
 		};
 
 		this.addPrimaryKeyToQuery(id, obj);
 
 		if (query && query.select) {
 			obj.select = query.select;
+			this.addJoinFromKeys(query, obj);
 		}
-
-		this.addJoinFromKeys(query, obj)
 
 		let command = this.queryBuilder.select(obj);
 
@@ -491,7 +491,14 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 		}
 
-		let command = this.queryBuilder.select(query);
+		let obj = _.clone(query);
+
+		if (query && query.select) {
+			obj.select = query.select;
+			this.addJoinFromKeys(query, obj);
+		}
+
+		let command = this.queryBuilder.select(obj);
 
 		let result = await this.execute(command);
 
@@ -1042,7 +1049,7 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where = j.where || {};
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
-						j.limit = relations[key].limit || 500;
+						j.limit = j.limit || relations[key].limit || 500;
 
 						if (fullJoin) {
 							j.join = "*"
@@ -1126,7 +1133,7 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = relations[key].sort || null;
 						j.offset = relations[key].offset || 0;
-						j.limit = relations[key].limit || 500;
+						j.limit = j.limit || relations[key].limit || 500;
 
 						if (relations[key].select) {
 							j.select = j.select || [];
