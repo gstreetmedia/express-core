@@ -374,6 +374,13 @@ module.exports = class QueryToPgSql extends QueryBase{
 		return this.raw(this.tableName + "." + columnName + "::text ilike '%" + value + "'")
 	}
 
+	buildSelect (key, subKey) {
+		if (this.properties[key].type === "object" && subKey) {
+			return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${subKey}"`);
+		}
+		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);
+	}
+
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
 	 * @param value

@@ -118,17 +118,23 @@ module.exports = class QueryToSqlBase {
 
 			for (let i = 0; i < query.select.length; i++) {
 				let key = query.select[i];
+				if (key.indexOf(".") !== -1) {
+
+				}
 				if (this.properties[key]) {
-					selects.push(this.buildSelect(this.tableName,this.properties[key].columnName,key));
+					selects.push(this.buildSelect(key));
 				} else if (key.indexOf('as') !== -1) {
 					selects.push(key);
+				} else if (key.indexOf(".") !== -1) {
+					key = key.split(".");
+					selects.push(this.buildSelect(key[0], key[1]));
 				}
 			}
 		}
 
 		if (selects.length === 0 || !query.select) {
 			for (let key in this.properties) {
-				selects.push(this.buildSelect(this.tableName,this.properties[key].columnName,key));;
+				selects.push(this.buildSelect(key));
 			}
 		}
 
@@ -196,8 +202,10 @@ module.exports = class QueryToSqlBase {
 		return queryBuilder;
 	}
 
-	buildSelect (tablename, columnName, key) {
-		return this.knexRaw('"' + this.tableName + '"."' + this.properties[key].columnName + '" as "' + key + '"');
+	buildSelect (key, subKey) {
+		let query = `"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`;
+		console.log(query);
+		return this.knexRaw(query);
 	}
 
 	/**
