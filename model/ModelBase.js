@@ -930,6 +930,18 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 		}
 
+		let processSelect = (key, j) => {
+			if (relations[key].select) {
+				j.select = j.select || [];
+				relations[key].select.forEach(
+					(field) => {
+						j.select.push(field)
+					}
+				);
+				j.select = _.uniq(j.select);
+			}
+		}
+
 		while (keys.length > 0) {
 			let key = keys[0];
 			if (relations[key]) {
@@ -960,6 +972,10 @@ module.exports = class ModelBase extends EventEmitter {
 				let joinThroughToKeys = {};
 				let joinToKeys = {};
 
+				//TODO we need a more flexible from, to, from to that supports arrays
+				/**
+				 * eg. from : ["key1","key2"] to: ["key3", "key4"]
+				 */
 				/*
 				if (_.isArray(joinFrom)) {
 					let i = 0;
@@ -1030,7 +1046,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 					case "HasOne":
 
-						console.log("HasOne " + key);
+						//console.log("HasOne " + key);
 
 
 						let HasOneModel = this.loadModel(item.modelClass);
@@ -1049,21 +1065,13 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where = j.where || {};
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
-						j.limit = j.limit || relations[key].limit || 500;
+						j.limit = j.limit || relations[key].limit || null;
 
 						if (fullJoin) {
 							j.join = "*"
 						}
 
-						if (relations[key].select) {
-							j.select = j.select || [];
-							relations[key].select.forEach(
-								(field) => {
-									j.select.push(field)
-								}
-							);
-							j.select = _.uniq(j.select);
-						}
+						processSelect(key, j);
 
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
 							j.select.push(joinTo);
@@ -1133,17 +1141,9 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = relations[key].sort || null;
 						j.offset = relations[key].offset || 0;
-						j.limit = j.limit || relations[key].limit || 500;
+						j.limit = j.limit || relations[key].limit || null;
 
-						if (relations[key].select) {
-							j.select = j.select || [];
-							relations[key].select.forEach(
-								(field) => {
-									j.select.push(field)
-								}
-							);
-							j.select = _.uniq(j.select);
-						}
+						processSelect(key, j);
 
 						//must select the targetJoin key
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
