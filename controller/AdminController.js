@@ -159,13 +159,17 @@ module.exports = class AdminController extends ViewControllerBase {
 	async view(req, res) {
 		let controller = AdminController.getController(req);
 		req.query.join = {};
-		req.query.joinFieldSet = "adminIndex";
+		req.query.joinFieldSet = "adminView";
 
 		let m = new controller.Model();
 		let relations = Object.keys(m.relations);
 		relations.forEach(
 			(key) => {
-				req.query.join[key] = true;
+				if (m.relations[key].where) {
+					req.query.join[key] = {where: m.relations[key].where}
+				} else {
+					req.query.join[key] = true;
+				}
 			}
 		)
 
