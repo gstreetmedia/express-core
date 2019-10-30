@@ -15,11 +15,7 @@
 	properties = _.map(properties, "property");
 	var foreignKeys = model.foreignKeys;
 %>
-		<div class="row">
-			<div class="col-12 border-bottom ml-1 mt-0 mb-4 ">
-				<h5>Fields</h5>
-			</div>
-		</div>
+
 		<div class="row">
 <%
 	properties.forEach(
@@ -39,10 +35,11 @@
 				function(key) {
 					if (data[key]) {
 						var value = data[key];
-						var relationModel = model.loadModel(model.relations[key].modelClass);
+						var relationModel = global.modelCache[model.relations[key].modelClass];
 						if (model.relations[key].relation === "HasMany") {
 								var relationKeys = _.filter(relationModel.fields.adminIndex, {visible:true});
 								relationKeys = _.map(relationKeys, "property");
+
 					%>
 						<h5><%- helpers.inflector.titleize(key) %></h5>
 						<%- include ./gridded-relation %>

@@ -117,6 +117,9 @@ module.exports = class FieldModel extends ModelBase {
 			}
 		);
 
+		if (connectionStrings.length === 0) {
+			this.tableExists = false;
+		}
 		let hasTable = await this.hasTable();
 
 		if (hasTable) {
@@ -237,7 +240,8 @@ module.exports = class FieldModel extends ModelBase {
 			} else {
 				console.log(result.error);
 			}
-		} else if (table) {
+		}
+		if (table) {
 			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
 
 			if (fs.existsSync(p)) {

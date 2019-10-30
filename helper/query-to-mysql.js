@@ -24,7 +24,7 @@ module.exports = class QueryToSql extends QueryBase{
 		return '`';
 	}
 
-	buildSelect (tablename, columnName, key) {
+	buildSelect (key) {
 		return this.knexRaw('`' + this.tableName + '`.`' + this.properties[key].columnName + '` as `' + key + '`');
 	}
 

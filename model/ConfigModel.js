@@ -45,14 +45,7 @@ module.exports = class ConfigModel extends ModelBase {
 
 	get relations() {
 		return {
-			config: {
-				relation: "HasMany",
-				modelClass: "TokenModel",
-				join: {
-					from: "id",
-					to: "configId"
-				}
-			}
+
 		}
 	}
 

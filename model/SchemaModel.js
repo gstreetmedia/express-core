@@ -102,6 +102,9 @@ module.exports = class SchemaModel extends ModelBase {
 			}
 		);
 
+		if (connectionStrings.length === 0) {
+			this.tableExists = false;
+		}
 		let hasTable = await this.hasTable();
 
 		if (hasTable) {

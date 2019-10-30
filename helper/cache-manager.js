@@ -10,42 +10,43 @@ let getFunction;
 let resetFunction;
 let destroyFunction;
 
-if (process.env.CACHE_REDIS) {
+if (!manager) {
+	if (process.env.CACHE_REDIS) {
 
-	let connection = connectionStringParser(process.env.CACHE_REDIS);
-	console.log("cache redis");
-	console.log(connection);
+		let connection = connectionStringParser(process.env.CACHE_REDIS);
+		console.log("cache redis");
+		console.log(connection);
 
-	const redisStore = require('cache-manager-redis');
-	config = {
-		store: redisStore,
-		host: connection.host,
-		port : connection.port,
-		db: 0,
-		ttl: 120
-	};
-	manager = cacheManager.caching(config);
-	manager.store.events.on('redisError', function(error) {
-		// handle error here
-		console.log("Redis Error @ => " + new Date().toUTCString());
-		console.log(error);
-	});
+		const redisStore = require('cache-manager-redis');
+		config = {
+			store: redisStore,
+			host: connection.host,
+			port : connection.port,
+			db: 0,
+			ttl: 120
+		};
+		manager = cacheManager.caching(config);
+		manager.store.events.on('redisError', function(error) {
+			// handle error here
+			console.log("Redis Error @ => " + new Date().toUTCString());
+			console.log(error);
+		});
 
 
-} else {
+	} else {
 
-  console.log("cache files");
+		config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
+		manager = cacheManager.caching(config);
 
-	config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
-	manager = cacheManager.caching(config);
-
-  /*
-	setFunction = manager.set;
-	getFunction = manager.get;
-	destroyFunction = manager.del;
-	resetFunction = manager.reset;
-   */
+		/*
+		  setFunction = manager.set;
+		  getFunction = manager.get;
+		  destroyFunction = manager.del;
+		  resetFunction = manager.reset;
+		 */
+	}
 }
+
 
 setFunction = (key, value, ttl) => {
   return new Promise(function (resolve, reject) {

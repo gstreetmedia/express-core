@@ -11,6 +11,7 @@ const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
 const EventEmitter = require("events");
 const cacheManager = require("../helper/cache-manager");
+const deepTrim = require("deep-trim");
 
 module.exports = class ModelBase extends EventEmitter {
 
@@ -29,17 +30,11 @@ module.exports = class ModelBase extends EventEmitter {
 	}
 
 	static getFields(tableName) {
-		if (global.fieldCache && global.fieldCache[tableName]) {
-			return global.fieldCache[tableName]
-		}
-		return require('../../schema/fields/' + tableName + '-fields');
+		return getFields(tableName);
 	}
 
 	static getSchema(tableName) {
-		if (global.schemaCache && global.schemaCache[tableName]) {
-			return global.schemaCache[tableName]
-		}
-		return require('../../schema/' + tableName + '-schema');
+		return getSchema(tableName);
 	}
 
 	set tableName(value) {
@@ -64,8 +59,7 @@ module.exports = class ModelBase extends EventEmitter {
 		if (this._schema) {
 			return this._schema;
 		}
-		this._schema = require('../../schema/' + inflector.dasherize(this.tableName) + '-schema');
-		return this._schema;
+		return getSchema(this.tableName);
 	}
 
 	set schema(_value) {
@@ -79,8 +73,7 @@ module.exports = class ModelBase extends EventEmitter {
 		if (this._fields) {
 			return this._fields;
 		}
-		this._fields = require('../../schema/fields/' + inflector.dasherize(this.tableName) + '-fields');
-		return this._fields;
+		return getFields(this.tableName);
 	}
 
 	set fields(_value) {
@@ -105,9 +98,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 		//Allow for generic naming like DEFAULT_DB
 		if (process.env[dataSource]) {
-
 			this._connectionString = process.env[dataSource];
-
 		}
 
 		//TODO Convert this to use a connection string parser
@@ -131,9 +122,7 @@ module.exports = class ModelBase extends EventEmitter {
 				this._connectionString = process.env[key];
 				break;
 			}
-
 		}
-
 
 		return this._connectionString || process.env.DEFAULT_DB;
 	}
@@ -183,9 +172,32 @@ module.exports = class ModelBase extends EventEmitter {
 			//console.log(this.connectionString);
 		}
 
-		this._builder = new builder(this.schema);
+		this._builder = new builder(this);
 		return this._builder;
 		//TODO MSSQL, ElasticSearch, Mongo, Redis
+	}
+
+	addPrimaryKeyToQuery(id, query) {
+		query.where = query.where || {};
+		if (_.isArray(this.primaryKey)) {
+			id = id.split("|");
+			if (id.length !== this.primaryKey.length) {
+				return {
+					error : {
+						message : "Missing parts for primary key. Got " + id.length + " expected " + this.primaryKey.length,
+						statusCode : 500
+					}
+				}
+			}
+			this.primaryKey.forEach(
+				(key) => {
+					query.where[key] = id[0];
+					id.shift();
+				}
+			)
+		} else {
+			query.where[this.primaryKey] = id;
+		}
 	}
 
 	/**
@@ -209,12 +221,15 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		let obj = {
-			where: {}
+			where: {},
+			select : null
 		};
 
-		obj.where[this.primaryKey] = id;
+		this.addPrimaryKeyToQuery(id, obj);
+
 		if (query && query.select) {
 			obj.select = query.select;
+			this.addJoinFromKeys(query, obj);
 		}
 
 		let command = this.queryBuilder.select(obj);
@@ -366,7 +381,7 @@ module.exports = class ModelBase extends EventEmitter {
 			//console.log(params);
 
 			let query = {};
-			query[this.primaryKey] = id;
+			this.addPrimaryKeyToQuery(id, query);
 
 			if (params[this.primaryKey]) {
 				delete params[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
@@ -465,6 +480,8 @@ module.exports = class ModelBase extends EventEmitter {
 	 */
 	async query(query, cache) {
 
+		//console.log("query > " + this.tableName);
+
 		let cacheKey;
 		if (cache === true) {
 			cacheKey = this.tableName + "::" + md5(JSON.stringify(query));
@@ -474,9 +491,17 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 		}
 
-		let command = this.queryBuilder.select(query);
+		let obj = _.clone(query);
+
+		if (query && query.select) {
+			obj.select = query.select;
+			this.addJoinFromKeys(query, obj);
+		}
+
+		let command = this.queryBuilder.select(obj);
 
 		let result = await this.execute(command);
+
 		if (result.error) {
 			return result;
 		}
@@ -551,14 +576,16 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 		}
 		result = await this.query(query);
+
 		if (result.error) {
 			return result;
 		}
 
 		if (cacheKey) {
-			await cacheManager.set(cacheKey, result[0]);
+			await cacheManager.set(cacheKey, result);
 		}
-		return await this.query(query);
+
+		return result;
 	}
 
 	/**
@@ -570,6 +597,7 @@ module.exports = class ModelBase extends EventEmitter {
 		query.limit = 1;
 		let cacheKey;
 		let result;
+
 		if (cache === true) {
 			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
 			result = await cacheManager.get(cacheKey);
@@ -609,13 +637,9 @@ module.exports = class ModelBase extends EventEmitter {
 			this.emit("beforeDestroy", id, record);
 
 			if (proceed !== false) {
-				let command = this.queryBuilder.delete(
-					{
-						where: {
-							[this.primaryKey]: id
-						}
-					},
-				);
+				let query = {};
+				this.addPrimaryKeyToQuery(id, query);
+				let command = this.queryBuilder.delete(query);
 
 				let result = await this.execute(command);
 
@@ -685,14 +709,14 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Promise<boolean>}
 	 */
 	async exists(id) {
-		let command = this.queryBuilder.select(
-			{
-				where: {
-					[this.primaryKey]: id,
-				},
-				limit: 1
-			}
-		);
+
+		let query = {
+			where : {},
+			limit : 1
+		};
+		this.addPrimaryKeyToQuery(id, query);
+
+		let command = this.queryBuilder.select(query);
 
 		this.lastCommand = command;
 
@@ -718,15 +742,17 @@ module.exports = class ModelBase extends EventEmitter {
 			return null;
 		}
 
+		let query = {
+			where: {
+			}
+		};
+		this.addPrimaryKeyToQuery(id, query);
+
 		let command = this.queryBuilder.update(
-			{
-				where: {
-					[this.primaryKey]: id
-				}
-			},
+			query,
 			{
 				[key]: value
-			},
+			}
 		);
 
 		try {
@@ -746,11 +772,14 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async getKey(id, key) {
+		let query = {
+			where: {
+			}
+		};
+		this.addPrimaryKeyToQuery(id, query);
 		let command = this.queryBuilder.select(
 			{
-				where: {
-					[this.primaryKey]: id
-				},
+				query,
 				select: [key]
 			}
 		);
@@ -783,8 +812,42 @@ module.exports = class ModelBase extends EventEmitter {
 						//TODO shouldn't we get the next
 					}
 			}
-
 		}
+	}
+
+	/**
+	 * Make sure all the required keys of a join are present in the select.
+	 * @param query
+	 * @param obj
+	 */
+	addJoinFromKeys(query, obj) {
+		if (!query) {
+			return;
+		}
+		if (query.join) {
+			let keys;
+			let context = this;
+			obj.select = obj.select || [];
+			if (query.join === "*") {
+				keys = Object.keys(this.relations);
+			} else {
+				keys = Object.keys(query.join);
+			}
+			keys.forEach(
+				(k) => {
+					if (!context.relations[k]) {
+						return;
+					}
+					obj.select.push(context.relations[k].join.from)
+					if (context.relations[k].where) {
+						let whereKeys = Object.keys(context.relations[k].where);
+						obj.select = obj.select.concat(whereKeys);
+					}
+				}
+			)
+			obj.select = _.uniq(obj.select);
+		}
+
 	}
 
 	/**
@@ -795,11 +858,13 @@ module.exports = class ModelBase extends EventEmitter {
 	 */
 	async join(results, query) {
 
-		if (!this.relationMappings && !this.relations && !this.foreignKeys) {
+		//console.log("join " + this.tableName);
+
+		if (!this.relations && !this.foreignKeys) {
 			return results;
 		}
 
-		let relations = this.relationMappings || this.relations || {};
+		let relations = this.relations || {};
 		let foreignKeys = this.foreignKeys || {};
 		let fromIndex = {};
 		let findOne = false;
@@ -810,8 +875,10 @@ module.exports = class ModelBase extends EventEmitter {
 		}
 
 		let join = _.clone(query.join);
+		let fullJoin = false;
 
 		if (join === "*") {
+			fullJoin = true;
 			join = Object.keys(relations);
 			join = join.concat(Object.keys(foreignKeys));
 		}
@@ -842,8 +909,48 @@ module.exports = class ModelBase extends EventEmitter {
 			//console.log("Condition 3");
 		}
 
-		for (let key in join) {
+		//console.log("Before Loop");
+		//console.log(join);
+
+		let keys = Object.keys(join);
+
+		let processWhere = (key, j)=> {
+			if (relations[key].where) {
+				j.where = j.where || {};
+				for (let p in relations[key].where) {
+					let expression = j.where[p] || relations[key].where[p];
+					if (_.isString(expression)) {
+						expression = {"=":expression}
+					}
+					let compare = Object.keys(expression)[0];
+					if (expression[compare].indexOf("{{") === 0) {
+						let targetKey = expression[compare].replace("{{", "").replace("}}","");
+						if (results[0][targetKey]) {
+							expression[compare] = results[0][targetKey];
+						}
+					}
+					j.where[p] = expression;
+				}
+			}
+		}
+
+		let processSelect = (key, j) => {
+			if (relations[key].select) {
+				j.select = j.select || [];
+				relations[key].select.forEach(
+					(field) => {
+						j.select.push(field)
+					}
+				);
+				j.select = _.uniq(j.select);
+			}
+		}
+
+		while (keys.length > 0) {
+			let key = keys[0];
 			if (relations[key]) {
+
+				//console.log("!!!!!!!!!!!!!!!!Key => " + key);
 
 				if (join[key] === true) {
 					join[key] = {}
@@ -861,7 +968,40 @@ module.exports = class ModelBase extends EventEmitter {
 				let joinThroughWhere = item.join.through ? item.join.through.where : null;
 				let joinThroughSort = item.join.through ? item.join.through.sort : null;
 
+				let removeJoinTo = false; //keys not requested
+
 				let targetKeys = [];
+				let joinFromKeys = {};
+				let joinThroughFromKeys = {};
+				let joinThroughToKeys = {};
+				let joinToKeys = {};
+
+				//TODO we need a more flexible from, to, from to that supports arrays
+				/**
+				 * eg. from : ["key1","key2"] to: ["key3", "key4"]
+				 */
+				/*
+				if (_.isArray(joinFrom)) {
+					let i = 0;
+					joinFrom.forEach(
+						(joinFromItem) => {
+							let items = _.map(results, joinFromItem);
+							joinFromKeys[joinFromItem] = items;
+							joinToKeys[joinTo[i]] = items;
+							i++;
+						}
+					)
+					console.log(joinFromKeys);
+					return;
+				} else if (joinFrom.indexOf(".") !== -1) {
+
+				} else {
+					let items = _.map(results, joinFrom);
+					joinToKeys[joinTo] = items;
+					joinFromKeys[joinFrom] = items;
+				}
+
+				 */
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
 					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
@@ -870,62 +1010,80 @@ module.exports = class ModelBase extends EventEmitter {
 						targetKeys.push(value);
 						fromIndex[value] = i;
 					} else if (results[i][joinFrom]) {
-						targetKeys.push(results[i][joinFrom]);
+						if (_.isArray(results[i][joinFrom])) {
+							targetKeys.concat(results[i][joinFrom]);
+						} else {
+							targetKeys.push(results[i][joinFrom]);
+						}
+
 						fromIndex[results[i][joinFrom]] = i;
 					}
 				}
 
+				//console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
+
+				//console.log("joinFrom => " + joinFrom);
+				//console.log("joinThroughTo => " + joinThroughTo);
+				//console.log("joinThroughFrom => " + joinThroughFrom);
+				//console.log("joinTo => " + joinTo);
+
 				if (item.throughClass) { //build new targetKey based on the pivot table
 					const ThroughModel = this.loadModel(item.throughClass);
 					let throughModel = new ThroughModel(this.req);
-					let j = _.clone(join[key]);
-					j.where = joinThroughWhere || {};
-					j.where[joinThroughFrom] = {in: targetKeys};
-					j.select = [joinThroughFrom, joinThroughTo];
-					j.sort = joinThroughSort || null;
-					if (join[key].debug) {
+					let joinThrough = _.clone(join[key]);
+					joinThrough.where = joinThroughWhere || {};
+					joinThrough.where[joinThroughFrom] = {in: targetKeys};
+					joinThrough.select = [joinThroughFrom, joinThroughTo];
+					joinThrough.sort = joinThroughSort || null;
+					if (joinThrough.debug) {
 						throughModel.debug = true;
 					}
-					throughList = await throughModel.find(j);
+					throughList = await throughModel.query(joinThrough);
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
+					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
+					//console.log(targetKeys);
 				}
 
+				let j = _.clone(join[key]);
+
 				switch (item.relation) {
+
 					case "HasOne":
-						const HasOneModel = this.loadModel(item.modelClass);
+
+						//console.log("HasOne " + key);
+
+
+						let HasOneModel = this.loadModel(item.modelClass);
 						let hasOneModel = new HasOneModel(this.req);
-						if (join[key].debug) {
+
+						if (j.debug) {
 							hasOneModel.debug = true;
 						}
 
 						if (relations[key].where) {
-							join[key].where = join[key].where || {where: {}};
-							for (let p in relations[key].where) {
-								join[key].where[p] = join[key].where[p] || relations[key].where[p];
-							}
+							processWhere(key, j);
 						}
 
-						join[key].where = join[key].where || {};
-						join[key].where[joinTo] = {in: targetKeys};
-						join[key].sort = join[key].sort || null;
+						j.where = j.where || {};
+						j.where[joinTo] = {in: targetKeys};
+						j.sort = j.sort || null;
+						j.limit = j.limit || relations[key].limit || null;
 
-						if (relations[key].select) {
-							join[key].select = join[key].select || [];
-							relations[key].select.forEach(
-								(field) => {
-									join[key].select.push(field)
-								}
-							);
-							join[key].select = _.uniq(join[key].select);
+						if (fullJoin) {
+							j.join = "*"
 						}
 
-						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
-							join[key].select.push(joinTo);
+						processSelect(key, j);
+
+						if (j.select && _.indexOf(j.select, joinTo) === -1) {
+							j.select.push(joinTo);
+							removeJoinTo = true;
 						}
 
-						list = await hasOneModel.find(join[key]);
+						list = await hasOneModel.find(j);
 
 						if (list.error) {
+							keys.shift();
 							continue;
 						}
 
@@ -939,7 +1097,11 @@ module.exports = class ModelBase extends EventEmitter {
 										function(throughItem) {
 											try {
 												let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												if (removeJoinTo) {
+													delete row[joinTo];
+												}
 												results[resultsIndex][key] = row;
+
 											} catch (e) {
 												console.log("join through error " + item.throughClass);
 											}
@@ -950,48 +1112,59 @@ module.exports = class ModelBase extends EventEmitter {
 						} else {
 							for (let i = 0; i < list.length; i++) {
 								results[fromIndex[list[i][joinTo]]][key] = list[i];
+								if (removeJoinTo) {
+									delete results[fromIndex[list[i][joinTo]]][key][joinTo];
+								}
 							}
 						}
 
 						break;
 					case "HasMany" :
-						const HasManyModel = this.loadModel(item.modelClass);
+
+						//console.log("HasMany " + key);
+
+						let HasManyModel = this.loadModel(item.modelClass);
 						let hasManyModel = new HasManyModel(this.req);
-						if (join[key].debug) {
+
+						if (j.debug) {
 							hasManyModel.debug = true;
 						}
 
 						if (relations[key].where) {
-							join[key].where = join[key].where || {where: {}};
-							for (let p in relations[key].where) {
-								join[key].where[p] = join[key].where[p] || relations[key].where[p];
-							}
+							processWhere(key, j);
 						}
 
-						join[key].where = join[key].where || {};
-						join[key].where[joinTo] = {in: targetKeys};
-						join[key].sort = relations[key].sort || null;
-						join[key].offset = relations[key].offset || 0;
-						//join[key].limit = relations[key].limit || 100;
+						j.where = j.where || {};
+						if (joinFromKeys) {
 
-
-						if (relations[key].select) {
-							join[key].select = join[key].select || [];
-							relations[key].select.forEach(
-								(field) => {
-									join[key].select.push(field)
-								}
-							);
-							join[key].select = _.uniq(join[key].select);
 						}
+						j.where[joinTo] = {in: targetKeys};
+						j.sort = relations[key].sort || null;
+						j.offset = relations[key].offset || 0;
+						j.limit = j.limit || relations[key].limit || null;
+
+						processSelect(key, j);
+
 						//must select the targetJoin key
-						if (join[key].select && _.indexOf(join[key].select, joinTo) === -1) {
-							join[key].select.push(joinTo);
+						if (j.select && _.indexOf(j.select, joinTo) === -1) {
+							removeJoinTo = true;
+							j.select.push(joinTo);
 						}
 
-						list = await hasManyModel.find(join[key]);
+						if (fullJoin) {
+							j.join = "*"
+						}
+
+						//console.log("condition 2 "  + this.tableName);
+						//console.log("hasManyModel.tableName " + hasManyModel.tableName);
+						//console.log(j);
+
+						list = await hasManyModel.query(j);
+
+						//console.log(hasManyModel.tableName + " => " + list.length);
 
 						if (list.error) {
+							keys.shift();
 							continue;
 						}
 
@@ -1007,6 +1180,9 @@ module.exports = class ModelBase extends EventEmitter {
 											results[resultsIndex][key] = results[resultsIndex][key] || [];
 											let filter = {[item.join.to]:row[item.join.to]};
 											if (!_.find(results[resultsIndex][key], filter)) {
+												if (removeJoinTo) {
+													delete row[joinTo];
+												}
 												results[resultsIndex][key].push(row);
 											}
 										}
@@ -1019,11 +1195,21 @@ module.exports = class ModelBase extends EventEmitter {
 									if (!results[fromIndex[list[i][joinTo]]][key]) {
 										results[fromIndex[list[i][joinTo]]][key] = [];
 									}
-									results[fromIndex[list[i][joinTo]]][key].push(list[i]);
+									let targetKey = list[i][joinTo];
+									let value = list[i];
+
+									if (removeJoinTo === true) {
+										value = _.omit(value, joinTo);
+									}
+									results[fromIndex[targetKey]][key].push(value);
+
 								} catch (e) {
+
 									console.log("Could not join " + key + " for " + this.tableName);
 									console.log("joinTo => " + joinTo);
-									//console.log(join[key].select);
+									console.log(fromIndex);
+									console.log(e);
+									//console.log(j.select);
 									//console.log(m.lastCommand.toString());
 								}
 							}
@@ -1032,6 +1218,9 @@ module.exports = class ModelBase extends EventEmitter {
 						break;
 				}
 			} else if (foreignKeys[key]) {
+
+				let j = _.clone(foreignKeys[key]);
+
 				let ForeignKeyModel = this.loadModel(foreignKeys[key].modelClass);
 				let foreignKeyModel = new ForeignKeyModel(this.req);
 				if (foreignKeys[key].debug) {
@@ -1042,10 +1231,17 @@ module.exports = class ModelBase extends EventEmitter {
 				results.forEach(
 					function (item) {
 						if (item[key] !== null) {
-							idList.push(item[key]);
+							if (_.isArray(item[key])) {
+								idList.concat(item[key]);
+							} else {
+								idList.push(item[key]);
+							}
 						}
 					}
 				);
+
+				//console.log(this.tableName);
+				//console.log(idList);
 
 				if (idList.length > 0) {
 					idList = _.uniq(idList);
@@ -1057,19 +1253,21 @@ module.exports = class ModelBase extends EventEmitter {
 						}
 					};
 
-					if (join[key].select) {
-						q.select = join[key].select;
+					if (j.select) {
+						q.select = j.select;
 					}
-					if (join[key].join) {
-						q.join = join[key].join;
+
+					if (j.join) {
+						q.join = _.clone(j.join);
 					}
 
 					let list = await foreignKeyModel.query(q);
-
+					let context = this;
 
 					if (!list.error) {
 						list.forEach(
 							function (item) {
+								//TODO support hookup when the property is an array
 								let matches = _.filter(results, {[key]: item[primaryKey]});
 								matches.forEach(
 									function (row) {
@@ -1077,12 +1275,17 @@ module.exports = class ModelBase extends EventEmitter {
 										row.foreignKeys[key] = item;
 									}
 								)
+
 							}
 						)
 					}
 				}
 			}
+
+			keys.shift();
 		}
+
+		//console.log("join complete " + this.tableName);
 
 		if (findOne) {
 			return results[0];
@@ -1090,6 +1293,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 		return results;
 	}
+
 
 	/**
 	 * Converts any input types to the correct one (eg. string to int) and convert objects to JSON
@@ -1247,7 +1451,7 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 				} else {
 					if (results.rows) {
-						return results.rows;
+						return deepTrim(results.rows);
 					} else {
 						return results;
 					}
@@ -1271,7 +1475,6 @@ module.exports = class ModelBase extends EventEmitter {
 						rows: results.recordset
 					}
 				}
-
 
 				if (results.rows) {
 					return results;
@@ -1461,9 +1664,7 @@ module.exports = class ModelBase extends EventEmitter {
 			return modelName;
 		}
 		global.modelCache = global.modelCache || {};
-		if (!global.modelCache[modelName]) {
-			global.modelCache[modelName] = require("../../model/" + modelName);
-		}
+		global.modelCache[modelName] = require("../../model/" + modelName);
 		return global.modelCache[modelName];
 	}
 

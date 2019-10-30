@@ -6,6 +6,7 @@ const _ = require("lodash");
 
 module.exports = (app, options) => {
 
+
 	let endPoints;
 	if (!global.endPoints) {
 		endPoints = global.endPoints = listEndpoints(app);
@@ -160,20 +161,31 @@ module.exports = (app, options) => {
 				return;
 			}
 
+			let root;
+			let schemaPath;
 
-			let root = inflector.pluralize(inflector.underscore(schemaName.split("/")[1]));
+			root = inflector.pluralize(inflector.underscore(schemaName.split("/")[1]));
 			root = root.split("configs").join("config");
 			root = root.split("syncs").join("sync");
 			root = root.split("metum").join("meta");
 			root = root.split("datasets").join("dataset");
+
 			root = inflector.dasherize(root);
 			//console.log(root);
-			let schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
+			schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
+
+			if (!fs.existsSync(schemaPath)) {
+				root = inflector.underscore(schemaName.split("/")[1]);
+				root = inflector.dasherize(root);
+				//console.log(root);
+				schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
+			}
 
 
 			let schema = null;
 			if (fs.existsSync(schemaPath)) {
-				schema = require(schemaPath);
+				schema = JSON.parse(JSON.stringify(require(schemaPath)))
+
 				//$schema, $id, dataSource, tableName, primaryKey, updatedAt
 				delete schema.$schema;
 				delete schema.$id;
@@ -255,7 +267,7 @@ module.exports = (app, options) => {
 							}
 						};
 					} else {
-						console.log(path + " => " + method + " already exists");
+						//console.log(path + " => " + method + " already exists");
 					}
 
 					if (method === "get") {

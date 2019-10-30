@@ -294,7 +294,24 @@ $(document).ready(
 			body.find("[data-json-view]").each(
 				function () {
 					var target = $(this);
-					target.JSONView(window[target.attr('data-json-view')]);
+					var obj = window[target.attr('data-json-view')];
+					if (obj) {
+
+						try {
+							let sorted = {};
+							let keys = Object.keys(obj);
+							keys = keys.sort();
+							keys.forEach(
+								function(key) {
+									sorted[key] = obj[key];
+								}
+							)
+							target.JSONView(sorted);
+						} catch (e) {
+
+						}
+
+					}
 				}
 			);
 
@@ -348,14 +365,13 @@ $(document).ready(
 						lineNumbers: true,
 						fixedGutter: false,
 						mode: 'application/json',
-						theme: 'eclipse',
+						theme: 'dracula',
 						extraKeys: {"Ctrl-Space": "autocomplete"},
 						matchBrackets: true,
 						styleSelectedText: true,
 						autoRefresh: true,
 						value: JSON.parse(target.val()),
 						viewportMargin: Infinity,
-
 					});
 
 					var totalLines = editor.lineCount();
@@ -379,6 +395,14 @@ $(document).ready(
 			body.find(".text-editor").each(
 				function() {
 					var target = $(this);
+
+					let richContentTypes = ['content','body','html','description','postContent','notes','info']
+					if (richContentTypes.indexOf(target.attr("name")) === -1) {
+						return;
+					}
+
+					$("[name='"+target.attr("data-input")+"']").addClass("d-none");
+
 					var element = $("[name='"+target.attr("data-input")+"']");
 					element.parent().addClass("pb-5");
 					var editor = new Quill(target[0],
@@ -393,7 +417,7 @@ $(document).ready(
 						var converter = new QuillDeltaToHtmlConverter(deltas.ops, {});
 						var text = converter.convert();
 						//console.log(text);
-						element.val(text);
+						element.val(text.replace(/<[^>]*>?/gm, ''));
 						//element.val(editor.getHtml().split("<p></p>").join("").split("<p><br></p>").join(""));
 					});
 				}

@@ -55,16 +55,22 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (global.fieldCache && global.fieldCache[tableName]) {
 			rawfields = global.fieldCache[tableName].adminIndex;
 		} else {
-			console.log("or here");
+			//console.log("or here");
 			rawfields = controller.Model.fields.adminIndex;
 		}
 
 		req.query.select = req.query.select || [];
+		let properties = controller.Model.schema.properties;
 
 		rawfields.forEach(
 			function(item) {
-				if (item.property && item.visible) {
-					req.query.select.push(item.property);
+				if (item.property && item.visible && properties[item.property]) {
+					if (_.isString(req.query.select)) {
+						req.query.select = req.query.select.split(",");
+					}
+					if (req.query.select.indexOf(item.property) === -1) {
+						req.query.select.push(item.property);
+					}
 				}
 			}
 		);
@@ -152,9 +158,20 @@ module.exports = class AdminController extends ViewControllerBase {
 	 */
 	async view(req, res) {
 		let controller = AdminController.getController(req);
-		req.query.join = "*";
-		req.query.joinFieldSet = "adminIndex";
-		//console.log(controller);
+		req.query.join = {};
+		req.query.joinFieldSet = "adminView";
+
+		let m = new controller.Model();
+		let relations = Object.keys(m.relations);
+		relations.forEach(
+			(key) => {
+				if (m.relations[key].where) {
+					req.query.join[key] = {where: m.relations[key].where}
+				} else {
+					req.query.join[key] = true;
+				}
+			}
+		)
 
 		let data;
 		if (controller.adminView) {
@@ -174,7 +191,7 @@ module.exports = class AdminController extends ViewControllerBase {
 				title : req.params.model,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
 				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : new controller.Model(),
+				model : new controller.Model(req),
 				data : data,
 				schemaList : AdminController.getSchemaList(),
 				action : "view",
@@ -271,6 +288,7 @@ module.exports = class AdminController extends ViewControllerBase {
 
 		let fm = new FieldModel(req);
 		let result = await fm.set(model.tableName, req.body);
+
 		if (global.fieldCache[model.tableName]) {
 			return res.success(global.fieldCache[model.tableName])
 		}
@@ -305,12 +323,12 @@ module.exports = class AdminController extends ViewControllerBase {
 		if (global.fieldCache && global.fieldCache[c.Model.tableName]) {
 			fields = global.fieldCache[c.Model.tableName].adminIndex;
 		} else {
-			console.log("or here");
+			//console.log("or here");
 			fields = c.Model.fields.adminIndex;
 		}
 
 		req.query.properties = [];
-
+		console.log(fields);
 		fields.forEach(
 			function(item) {
 				if (item.visible) {
@@ -318,6 +336,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				}
 			}
 		);
+
+
 
 		if (c) {
 			return await c.search(req, res);
@@ -395,12 +415,17 @@ module.exports = class AdminController extends ViewControllerBase {
 	static getController(req) {
 		let baseName = inflector.classify(inflector.underscore(req.params.model));
 		let altName = inflector.singularize(baseName);
+
+		console.log(baseName);
+		console.log(altName);
+
 		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
 
 		if (fs.existsSync(c + ".js")) {
 			const Controller = require(c);
 			return new Controller();
 		} else {
+
 			c = global.appRoot + "/src/controller/" + altName + "Controller";
 			if (fs.existsSync(c + ".js")) {
 				const Controller = require(c);

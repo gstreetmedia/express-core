@@ -1,8 +1,9 @@
 let inflector = require("./inflector");
 
 module.exports = (tableName) => {
-	if (global.schemaCache[tableName]) {
-		return global.schemaCache[tableName].properties;
+	if (global.fieldCache && global.fieldCache[tableName]) {
+		return global.fieldCache[tableName];
 	}
-	return require('../schema/fields/' + inflector.dasherize(tableName) + '-schema');
+
+	return require(global.appRoot + '/src/schema/fields/' + inflector.dasherize(tableName.toLowerCase()) + '-fields')
 }
