@@ -34,7 +34,7 @@ module.exports = (app, options) => {
 					in : "header",
 					name : "application-secret"
 				},
-				applicationOrg : {
+				organizationKey : {
 					type : "apiKey",
 					in : "header",
 					name : "application-org"
@@ -50,7 +50,7 @@ module.exports = (app, options) => {
 			{
 				applicationKey : [],
 				applicationSecret : [],
-				applicationOrg : [],
+				organizationKey : [],
 				authorizationBearer : []
 			}
 		]
