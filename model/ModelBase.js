@@ -597,6 +597,7 @@ module.exports = class ModelBase extends EventEmitter {
 		query.limit = 1;
 		let cacheKey;
 		let result;
+
 		if (cache === true) {
 			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
 			result = await cacheManager.get(cacheKey);
@@ -834,6 +835,9 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 			keys.forEach(
 				(k) => {
+					if (!context.relations[k]) {
+						return;
+					}
 					obj.select.push(context.relations[k].join.from)
 					if (context.relations[k].where) {
 						let whereKeys = Object.keys(context.relations[k].where);
@@ -1058,8 +1062,6 @@ module.exports = class ModelBase extends EventEmitter {
 
 						if (relations[key].where) {
 							processWhere(key, j);
-						} else {
-							console.error("No where for " +key);
 						}
 
 						j.where = j.where || {};
@@ -1130,8 +1132,6 @@ module.exports = class ModelBase extends EventEmitter {
 
 						if (relations[key].where) {
 							processWhere(key, j);
-						} else {
-							console.error("No where for " +key);
 						}
 
 						j.where = j.where || {};
