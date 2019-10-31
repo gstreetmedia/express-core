@@ -22,8 +22,21 @@ if (data.length > 0) {
 		<%
 		data.forEach(
 		function(row) {
+			let primaryKey = model.primaryKey;
+			let primaryKeyValue;
+			if (_.isArray(primaryKey)) {
+                primaryKeyValue = [];
+                primaryKey.forEach(
+                        (k) => {
+                            primaryKeyValue.push(row[k]);
+                        }
+                )
+                primaryKeyValue = primaryKeyValue.join("|");
+            } else {
+                primaryKeyValue = row[model.primaryKey]
+            }
 		%>
-		<div class="row m-0 border-top row-striped" data-row-id="<%- row[model.primaryKey] %>" data-bindid="view">
+		<div class="row m-0 border-top row-striped" data-row-id="<%- primaryKeyValue %>" data-bindid="view">
 			<%
 			keys.forEach(function(property) {
 				//
