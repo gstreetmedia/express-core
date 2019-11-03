@@ -11,7 +11,7 @@ const knex = require("knex");
 const path = require("path");
 
 
-module.exports = class FieldModel extends ModelBase {
+class FieldModel extends ModelBase {
 
 
 	constructor(req) {
@@ -288,3 +288,5 @@ module.exports = class FieldModel extends ModelBase {
 	}
 
 }
+
+module.exports = FieldModel;

@@ -1,7 +1,7 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 
-module.exports = class ConfigModel extends ModelBase {
+class ConfigModel extends ModelBase {
 
 	constructor(req) {
 		super(req);
@@ -50,3 +50,5 @@ module.exports = class ConfigModel extends ModelBase {
 	}
 
 }
+
+module.exports = ConfigModel;

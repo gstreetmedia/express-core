@@ -165,7 +165,9 @@ module.exports = class QueryToSqlBase {
 					hasSkip = true;
 					break;
 				case "limit" :
-					queryBuilder.limit(parseInt(query[key]));
+					if (!isNaN(parseInt(query[key]))) {
+						queryBuilder.limit(parseInt(query[key]));
+					}
 					break;
 				case "sort" :
 					//TODO support array sort

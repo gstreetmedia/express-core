@@ -3,7 +3,7 @@ let validateAgainstSchema = require("../helper/validate-against-schema");
 let _ = require("lodash");
 let cache = require("../helper/cache-manager");
 
-module.exports = class ControllerBase {
+class ControllerBase {
 	constructor(Model) {
 		this.Model = Model;
 		this.cache = cache;
@@ -95,6 +95,7 @@ module.exports = class ControllerBase {
 		//console.log("ControllerBase:read");
 
 		let queryTest = this.testQuery(req, res);
+
 		if (queryTest.error) {
 			if (res) {
 				return res.invalid(queryTest);
@@ -547,3 +548,5 @@ module.exports = class ControllerBase {
 	}
 
 }
+
+module.exports = ControllerBase;

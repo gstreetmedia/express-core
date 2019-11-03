@@ -21,9 +21,12 @@
 	properties.forEach(
 		function(key) {
 			var value = data[key];
+
+			if(key in data) {
 %>
 		<%- include ./view-record-item %>
 <%
+            }
 		}
 	);
 %>
@@ -56,10 +59,12 @@
 								properties.forEach(
 									function(key) {
 									var value = relationValues[key];
+									if (key in relationValues) {
 
 							%>
 							<%- include ./view-record-item %>
-							<%	});	%>
+							<%	    }
+                                });	%>
 						</div>
 							<%
 						}

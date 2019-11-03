@@ -1,7 +1,7 @@
 const ControllerBase = require('./ViewControllerBase');
 const _ = require('lodash');
 
-module.exports = class ViewController extends ControllerBase {
+class ViewController extends ControllerBase {
 	constructor() {
 		super();
 	}
@@ -11,3 +11,5 @@ module.exports = class ViewController extends ControllerBase {
 	}
 
 }
+
+module.exports = ViewController;

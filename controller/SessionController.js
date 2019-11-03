@@ -1,8 +1,7 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
 
-
-module.exports = class SessionController extends ControllerBase {
+class SessionController extends ControllerBase {
 
 	constructor(Model) {
 		if(!Model) {
@@ -36,3 +35,5 @@ module.exports = class SessionController extends ControllerBase {
 	}
 
 }
+
+module.exports = SessionController;

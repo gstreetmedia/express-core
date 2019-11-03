@@ -2,7 +2,7 @@ const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
 
 
-module.exports = class FieldController extends ControllerBase {
+class FieldController extends ControllerBase {
 
 	constructor(Model) {
 		if(!Model) {
@@ -36,3 +36,5 @@ module.exports = class FieldController extends ControllerBase {
 	}
 
 }
+
+module.exports = FieldController;

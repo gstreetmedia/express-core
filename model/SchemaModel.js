@@ -11,7 +11,7 @@ let knex = require("knex");
 const fs = require("fs");
 const path = require("path");
 
-module.exports = class SchemaModel extends ModelBase {
+class SchemaModel extends ModelBase {
 
 	constructor(req) {
 		super(req);
@@ -240,3 +240,5 @@ module.exports = class SchemaModel extends ModelBase {
 	}
 
 }
+
+module.exports = SchemaModel;

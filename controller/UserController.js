@@ -6,7 +6,7 @@ const now = require("../helper/now");
 const moment = require("moment-timezone");
 const Model = require("../../model/UserModel");
 
-module.exports = class UserController extends ControllerBase {
+class UserController extends ControllerBase {
 
 	constructor() {
 		super(Model);
@@ -67,6 +67,11 @@ module.exports = class UserController extends ControllerBase {
 	}
 
 	async logout(req, res) {
+
+
+		console.log("!@EI@#(*(*@(#");
+		console.log(req.jwt);
+
 		if (!req.jwt && !req.token) {
 			return res.invalid("Missing Token");
 		}
@@ -150,5 +155,6 @@ module.exports = class UserController extends ControllerBase {
 		return res.notFound(req.query.token);
 	}
 
-
 }
+
+module.exports = UserController;

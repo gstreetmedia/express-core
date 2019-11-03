@@ -10,7 +10,7 @@ let TokenModel = require('../../model/TokenModel')
 let UserModel = require('../../model/UserModel')
 let SessionModel = require('../../model/SessionModel')
 
-module.exports = class AuthenticationModel {
+class AuthenticationModel {
 
 	checkLocalRequest (req) {
 		if (req.headers['referer'] &&
@@ -54,7 +54,7 @@ module.exports = class AuthenticationModel {
 		let token = this.getTokenFromRequest(req)
 
 		if (token.error) {
-			return token.error
+			return token
 		}
 
 		let decodedToken
@@ -66,15 +66,16 @@ module.exports = class AuthenticationModel {
 			}
 		}
 
-		req.jwt = decodedToken
+		req.jwt = decodedToken;
 
-		return decodedToken
+		return decodedToken;
 	}
 
 	async getSessionFromRequest (req) {
 		let sm = new SessionModel()
 		let decodedToken = this.getDecodedTokenFromRequest(req)
 		let token = this.getTokenFromRequest(req)
+
 		let session = await sm.findOne(
 			{
 				userId: decodedToken.id,
@@ -83,7 +84,14 @@ module.exports = class AuthenticationModel {
 			},
 			true
 		)
+
 		if (session && !session.error) {
+			if (moment(session.expiresAt).isBefore(moment().tz("UTC"))) {
+				await sm.destroy(session.id);
+				return {
+					error : "Expired Session"
+				}
+			}
 			return session
 		}
 		return {
@@ -214,15 +222,21 @@ module.exports = class AuthenticationModel {
 	async bearerToken (req) {
 		console.log('bearerToken.parent')
 		let token
-		let decodedToken = this.getDecodedTokenFromRequest(req)
+		let decodedToken = this.getDecodedTokenFromRequest(req);
+
 		if (decodedToken.error) {
-			return decodedToken.error
+			return {
+				error : "Invalid Token"
+			}
 		}
 
 		let session = await this.getSessionFromRequest(req)
 
 		if (session.error) {
-			return session.error //Not a valid token
+			console.log("SESSION ERROR");
+			return {
+				error : "Session Error"
+			};
 		}
 
 		let cacheKey = 'authenticated_user_' + decodedToken.id //accountId
@@ -230,18 +244,24 @@ module.exports = class AuthenticationModel {
 		//Check the memory cache for this Account
 		let user = await cache.get(cacheKey) //Try Cache first
 
-		if (!user && decodedToken.data && decodedToken.data.id) {
+		if (!user) {
 			let um = new UserModel(req)
-			user = await um.read(decodedToken.data.id)
+			user = await um.read(decodedToken.id);
 			await cache.set(cacheKey, user)
 		}
 
 		if (user) {
-			req.addRole(user.role)
+			req.addRole(user.role);
+			console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			console.log(user);
+			req.user = user;
+			req.jwt = this.getTokenFromRequest(req);
+		} else {
+			console.log("WTFFFFFFFF");
+			return {
+				error : "Could Not Find User Record"
+			}
 		}
-
-		req.user = user
-		req.jwt = token
 
 		return true
 	}
@@ -303,4 +323,4 @@ module.exports = class AuthenticationModel {
 	}
 }
 
-
+module.exports = AuthenticationModel;

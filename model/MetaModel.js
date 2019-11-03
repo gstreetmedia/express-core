@@ -1,135 +1,228 @@
-const ModelBase = require('../core/model/ModelBase');
+const ModelBase = require('../model/ModelBase');
 const _ = require('lodash');
 const moment = require("moment-timezone");
 const now = require("../helper/now");
 
-module.exports = class MetaModel extends ModelBase {
+class MetaModel extends ModelBase {
 
 
-	async set(id, key, value, isUnique, ttl) {
+	/**
+	 * Store a simple key / value pair or key / object or key / value / object pair
+	 * @param objectId
+	 * @param key
+	 * @param value
+	 * @param object
+	 * @param isUnique
+	 * @param secondsToLive
+	 * @returns {Promise<null>}
+	 */
+	async set(objectId, key, value, isUnique, secondsToLive) {
 
-		isUnique = isUnique === false ? false : true;
+		if (!objectId) {
+			return null;
+		}
 
-		let record = await this.findOne(
-			{
-				where : {
+		if (!key) {
+			return null;
+		}
+
+		if (isUnique !== false) {
+			isUnique = true;
+		}
+
+		let object = null;
+		if (typeof value === "object") {
+			object = value;
+			value = null;
+		} else if (typeof value !== "string") {
+			object = {"_value" : value}
+		}
+
+		let record = await this.find({
+			where : {
+				objectId : objectId,
+				key : key
+			}
+		});
+
+		if (record.length === 0) {
+			let result = await this.create(
+				{
+					objectId : objectId,
 					key : key,
-					objectId : id
+					value : value,
+					object : object,
+					isUnique : !!isUnique,
+					expiresAt : _.isNumber(secondsToLive) ? moment().add(secondsToLive, "seconds").tz("UTC").toISOString() : null
 				}
-			}
-		);
-
-		let expiresAt = null;
-		if (ttl) {
-			expiresAt = moment().tz("UTC").add(ttl, "seconds");
-		}
-
-		if (!record || record.isUnique === false) {
-			if (typeof value === "object") {
-				let result = await this.create(
-					{
-						key : key,
-						object : value,
-						objectId : id,
-						expiresAt : expiresAt
-					}
-				)
-			} else {
-				let result = await this.create(
-					{
-						key : key,
-						value : "" + value,
-						objectId : id,
-						expiresAt : expiresAt
-					}
-				)
-			}
-		}
-
-		if (record) {
-			if (typeof value === "object") {
+			)
+		} else {
+			if (record.length === 1 && record[0].isUnique) {
 				let result = await this.update(
-					record.id,
+					record[0].id,
 					{
-						key : key,
-						object : value,
-						objectId : id,
-						expiresAt : expiresAt ? expiresAt : record.expiresAt ? record.expiresAt : null,
-						isUnique : isUnique || true
+						key: key,
+						value : value,
+						object : object,
+						expiresAt: _.isNumber(secondsToLive) ? moment().add(secondsToLive, "seconds").tz("UTC").toISOString() : null
 					}
-				)
+				);
 			} else {
-				let result = await this.create(
-					record.id,
-					{
-						key : key,
-						value : "" + value,
-						objectId : id,
-						expiresAt : expiresAt ? expiresAt : record.expiresAt ? record.expiresAt : null,
-						isUnique : isUnique || true
-
+				while (record.length > 0) {
+					if (record[0].value !== value && record[0].object === object) {
+						this.create(
+							{
+								objectId : objectId,
+								key : key,
+								value : value,
+								object : object,
+								isUnique : !!isUnique,
+								expiresAt : _.isNumber(secondsToLive) ? moment().add(secondsToLive, "seconds").tz("UTC").toISOString() : null
+							}
+						)
 					}
-				)
+				}
 			}
 		}
 	}
 
-	async get(id, key) {
+	/**
+	 * Get a key
+	 * @param objectId
+	 * @param key
+	 * @returns {Promise<*>}
+	 */
+	async get(objectId, key) {
+		let m = moment();
+
 		let result = await this.find(
 			{
 				where : {
-					key : key,
-					objectId : id,
-					or : [
-						{expiresAt : null},
-						{expiresAt : {">" : now()}}
-					]
+					objectId : objectId,
+					key : key
+				},
+				select : ['id','key','value','object','expiresAt']
+			},
+			true
+		);
+
+		if (result.length > 0) {
+			if (result[0].isUnique) {
+				return result[0].value;
+			} else {
+				return _.map(result, "value");
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Clean up the value, remove expired
+	 * @param data
+	 * @returns {Promise<void>}
+	 */
+	async afterFind(data) {
+		let list = [];
+		let deleteList = [];
+		let context = this;
+
+		data.forEach(
+			function(item) {
+
+				context.setValue(item);
+
+				if (item.expiresAt) {
+					if (!m.isAfter(item.expiresAt)) {
+						list.push(item);
+					} else {
+						deleteList.push(item.id);
+					}
+				} else {
+					list.push(item);
 				}
 			}
 		);
-		if (result) {
-			if (result.length === 1 && result[0].isUnique === true) {
-				result = result[0];
-				if (result[0].object) {
-					return result[0].object;
+
+		if (deleteList.length > 0) {
+			await this.destroyWhere(
+				{
+					id : {"in" : deleteList}
 				}
-				return result[0].value;
-			}
-			let values = [];
-			result.forEach(
-				function(item) {
-					if (item.object) {
-						values.push(item.object);
+			)
+		}
+		data = list;
+	}
+
+	/**
+	 * remove a key
+	 * @param objectId
+	 * @param key
+	 * @param value
+	 * @returns {Promise<void>}
+	 */
+	async unset(objectId, key, value) {
+		if (!key && !value) {
+			await this.destroyWhere(
+				{
+					where : {
+						objectId : objectId
 					}
-					return values.push(item.value);
 				}
-			);
-			return values;
-		} else {
-			return null;
+			)
+		} else if (key && !value) {
+			await this.destroyWhere(
+				{
+					where : {
+						objectId : objectId,
+						key : key
+					}
+				}
+			)
+		}  else if (key && value) {
+			if (_.isObject(value)) {
+				await this.destroyWhere(
+					{
+						where : {
+							objectId : objectId,
+							key : key,
+							object : value
+						}
+					}
+				)
+			} else {
+				await this.destroyWhere(
+					{
+						where : {
+							objectId : objectId,
+							key : key,
+							value : value
+						}
+					}
+				)
+			}
 		}
 	}
 
-	async destroy(id, key) {
-		let result = await super.destroy(
-			{
-				where : {
-					key : key,
-					objectId : id,
-				}
-			}
-		);
-		return result;
-	}
 
-	async purge() {
-		let result = await super.destroy(
-			{
-				where : {
-					expiresAt : {"<" : now()}
-				}
-			}
-		);
+	/**
+	 * Parse to the object to return the correct value, either value, object._value or object
+	 * @param meta
+	 * @returns {*}
+	 */
+	setValue(meta) {
+		console.log(meta);
+		if (meta.object === undefined) {
+			delete meta.object;
+			return;
+		}
+		if (meta.object && meta.object._value) {
+			meta.value = meta.object._value
+		} else if (meta.object) {
+			meta.value = meta.object;
+		}
+		delete meta.object;
 	}
 
 }
+
+module.exports = MetaModel;

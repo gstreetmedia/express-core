@@ -7,8 +7,7 @@ const moment = require("moment");
 const uuid = require("node-uuid");
 const now = require("../../core/helper/now");
 
-
-module.exports = class SessionModel extends ModelBase {
+class SessionModel extends ModelBase {
 
 	constructor(req) {
 		super(req);
@@ -52,7 +51,7 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 	async destroyWhere(query) {
-		return await super.destroyWhere(id);
+		return await super.destroyWhere(query);
 	}
 
 	/**
@@ -226,3 +225,5 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 }
+
+module.exports = SessionModel;

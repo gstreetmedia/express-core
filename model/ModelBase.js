@@ -13,7 +13,7 @@ const EventEmitter = require("events");
 const cacheManager = require("../helper/cache-manager");
 const deepTrim = require("deep-trim");
 
-module.exports = class ModelBase extends EventEmitter {
+class ModelBase extends EventEmitter {
 
 	/**
 	 * @param schema - json schema for this model
@@ -567,25 +567,25 @@ module.exports = class ModelBase extends EventEmitter {
 	 */
 	async find(query, cache) {
 		let cacheKey;
-		let result;
+		let results;
 		if (cache === true) {
 			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
-			result = await cacheManager.get(cacheKey);
-			if (result) {
-				return result;
+			results = await cacheManager.get(cacheKey);
+			if (results) {
+				return results;
 			}
 		}
-		result = await this.query(query);
+		results = await this.query(query);
 
-		if (result.error) {
-			return result;
+		if (results.error) {
+			return results;
 		}
 
 		if (cacheKey) {
-			await cacheManager.set(cacheKey, result);
+			await cacheManager.set(cacheKey, results);
 		}
 
-		return result;
+		return results;
 	}
 
 	/**
@@ -1669,3 +1669,5 @@ module.exports = class ModelBase extends EventEmitter {
 	}
 
 }
+
+module.exports = ModelBase;

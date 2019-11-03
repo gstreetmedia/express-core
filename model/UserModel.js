@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const uuid = require("node-uuid");
 const moment = require("moment");
 
-module.exports = class UserModel extends ModelBase {
+class UserModel extends ModelBase {
 
 	constructor (req) {
 		super(req)
@@ -381,3 +381,5 @@ module.exports = class UserModel extends ModelBase {
 	}
 
 }
+
+module.exports = UserModel;

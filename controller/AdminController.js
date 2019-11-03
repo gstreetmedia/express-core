@@ -7,7 +7,7 @@ let helpers = require("../helper/view/index");
 const FieldModel = require("../model/FieldModel");
 let schemaList;
 
-module.exports = class AdminController extends ViewControllerBase {
+class AdminController extends ViewControllerBase {
 
 	constructor() {
 		super();
@@ -439,3 +439,5 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 }
+
+module.exports = AdminController;
