@@ -187,7 +187,7 @@ class AuthenticationModel {
 				function (key) {
 					if (tokenRecord[key]) {
 						obj[key] = tokenRecord[key]
-						delete tokenRecord[key]
+						//delete tokenRecord[key]
 					}
 				}
 			)
