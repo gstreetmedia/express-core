@@ -33,16 +33,23 @@
             <div class="form-control"
                  style="height: auto;min-height: 40px;overflow: hidden;text-overflow: ellipsis">
                 <%
+
+                    let m = "";
+                    let tableName;
                 if (model.foreignKeys && model.foreignKeys[key]) {
 
                     var name = value;
                     let foreignKeyModel = global.modelCache[model.foreignKeys[key].modelClass];
-                    let tableName = foreignKeyModel.tableName;
-                    let m = helpers.inflector.dasherize(
-                            helpers.inflector.underscore(
-                                    helpers.inflector.singularize(tableName)
-                            )
-                    );
+                    if (foreignKeyModel) {
+                        tableName = foreignKeyModel.tableName;
+                        m = helpers.inflector.dasherize(
+                                helpers.inflector.underscore(
+                                        helpers.inflector.singularize(tableName)
+                                )
+                        );
+                    } else {
+                    	m = "unknown";
+                    }
 
                     if (data.foreignKeys && data.foreignKeys[key] && data.foreignKeys[key].name) {
                         name = data.foreignKeys[key].name;
