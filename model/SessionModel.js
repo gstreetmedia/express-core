@@ -118,7 +118,7 @@ class SessionModel extends ModelBase {
 			)
 		}
 
-		data.userId = userId;
+		data.id = userId;
 
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
