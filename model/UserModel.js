@@ -43,8 +43,8 @@ class UserModel extends ModelBase {
 		return await super.create(data)
 	}
 
-	async read (id, query, cache) {
-		return await super.read(id, query, cache)
+	async read (id, query) {
+		return await super.read(id, query)
 	}
 
 	async update (id, data, fetch) {
@@ -106,7 +106,7 @@ class UserModel extends ModelBase {
 		)
 
 		return {
-			user: _.omit(user, ['id', 'password']),
+			user: _.omit(user, ['password']),
 			token: token
 		}
 	}
