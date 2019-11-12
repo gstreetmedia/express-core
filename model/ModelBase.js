@@ -1015,7 +1015,6 @@ class ModelBase extends EventEmitter {
 						} else {
 							targetKeys.push(results[i][joinFrom]);
 						}
-
 						fromIndex[results[i][joinFrom]] = i;
 					}
 				}
@@ -1039,9 +1038,14 @@ class ModelBase extends EventEmitter {
 						throughModel.debug = true;
 					}
 					throughList = await throughModel.query(joinThrough);
+					if (throughList.length === 0) {
+						keys.shift();
+						continue;
+					}
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
 					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
 					//console.log(targetKeys);
+
 				}
 
 				let j = _.clone(join[key]);

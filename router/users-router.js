@@ -1,9 +1,17 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-const Controller = require('../controller/UserController');
+const fs = require("fs");
+const path = require("path");
+
+let Controller;
+if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/UserController.js"))) {
+	const Controller = require('../controller/UserController');
+} else {
+	Controller = require(global.appRoot + "/src/controller/UserController");
+}
+
 const rateLimitRoute = require("../helper/rate-limit-route");
 let c = new Controller()
-
 
 router.use(authentication);
 
@@ -81,7 +89,7 @@ router.put('/register', async function (req, res, next) {
 router.post('/:id/update-email', async function (req, res, next) {
 	req.allowRole("user");
 	if(req.checkRole()){
-		return await c.updateEmailComplete(req, res);
+		return await c.updateEmailStart(req, res);
 	}
 	return next();
 });
@@ -117,6 +125,13 @@ router.post('/', async function (req, res, next) {
 
 router.put('/:id', async function (req, res, next) {
 	if(req.checkRole()){
+		return await c.update(req, res);
+	}
+	return next();
+});
+
+router.patch('/:id', async (req, res, next) => {
+	if (req.checkRole()) {
 		return await c.update(req, res);
 	}
 	return next();

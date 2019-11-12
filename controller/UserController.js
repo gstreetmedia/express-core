@@ -8,8 +8,12 @@ const Model = require("../../model/UserModel");
 
 class UserController extends ControllerBase {
 
-	constructor() {
-		super(Model);
+	constructor(model) {
+		if (model) {
+			super(model);
+		} else {
+			super(Model);
+		}
 	}
 
 	async index(req, res){

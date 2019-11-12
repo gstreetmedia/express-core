@@ -43,8 +43,8 @@ class UserModel extends ModelBase {
 		return await super.create(data)
 	}
 
-	async read (id, query) {
-		return await super.read(id, query)
+	async read (id, query, cache) {
+		return await super.read(id, query, cache)
 	}
 
 	async update (id, data, fetch) {

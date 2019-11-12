@@ -88,6 +88,7 @@ module.exports = (app, options) => {
 		}
 	];
 	let query = [
+		/*
 		{
 			name: "where",
 			in: "query",
@@ -133,6 +134,7 @@ module.exports = (app, options) => {
 				type: "string"
 			}
 		}
+		 */
 	];
 
 	endPoints.forEach(

@@ -252,12 +252,10 @@ class AuthenticationModel {
 
 		if (user) {
 			req.addRole(user.role);
-			console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			console.log(user);
 			req.user = user;
 			req.jwt = this.getTokenFromRequest(req);
 		} else {
-			console.log("WTFFFFFFFF");
+
 			return {
 				error : "Could Not Find User Record"
 			}
