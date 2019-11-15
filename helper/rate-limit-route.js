@@ -24,7 +24,8 @@ let getLimiter = (requestCount, duration, blockDuration) => {
 		});
 
 		redisClient.on("error", (e) => {
-			console.log("Could not connect to rate limiter route redis");
+			console.log("Rate Limiter Route Ready Error");
+			console.log(e);
 		});
 
 		redisClient.on("ready", () => {
