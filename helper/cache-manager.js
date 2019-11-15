@@ -32,6 +32,10 @@ if (!manager) {
 			console.log(error);
 		});
 
+		manager.get("last run", (err, value)=> {
+			manager.set(cachePrefix + "_" + "last_run", new Date().getTime());
+			console.log("last run => " + value);
+		})
 
 	} else {
 
