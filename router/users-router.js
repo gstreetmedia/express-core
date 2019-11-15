@@ -54,7 +54,7 @@ router.post('/lost-password', async function (req, res, next) {
 	return next();
 });
 
-router.put('/lost-password', async function (req, res, next) {
+router.patch('/lost-password', async function (req, res, next) {
 	req.allowRole("api-user");
 	if(req.checkRole()){
 		return await c.lostPasswordComplete(req, res);
@@ -94,10 +94,18 @@ router.post('/:id/update-email', async function (req, res, next) {
 	return next();
 });
 
-router.put('/:id/update-email', async function (req, res, next) {
+router.patch('/:id/update-email', async function (req, res, next) {
 	req.allowRole("user");
 	if(req.checkRole()){
 		return await c.updateEmailComplete(req, res);
+	}
+	return next();
+});
+
+router.post('/:id/update-password', async function (req, res, next) {
+	req.allowRole("user");
+	if(req.checkRole()){
+		return await c.updatePassword(req, res);
 	}
 	return next();
 });

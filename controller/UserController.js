@@ -6,6 +6,7 @@ const now = require("../helper/now");
 const moment = require("moment-timezone");
 const Model = require("../../model/UserModel");
 
+
 class UserController extends ControllerBase {
 
 	constructor(model) {
@@ -118,29 +119,66 @@ class UserController extends ControllerBase {
 		}
 
 		let m = new this.Model(req);
-		let result = m.lostPasswordStart(req.body.email || req.body.username);
-		if (!result.error) {
-			return res.success(result);
+		let result = await m.lostPasswordStart(req.body.email || req.body.username);
+		if (result.error) {
+			return res.error(result.error);
 		}
-		return res.notFound(req.query.email);
+		return res.success(result);
 	}
 
 	async lostPasswordComplete(req, res) {
+		console.log("lostPassword Complete");
 		if (!req.body.token) {
 			return res.notFound();
 		}
 
 		let m = new this.Model(req);
-		let result = m.lostPasswordComplete(req.body.token, req.body.password);
-		if (!result.error) {
-			return res.success(result);
+		let result = await m.lostPasswordComplete(req.body.token, req.body.password);
+
+		if (result.error) {
+			return res.error(result.error);
 		}
-		return res.notFound(req.query.token);
+
+		return res.success(result);
+	}
+	
+	async updatePassword(req, res) {
+		let m = new Model();
+		let record = await m.read(req.user.id);
+		if (!req.body.currentPassword) {
+			return res.error(
+				{
+					message : "Must send current password.",
+					statusCode : 401
+				}
+			)
+		}
+		if (hashPassword(req.body.currentPassword) !== record.password) {
+			return res.error(
+				{
+					message : "Current password does not match.",
+					statusCode : 401
+				}
+			)
+		}
+		let result = await m.update(req.user.id, {password:req.body.password});
+
+		if (result.error) {
+			return res.error(result.error);
+		}
+		return res.success(result.error);
 	}
 
 	async updateEmailStart(req, res) {
 		let m = new this.Model(req);
-		let result = m.updateEmailStart(req.body.email);
+		if (!req.body.email) {
+			return res.invalid(
+				{
+					message : "Please send an email"
+				}
+			)
+		}
+		let result = await m.updateEmailStart(req.user.id, req.body.email);
 		if (!result.error) {
 			return res.success(result);
 		}
@@ -148,15 +186,19 @@ class UserController extends ControllerBase {
 	}
 
 	async updateEmailComplete(req, res) {
-		if (!req.query.token) {
-			return res.notFound();
+		if (!req.body.token) {
+			return res.notFound(
+				{
+					message : "Missing Token"
+				}
+			);
 		}
 		let m = new this.Model(req);
-		let result = m.updateEmailComplete(req.body.token);
-		if (!result.error) {
-			return res.success(result);
+		let result = await m.updateEmailComplete(req.body.token);
+		if (result.error) {
+			return res.error(result.error);
 		}
-		return res.notFound(req.query.token);
+		return res.success(result);
 	}
 
 }

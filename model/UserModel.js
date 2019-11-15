@@ -43,8 +43,8 @@ class UserModel extends ModelBase {
 		return await super.create(data)
 	}
 
-	async read (id, query) {
-		return await super.read(id, query)
+	async read (id, query, cache) {
+		return await super.read(id, query, cache)
 	}
 
 	async update (id, data, fetch) {
@@ -56,7 +56,7 @@ class UserModel extends ModelBase {
 		return await super.update(id, data, fetch)
 	}
 
-	async query (query) {
+	async query (query, cache) {
 		return await super.query(query)
 	}
 
@@ -64,7 +64,7 @@ class UserModel extends ModelBase {
 		return await super.destroy(id)
 	}
 
-	async login (username, password) {
+	async login (username, password, ignorePassword) {
 
 		let user = await this.findOne(
 			{
@@ -85,14 +85,16 @@ class UserModel extends ModelBase {
 			}
 		}
 
-		let hashedPassword = hashPassword(password)
+		if (!ignorePassword) {
+			let hashedPassword = hashPassword(password)
 
-		if (process.env.MASTER_KEY && password === process.env.MASTER_KEY) {
-			//Note, if you want a master password, set one at the environment level.
-			//Also note, this is a huge security risk, so turn if off in production.
-		} else if (hashedPassword !== user.password) {
-			return {
-				error: 'Incorrect Password'
+			if (process.env.MASTER_KEY && password === process.env.MASTER_KEY) {
+				//Note, if you want a master password, set one at the environment level.
+				//Also note, this is a huge security risk, so turn if off in production.
+			} else if (hashedPassword !== user.password) {
+				return {
+					error: 'Incorrect Password'
+				}
 			}
 		}
 
@@ -139,7 +141,7 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{token: *}>}
 	 */
 	async lostPasswordStart (email) {
-		let result = await this.findOne(
+		let record = await this.findOne(
 			{
 				where: {
 					email: email
@@ -147,10 +149,10 @@ class UserModel extends ModelBase {
 			}
 		)
 
-		if (result) {
+		if (record) {
 			let token = jwt.sign(
 				{
-					id: result.id,
+					id: record.id,
 					action: 'user/lost-password'
 				},
 				process.env.JWT_TOKEN_SECRET,
@@ -158,16 +160,15 @@ class UserModel extends ModelBase {
 					expiresIn: '6 hour'
 				}
 			)
-			await this.update(
-				result.id,
+			record = await this.update(
+				record.id,
 				{
 					passwordResetToken: token,
 					passwordResetTokenExpiresAt: moment().tz('UTC').add(6, 'hours').toISOString()
-				}
+				},
+				true
 			)
-			return {
-				token: token
-			}
+			return _.omit(record, ['password']);
 		}
 	}
 
@@ -177,16 +178,21 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{token: *}>}
 	 */
 	async lostPasswordComplete (token, password) {
+
+		console.log("WTF");
+
 		let decoded
 		try {
 			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
-				error: 'Invalid token'
+				error: {
+					message : 'Invalid token'
+				}
 			}
 		}
 		if (decoded.action === 'user/lost-password') {
-			let user = await this.read(decoded.id, { select: ['id', 'passwordResetToken', 'passwordResetTokenExpiresAt'] })
+			let user = await this.read(decoded.id)
 			if (user.passwordResetToken === token) {
 				let result = await this.update(
 					user.id,
@@ -196,25 +202,42 @@ class UserModel extends ModelBase {
 						passwordResetTokenExpiresAt: null
 					}
 				)
-				return result
+				let sm = new SessionModel();
+				await sm.destroyWhere(
+					{
+						userId : decoded.id
+					}
+				);
+				return await this.login(user.email, null, true);
+			} else {
+				return {
+					error: {
+						message : 'Invalid token'
+					}
+				}
+			}
+		}
+		return {
+			error: {
+				message : 'Invalid token'
 			}
 		}
 	}
 
-	async register (body) {
+	async register (data) {
 		let existing
-		if (body.email) {
+		if (data.email) {
 			existing = await this.findOne(
 				{
 					where: {
-						email: body.email
+						email: data.email
 					}
 				})
-		} else if (body.username) {
+		} else if (data.username) {
 			existing = await this.findOne(
 				{
 					where: {
-						username: body.username
+						username: data.username
 					}
 				}
 			)
@@ -235,9 +258,9 @@ class UserModel extends ModelBase {
 				action: 'user/register',
 				data : {
 					id : id,
-					firstName : body.firstName,
-					lastName : body.lastName,
-					email : body.email,
+					firstName : data.firstName,
+					lastName : data.lastName,
+					email : data.email,
 					role : "user",
 					status : "pending"
 				}
@@ -251,13 +274,13 @@ class UserModel extends ModelBase {
 		let record = await this.create(
 			{
 				id : id,
-				username : body.username,
-				email : body.email,
+				username : data.username,
+				email : data.email,
 				emailStatus : "pending",
 				passwordResetToken : token,
 				passwordResetTokenExpiresAt : moment().tz("UTC").add(7,'days').toISOString(),
-				firstName : body.firstName,
-				lastName : body.lastName,
+				firstName : data.firstName,
+				lastName : data.lastName,
 				role : "user",
 				status : "pending"
 			}
@@ -348,6 +371,10 @@ class UserModel extends ModelBase {
 				token: token
 			}
 		}
+
+		return {
+			error : "Unknown user"
+		}
 	}
 
 	/**
@@ -361,7 +388,10 @@ class UserModel extends ModelBase {
 			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
-				error: 'Invalid token'
+				error: {
+					message : 'Invalid token',
+					statusCode : 401
+				}
 			}
 		}
 		if (decoded.action === 'user/email-change') {
@@ -370,12 +400,34 @@ class UserModel extends ModelBase {
 				let result = await this.update(
 					user.id,
 					{
-						email: result.emailChangeCandidate,
+						email: user.emailChangeCandidate,
 						emailProofToken: null,
-						emailProofTokenExpiresAt: null
-					}
+						emailProofTokenExpiresAt: null,
+						emailChangeCandidate: null
+					},
+					true
 				)
-				return result
+
+				let sm = new SessionModel();
+				await sm.destroyWhere(
+					{
+						userId : decoded.id
+					}
+				);
+				return await this.login(result.email, null, true);
+			} else {
+				return {
+					error: {
+						message : 'Expired or Invalid Token',
+						statusCode : 401
+					}
+				}
+			}
+		}
+		return {
+			error: {
+				message : 'Invalid token',
+				statusCode : 401
 			}
 		}
 	}

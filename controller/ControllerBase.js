@@ -131,7 +131,7 @@ class ControllerBase {
 
 		try {
 			let result;
-			if (req.query.where) {
+			if (req.query && req.query.where) {
 				let result = await new this.Model(req).updateWhere(req.body, req.query);
 			} else {
 				result = await new this.Model(req).update(req.params.id, req.body);
