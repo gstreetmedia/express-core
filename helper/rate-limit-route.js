@@ -17,9 +17,6 @@ let getLimiter = (requestCount, duration, blockDuration) => {
 
 		let connection = connectionStringParser(process.env.CACHE_REDIS);
 
-		console.log("Rate Limiter Route");
-		console.log(connection);
-
 		const redisClient = redis.createClient({
 			host: connection.host,
 			port: connection.port,
@@ -29,6 +26,10 @@ let getLimiter = (requestCount, duration, blockDuration) => {
 		redisClient.on("error", (e) => {
 			console.log("Could not connect to rate limiter route redis");
 		});
+
+		redisClient.on("ready", () => {
+			console.log("Rate Limiter Route Ready > " + requestCount + " : " + duration + " : " + blockDuration);
+		})
 
 		limiter = new RateLimiterRedis({
 			redis: redisClient,
