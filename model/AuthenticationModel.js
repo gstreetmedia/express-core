@@ -166,7 +166,7 @@ class AuthenticationModel {
 					tokenRecord.config.settings &&
 					tokenRecord.config.settings.hosts
 				) {
-					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req.get('Referrer')) === false) {
+					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req) === false) {
 						return 'Token not allowed for this host'
 					}
 				}
@@ -288,7 +288,7 @@ class AuthenticationModel {
 	 * @returns {Promise<void>}
 	 */
 	async verify (req) {
-		this.checkLocalRequest(req)
+		this.checkLocalRequest(req);
 
 		if (this.hasValidCookie(req)
 		) {

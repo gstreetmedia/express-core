@@ -96,7 +96,7 @@ class ControllerBase {
 
 		let queryTest = this.testQuery(req, res);
 
-		if (queryTest.error) {
+		if (queryTest && queryTest.error) {
 			if (res) {
 				return res.invalid(queryTest);
 			} else {

@@ -433,7 +433,7 @@ class ModelBase extends EventEmitter {
 
 	async updateWhere(query, data) {
 
-		data.updatedAt = now();
+		data[this.updatedAt] = now();
 
 		let params = this.convertDataTypes(data);
 		let required = this.checkRequiredProperties(params, "update");
@@ -460,12 +460,8 @@ class ModelBase extends EventEmitter {
 			};
 		}
 
-		this.emit("beforeUpdateWhere", result);
-
 		let command = this.queryBuilder.update(query, params);
-
 		let result = await this.execute(command);
-		this.emit("updateWhere", result);
 
 		if (result.error) {
 			return result;
@@ -1114,7 +1110,18 @@ class ModelBase extends EventEmitter {
 									throughItems.forEach(
 										function(throughItem) {
 											try {
-												let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												let resultsIndex;
+												if (_.isArray(throughItem[joinThroughFrom])) {
+													for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
+														let k = throughItem[joinThroughFrom][i];
+														if (k in fromIndex) {
+															resultsIndex = fromIndex[k];
+															break;
+														}
+													}
+												} else {
+													resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												}
 												if (removeJoinTo) {
 													delete row[joinTo];
 												}
@@ -1129,6 +1136,7 @@ class ModelBase extends EventEmitter {
 							)
 						} else {
 							for (let i = 0; i < list.length; i++) {
+								//TODO Arrays
 								results[fromIndex[list[i][joinTo]]][key] = list[i];
 								if (removeJoinTo) {
 									delete results[fromIndex[list[i][joinTo]]][key][joinTo];
@@ -1201,11 +1209,21 @@ class ModelBase extends EventEmitter {
 											}
 										}
 									)
-
 									throughItems.forEach(
 										function(throughItem){
+											let resultsIndex;
+											if (_.isArray(throughItem[joinThroughFrom])) {
+												for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
+													let k = throughItem[joinThroughFrom][i];
+													if (k in fromIndex) {
+														resultsIndex = fromIndex[k];
+														break;
+													}
+												}
+											} else {
+												resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+											}
 
-											let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
 											results[resultsIndex][key] = results[resultsIndex][key] || [];
 											let filter = {[item.join.to]:row[item.join.to]};
 											if (!_.find(results[resultsIndex][key], filter)) {
@@ -1221,7 +1239,7 @@ class ModelBase extends EventEmitter {
 						} else {
 							for (let i = 0; i < list.length; i++) {
 								try {
-
+									//TODO Arrays
 									if (!results[fromIndex[list[i][joinTo]]][key]) {
 										results[fromIndex[list[i][joinTo]]][key] = [];
 									}
