@@ -954,6 +954,9 @@ class ModelBase extends EventEmitter {
 
 				if (join[key] === true) {
 					join[key] = {}
+				} else if (join[key] === false) {
+					keys.shift();
+					continue;
 				}
 
 				let list;
@@ -1004,6 +1007,7 @@ class ModelBase extends EventEmitter {
 				 */
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
+
 					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
 						//Allow for join on json value
 						let value = _.get(results[i], joinFrom, null);
@@ -1011,7 +1015,7 @@ class ModelBase extends EventEmitter {
 						fromIndex[value] = i;
 					} else if (results[i][joinFrom]) {
 						if (_.isArray(results[i][joinFrom])) {
-							targetKeys.concat(results[i][joinFrom]);
+							targetKeys = targetKeys.concat(results[i][joinFrom]);
 						} else {
 							targetKeys.push(results[i][joinFrom]);
 						}
@@ -1043,6 +1047,7 @@ class ModelBase extends EventEmitter {
 						continue;
 					}
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
+					targetKeys = _.flatten(targetKeys)
 					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
 					//console.log(targetKeys);
 
@@ -1094,9 +1099,18 @@ class ModelBase extends EventEmitter {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									let obj = {};
-									obj[joinThroughTo] = row[joinTo];
-									let throughItems = _.filter(throughList, obj);
+									let throughItems = [];
+									throughList.forEach(
+										function(item) {
+											if (_.isArray(item[joinThroughTo])) {
+												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
+													throughItems.push(item)
+												}
+											} else if (item[joinThroughTo] === row[joinTo]) {
+												throughItems.push(item);
+											}
+										}
+									)
 									throughItems.forEach(
 										function(throughItem) {
 											try {
@@ -1175,11 +1189,22 @@ class ModelBase extends EventEmitter {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									let obj = {};
-									obj[joinThroughTo] = row[joinTo];
-									let throughItems = _.filter(throughList, obj);
+									let throughItems = [];
+									throughList.forEach(
+										function(item) {
+											if (_.isArray(item[joinThroughTo])) {
+												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
+													throughItems.push(item)
+												}
+											} else if (item[joinThroughTo] === row[joinTo]) {
+												throughItems.push(item);
+											}
+										}
+									)
+
 									throughItems.forEach(
 										function(throughItem){
+
 											let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
 											results[resultsIndex][key] = results[resultsIndex][key] || [];
 											let filter = {[item.join.to]:row[item.join.to]};
@@ -1196,9 +1221,11 @@ class ModelBase extends EventEmitter {
 						} else {
 							for (let i = 0; i < list.length; i++) {
 								try {
+
 									if (!results[fromIndex[list[i][joinTo]]][key]) {
 										results[fromIndex[list[i][joinTo]]][key] = [];
 									}
+
 									let targetKey = list[i][joinTo];
 									let value = list[i];
 
