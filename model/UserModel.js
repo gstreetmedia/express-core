@@ -155,7 +155,7 @@ class UserModel extends ModelBase {
 					id: record.id,
 					action: 'user/lost-password'
 				},
-				process.env.JWT_TOKEN_SECRET,
+				process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
 				{
 					expiresIn: '6 hour'
 				}
@@ -183,7 +183,7 @@ class UserModel extends ModelBase {
 
 		let decoded
 		try {
-			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET)
+			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
 				error: {
@@ -265,7 +265,7 @@ class UserModel extends ModelBase {
 					status : "pending"
 				}
 			},
-			process.env.JWT_TOKEN_SECRET,
+			process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
 			{
 				expiresIn: '7 days'
 			}
@@ -293,7 +293,7 @@ class UserModel extends ModelBase {
 	async registerComplete (token, password) {
 		let decoded;
 		try {
-			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET)
+			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
 				error : {
@@ -353,7 +353,7 @@ class UserModel extends ModelBase {
 					id: result.id,
 					action: 'user/email-change'
 				},
-				process.env.JWT_TOKEN_SECRET,
+				process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
 				{
 					expiresIn: '6 hour'
 				}
@@ -385,7 +385,7 @@ class UserModel extends ModelBase {
 	async updateEmailComplete (token) {
 		let decoded
 		try {
-			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET)
+			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
 				error: {

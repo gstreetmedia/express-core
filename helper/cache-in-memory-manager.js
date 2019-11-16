@@ -2,7 +2,7 @@ const cacheManager = require('cache-manager');
 
 const config = {store: 'memory', max: 1000, ttl: 120/*seconds*/};
 const manager = cacheManager.caching(config);
-const cachePrefix = process.env.CACHE_PREFIX || "core";
+const cachePrefix = process.env.CACHE_PREFIX || process.env.CORE_CACHE_PREFIX || "core";
 const setFunction= manager.set;
 const getFunction = manager.get;
 const resetFunction = manager.reset;

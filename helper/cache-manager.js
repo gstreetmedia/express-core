@@ -3,7 +3,7 @@ const connectionStringParser = require("./connection-string-parser");
 
 let config;
 let manager;
-let cachePrefix = process.env.CACHE_PREFIX || "core";
+let cachePrefix = process.env.CACHE_PREFIX || process.env.CORE_CACHE_PREFIX || "core";
 
 let setFunction;
 let getFunction;
@@ -11,9 +11,9 @@ let resetFunction;
 let destroyFunction;
 
 if (!manager) {
-	if (process.env.CACHE_REDIS) {
+	if (process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS) {
 
-		let connection = connectionStringParser(process.env.CACHE_REDIS);
+		let connection = connectionStringParser(process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS);
 		console.log("cache redis");
 		console.log(connection);
 
@@ -63,7 +63,7 @@ setFunction = (key, value, ttl) => {
     });
   });
 };
-getFunction = (key, value, ttl) => {
+getFunction = (key) => {
   return new Promise(function (resolve, reject) {
     manager.get(cachePrefix + "_" + key, function (err, result) {
       if (err) {
@@ -74,7 +74,7 @@ getFunction = (key, value, ttl) => {
     });
   });
 };
-resetFunction = (key, value, ttl) => {
+resetFunction = () => {
   return new Promise(function (resolve, reject) {
     manager.reset(function (err, result) {
       if (err) {
@@ -103,7 +103,7 @@ exports.set = async (key, value, ttl) => {
 	return await setFunction(
 		cachePrefix + "_" + key, value,
 		{
-			ttl : ttl || 60
+			ttl : ttl || process.env.CORE_CACHE_DURATION_SHORT || 60
 		}
 	);
 } ;

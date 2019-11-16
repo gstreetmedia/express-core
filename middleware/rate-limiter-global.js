@@ -1,13 +1,13 @@
 let rateLimiterMiddleware;
 let limiter;
 
-if (process.env.CACHE_REDIS && !limiter) {
+if (process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS && !limiter) {
 
 	const redis = require('redis');
 	const {RateLimiterRedis: RateLimiterGlobal} = require('rate-limiter-flexible');
 	const connectionStringParser = require("../helper/connection-string-parser");
 
-	let connection = connectionStringParser(process.env.CACHE_REDIS);
+	let connection = connectionStringParser(process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS);
 
 	console.log("Rate Limiter Global Redis");
 	console.log(connection);

@@ -79,7 +79,7 @@ class SessionModel extends ModelBase {
 				let decoded;
 
 				try {
-					decoded = jwt.decode(sessions[i].token, process.env.JWT_TOKEN_SECRET);
+					decoded = jwt.decode(sessions[i].token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET);
 				} catch (e) {
 					decoded = null;
 				}
@@ -143,9 +143,9 @@ class SessionModel extends ModelBase {
 			{
 				id : userId,
 				data : data,
-				systemId : process.env.JWT_TOKEN_SYSTEM_ID || "core"
+				systemId : process.env.JWT_TOKEN_SYSTEM_ID || process.env.CORE_JWT_TOKEN_SYSTEM_ID || "core"
 			},
-			process.env.JWT_TOKEN_SECRET,
+			process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
 			{
 				expiresIn: process.env.CORE_JWT_DURATION || "30 days"
 			}

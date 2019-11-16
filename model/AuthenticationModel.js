@@ -59,7 +59,7 @@ class AuthenticationModel {
 
 		let decodedToken
 		try {
-			decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET)
+			decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
 				error: 'Expired Token'
@@ -194,7 +194,7 @@ class AuthenticationModel {
 
 			obj.token = tokenRecord;
 
-			await cache.set('configuration_' + key, obj, process.env.CACHE_DURATION_LONG);
+			await cache.set('configuration_' + key, obj, process.env.CACHE_DURATION_LONG || process.env.CORE_CACHE_DURATION_LONG);
 
 		} else {
 			req.addRole('api-key')
@@ -309,7 +309,7 @@ class AuthenticationModel {
 				console.log('keyResult => ' + keyResult.error)
 			}
 		} else {
-			console.log('No Application Key. Hacker ???')
+			//console.log('No Application Key. Hacker ???')
 		}
 
 		if (req.headers['authorization']) {

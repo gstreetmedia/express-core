@@ -1,6 +1,6 @@
 let config;
 let manager;
-let cachePrefix = process.env.CACHE_PREFIX || "core";
+let cachePrefix = process.env.CACHE_PREFIX || process.env.CORE_CACHE_PREFIX || "core";
 
 let setFunction;
 let getFunction;
@@ -8,13 +8,13 @@ let resetFunction;
 let destroyFunction;
 let clearFunction;
 
-if (process.env.CACHE_REDIS) {
+if (process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS) {
 	const redis = require("redis");
 	const util = require('util');
 
 
 	const connectionStringParser = require("./connection-string-parser");
-	const cs = connectionStringParser(process.env.CACHE_REDIS);
+	const cs = connectionStringParser(process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS);
 
 	console.log(cs);
 
