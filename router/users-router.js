@@ -10,7 +10,7 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/UserController
 	Controller = require(global.appRoot + "/src/controller/UserController");
 }
 
-const rateLimitRoute = require("../helper/rate-limit-route");
+const rateLimitRoute = require("../helper/rate-limit-route")();
 let c = new Controller()
 
 router.use(authentication);
@@ -25,10 +25,10 @@ router.post('/login', async function (req, res, next) {
 	req.allowRole("guest");
 
 	if(req.checkRole()){
-		const rateLimiter = rateLimitRoute();
-		const retryAfter = await rateLimiter.check("user/login");
+
+		const retryAfter = await rateLimitRoute.check("user/login");
 		if (retryAfter) {
-			await rateLimiter.fail("user/login");
+			await rateLimitRoute.fail("user/login");
 			return res.tooManyRequests(retryAfter)
 		}
 

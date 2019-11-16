@@ -220,7 +220,7 @@ class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async bearerToken (req) {
-		console.log('bearerToken.parent')
+		//console.log('bearerToken.parent')
 		let token
 		let decodedToken = this.getDecodedTokenFromRequest(req);
 
@@ -294,9 +294,9 @@ class AuthenticationModel {
 		) {
 			let keyResult = await this.bearerToken(req)
 			if (keyResult.error) {
-				console.log('keyResult => ' + keyResult.error)
+				//console.log('keyResult => ' + keyResult.error)
 			} else {
-				console.log('Has Valid Cookie!!!')
+				//console.log('Has Valid Cookie!!!')
 			}
 			if (req.currentRoles.indexOf('super-admin') !== -1) {
 				return

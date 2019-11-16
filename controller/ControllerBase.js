@@ -398,7 +398,6 @@ class ControllerBase {
 		}
 	}
 
-
 	async adminIndex(req) {
 		let m = new this.Model();
 		let keys = Object.keys(m.foreignKeys);
@@ -414,7 +413,7 @@ class ControllerBase {
 			keys.shift();
 		}
 
-		return await this.query(req);
+		return await m.query(req.query);
 	}
 
 	async adminCreate(req) {
@@ -465,6 +464,11 @@ class ControllerBase {
 		}
 
 		return data;
+	}
+
+	async adminView(req) {
+		let m = new this.Model();
+		return await m.read(req.params.id, req.query);
 	}
 
 

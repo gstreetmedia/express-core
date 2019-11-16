@@ -955,6 +955,7 @@ class ModelBase extends EventEmitter {
 				if (join[key] === true) {
 					join[key] = {}
 				} else if (join[key] === false) {
+					console.log("remove join " + key);
 					keys.shift();
 					continue;
 				}
@@ -1023,7 +1024,7 @@ class ModelBase extends EventEmitter {
 					}
 				}
 
-				//console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
+				///console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
 
 				//console.log("joinFrom => " + joinFrom);
 				//console.log("joinThroughTo => " + joinThroughTo);
@@ -1060,7 +1061,6 @@ class ModelBase extends EventEmitter {
 					case "HasOne":
 
 						//console.log("HasOne " + key);
-
 
 						let HasOneModel = this.loadModel(item.modelClass);
 						let hasOneModel = new HasOneModel(this.req);

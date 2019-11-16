@@ -416,9 +416,6 @@ class AdminController extends ViewControllerBase {
 		let baseName = inflector.classify(inflector.underscore(req.params.model));
 		let altName = inflector.singularize(baseName);
 
-		console.log(baseName);
-		console.log(altName);
-
 		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
 
 		if (fs.existsSync(c + ".js")) {
