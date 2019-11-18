@@ -66,10 +66,9 @@ router.post('/register', async function (req, res, next) {
 	req.allowRole("api-user");
 	if(req.checkRole()){
 
-		const rateLimiter = rateLimitRoute();
-		const retryAfter = await rateLimiter.check("user/register");
+		const retryAfter = await rateLimitRoute.check("user/register");
 		if (retryAfter) {
-			await rateLimiter.fail("user/register");
+			await rateLimitRoute.fail("user/register");
 			return res.tooManyRequests(retryAfter)
 		}
 
