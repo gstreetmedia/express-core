@@ -245,7 +245,7 @@ class UserModel extends ModelBase {
 		if (existing) {
 			return {
 				error : {
-					message : "This user already exists"
+					message : "A user with this email already exists in our system. Please login, or try a different email."
 				}
 			}
 		}
