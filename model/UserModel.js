@@ -144,7 +144,8 @@ class UserModel extends ModelBase {
 		let record = await this.findOne(
 			{
 				where: {
-					email: email
+					email: email,
+					status: 'active'
 				}
 			}
 		)
@@ -245,7 +246,8 @@ class UserModel extends ModelBase {
 		if (existing) {
 			return {
 				error : {
-					message : "A user with this email already exists in our system. Please login, or try a different email."
+					message : "A user with this email already exists in our system. Please login or try a different email.",
+					statusCode : 409
 				}
 			}
 		}
