@@ -65,13 +65,6 @@ router.patch('/lost-password', async function (req, res, next) {
 router.post('/register', async function (req, res, next) {
 	req.allowRole("api-user");
 	if(req.checkRole()){
-
-		const retryAfter = await rateLimitRoute.check("user/register");
-		if (retryAfter) {
-			await rateLimitRoute.fail("user/register");
-			return res.tooManyRequests(retryAfter)
-		}
-
 		return await c.register(req, res);
 	}
 	return next();
