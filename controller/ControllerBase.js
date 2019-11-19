@@ -463,7 +463,7 @@ class ControllerBase {
 		let m = new this.Model();
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
-		let data = await this.read(req);
+		let data = await m.read(req.params.id);
 
 		data.lookup = {};
 		data.search = {};
@@ -487,6 +487,11 @@ class ControllerBase {
 	async adminView(req) {
 		let m = new this.Model();
 		return await m.read(req.params.id, req.query);
+	}
+
+	async adminDestroy(req) {
+		let m = new this.Model();
+		return await m.destroy(req.params.id);
 	}
 
 

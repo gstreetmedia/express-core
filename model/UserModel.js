@@ -347,9 +347,39 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async updateEmailStart (id, email) {
-		let result = await this.read(id)
+		let result = await this.read(id);
 
 		if (result) {
+
+			if (result.email === email) {
+				return {
+					error : {
+						message : "This is currently your email. Nothing to change!",
+						statusCode : 403
+					}
+				}
+			}
+
+			let emailResults = await this.find(
+				{
+					where : {
+						email : email
+					},
+					select : ['id','email']
+				}
+			);
+
+			console.log(emailResults);
+
+			if (emailResults.length > 0) {
+				return {
+					error : {
+						message : "Sorry. This email is already in use by another user.",
+						statusCode : 403
+					}
+				}
+			}
+
 			let token = jwt.sign(
 				{
 					id: result.id,
