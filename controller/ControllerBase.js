@@ -403,7 +403,6 @@ class ControllerBase {
 		let keys = Object.keys(m.foreignKeys);
 		req.query.join = req.query.join || {};
 
-		console.log(m.tableName);
 		let fields = m.fields.adminIndex;
 
 		while (keys.length > 0) {
@@ -414,18 +413,24 @@ class ControllerBase {
 		}
 
 		let count = await m.count(req.query);
+
 		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		if (isNaN(req.query.limit)) {
 			req.query.limit = 500;
 		}
+
 		req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
+
 		if (isNaN(req.query.offset)) {
 			req.query.offset = 0;
 		}
+
 		req.limit = req.query.limit;
 		req.offset = req.query.offset || 0;
 		req.count = parseInt(count);
-		let result = await m.index(req.query);
+
+		let result = await m.find(req.query);
+
 		return result;
 	}
 
