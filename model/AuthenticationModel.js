@@ -116,7 +116,12 @@ class AuthenticationModel {
 
 		let key = req.headers['application-key']
 		if (!key) {
-			return { error: 'Missing Application Key' }
+			return {
+				error: {
+					message : 'Missing Application Key',
+					statusCode : 401
+				}
+			}
 		}
 
 		let secret = req.headers['application-secret'];
@@ -147,9 +152,19 @@ class AuthenticationModel {
 
 			if (!tokenRecord) {
 				if (secret) {
-					return { error: 'Invalid Application Key or Secret' }
+					return {
+						error: {
+							message : 'Invalid Application Key or Secret',
+							statusCode : 401
+						}
+					}
 				}
-				return { error: 'Invalid Application Key' }
+				return {
+					error: {
+						message : 'Invalid Application Key',
+						statusCode : 401
+					}
+				}
 			} else {
 				//This is at the very least a request using an API KEY
 				req.addRole('api-key')
@@ -167,11 +182,21 @@ class AuthenticationModel {
 					tokenRecord.config.settings.hosts
 				) {
 					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req) === false) {
-						return 'Token not allowed for this host'
+						return {
+							error: {
+								message : 'Token not allowed for this host',
+								statusCode : 401
+							}
+						}
 					}
 				}
 			} else if (secret && req.get('Referrer')) {
-				return { error: 'Please do not include an Application Secret when making requests from a browser.' }
+				return {
+					error: {
+						message : 'Please do not include an Application Secret when making requests from a browser.',
+						statusCode : 401
+					}
+				}
 			} else if (secret) {
 				req.addRole('api-secret')
 			}
@@ -226,7 +251,10 @@ class AuthenticationModel {
 
 		if (decodedToken.error) {
 			return {
-				error : "Invalid Token"
+				error: {
+					message : 'Invalid or Expired Token',
+					statusCode : 401
+				}
 			}
 		}
 
@@ -235,8 +263,11 @@ class AuthenticationModel {
 		if (session.error) {
 			console.log("SESSION ERROR");
 			return {
-				error : "Session Error"
-			};
+				error: {
+					message : 'Session Error',
+					statusCode : 401
+				}
+			}
 		}
 
 		let cacheKey = 'authenticated_user_' + decodedToken.id //accountId
@@ -246,8 +277,15 @@ class AuthenticationModel {
 
 		if (!user) {
 			let um = new UserModel(req)
-			user = await um.read(decodedToken.id);
-			await cache.set(cacheKey, user)
+			user = await um.findOne(
+				{
+					id : decodedToken.id,
+					status : 'active'
+				}
+			);
+			if (user) {
+				await cache.set(cacheKey, user);
+			}
 		}
 
 		if (user) {
@@ -255,9 +293,11 @@ class AuthenticationModel {
 			req.user = user;
 			req.jwt = this.getTokenFromRequest(req);
 		} else {
-
 			return {
-				error : "Could Not Find User Record"
+				error: {
+					message : 'Unknown on Inactive User',
+					statusCode : 401
+				}
 			}
 		}
 
@@ -294,19 +334,20 @@ class AuthenticationModel {
 		) {
 			let keyResult = await this.bearerToken(req)
 			if (keyResult.error) {
-				//console.log('keyResult => ' + keyResult.error)
-			} else {
-				//console.log('Has Valid Cookie!!!')
+				return keyResult;
 			}
 			if (req.currentRoles.indexOf('super-admin') !== -1) {
-				return
+				return {
+
+				}
 			}
 		}
 
 		if (req.headers['application-key']) {
 			let keyResult = await this.applicationKey(req)
 			if (keyResult.error) {
-				console.log('keyResult => ' + keyResult.error)
+				console.log('keyResult => ' + keyResult.error);
+				return keyResult;
 			}
 		} else {
 			//console.log('No Application Key. Hacker ???')
@@ -317,6 +358,11 @@ class AuthenticationModel {
 			if (authResult.error) {
 				console.log('authResult => ' + authResult.error)
 			}
+			return authResult;
+		}
+
+		return {
+			success : true
 		}
 	}
 }
