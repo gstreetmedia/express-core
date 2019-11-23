@@ -106,7 +106,8 @@ class UserModel extends ModelBase {
 				//Also note, this is a huge security risk, so turn if off in production.
 			} else if (hashedPassword !== user.password) {
 				return {
-					error: 'Incorrect Password'
+					error: 'Incorrect Password',
+					statusCode : 401
 				}
 			}
 		}

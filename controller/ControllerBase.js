@@ -347,7 +347,7 @@ class ControllerBase {
 		let list = [];
 
 		for(let field in hash) {
-			let values = _.uniq(hash[field]);;
+			let values = _.uniq(hash[field]);
 			values.forEach(
 				function(item) {
 					list.push(
@@ -399,7 +399,7 @@ class ControllerBase {
 	}
 
 	async adminIndex(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let keys = Object.keys(m.foreignKeys);
 		req.query.join = req.query.join || {};
 
@@ -435,7 +435,7 @@ class ControllerBase {
 	}
 
 	async adminCreate(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
 		let data = {
@@ -460,7 +460,7 @@ class ControllerBase {
 	}
 
 	async adminUpdate(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
 		let data = await m.read(req.params.id);
@@ -485,12 +485,12 @@ class ControllerBase {
 	}
 
 	async adminView(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		return await m.read(req.params.id, req.query);
 	}
 
 	async adminDestroy(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		return await m.destroy(req.params.id);
 	}
 
