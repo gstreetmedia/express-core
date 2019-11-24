@@ -18,6 +18,5 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication
 	};
 
 } else {
-	console.log("using local authentication");
 	module.exports = require(global.appRoot + "/src/middleware/authentication");
 }

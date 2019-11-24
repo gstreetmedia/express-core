@@ -158,12 +158,10 @@ class AuthenticationModel {
 							statusCode : 401
 						}
 					}
-
 				}
-
 				return {
 					error: {
-						message : 'Invalid Application',
+						message : 'Invalid Application Key',
 						statusCode : 401
 					}
 				}
@@ -193,7 +191,12 @@ class AuthenticationModel {
 					}
 				}
 			} else if (secret && req.get('Referrer')) {
-				return { error: 'Please do not include an Application Secret when making requests from a browser.' }
+				return {
+					error: {
+						message : 'Please do not include an Application Secret when making requests from a browser.',
+						statusCode : 401
+					}
+				}
 			} else if (secret) {
 				req.addRole('api-secret')
 			}
@@ -248,18 +251,20 @@ class AuthenticationModel {
 
 		if (decodedToken.error) {
 			return {
-				error : "Invalid Token",
-				statusCode : 401
+				error: {
+					message : 'Invalid or Expired Token',
+					statusCode : 401
+				}
 			}
 		}
 
 		let session = await this.getSessionFromRequest(req)
 
 		if (session.error) {
-
+			console.log("SESSION ERROR");
 			return {
 				error: {
-					message : "Session Error",
+					message : 'Session Error',
 					statusCode : 401
 				}
 			}
@@ -272,8 +277,15 @@ class AuthenticationModel {
 
 		if (!user) {
 			let um = new UserModel(req)
-			user = await um.read(decodedToken.id);
-			await cache.set(cacheKey, user)
+			user = await um.findOne(
+				{
+					id : decodedToken.id,
+					status : 'active'
+				}
+			);
+			if (user) {
+				await cache.set(cacheKey, user);
+			}
 		}
 
 		if (user) {
@@ -283,16 +295,14 @@ class AuthenticationModel {
 		} else {
 
 			return {
-				error : {
-					message: "Could Not Find User Record",
-					statusCode : 404
+				error: {
+					message : 'Unknown on Inactive User',
+					statusCode : 401
 				}
 			}
 		}
 
-		return {
-			success : true
-		}
+		return true
 	}
 
 	hasValidCookie (req) {
@@ -319,38 +329,44 @@ class AuthenticationModel {
 	 * @returns {Promise<void>}
 	 */
 	async verify (req) {
-		let keyResult = {};
-
 		this.checkLocalRequest(req);
 
 		if (this.hasValidCookie(req)
 		) {
-			keyResult = await this.bearerToken(req)
+			let keyResult = await this.bearerToken(req)
 			if (keyResult.error) {
-				return keyResult;
+				//console.log('keyResult => ' + keyResult.error)
+			} else {
+				//console.log('Has Valid Cookie!!!')
 			}
 			if (req.currentRoles.indexOf('super-admin') !== -1) {
-				return keyResult;
+				return {
+
+				}
 			}
 		}
 
 		if (req.headers['application-key']) {
-			keyResult = await this.applicationKey(req)
+			let keyResult = await this.applicationKey(req)
 			if (keyResult.error) {
+				console.log('keyResult => ' + keyResult.error);
 				return keyResult;
 			}
+		} else {
+			//console.log('No Application Key. Hacker ???')
 		}
 
 		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req)
 			if (authResult.error) {
-				return authResult;
-			} else {
-				return authResult;
+				console.log('authResult => ' + authResult.error)
 			}
+			return authResult;
 		}
 
-		return keyResult;
+		return {
+			success : true
+		}
 	}
 }
 

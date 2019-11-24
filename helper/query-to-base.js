@@ -206,7 +206,6 @@ module.exports = class QueryToSqlBase {
 
 	buildSelect (key, subKey) {
 		let query = `"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`;
-		console.log(query);
 		return this.knexRaw(query);
 	}
 

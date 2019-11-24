@@ -179,10 +179,10 @@ class UserController extends ControllerBase {
 			)
 		}
 		let result = await m.updateEmailStart(req.user.id, req.body.email);
-		if (!result.error) {
-			return res.success(result);
+		if (result.error) {
+			return res.error(result.error);
 		}
-		return res.notFound(req.query.token);
+		return res.success(result);
 	}
 
 	async updateEmailComplete(req, res) {

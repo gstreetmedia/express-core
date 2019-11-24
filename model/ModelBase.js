@@ -11,7 +11,7 @@ const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
 const EventEmitter = require("events");
 const cacheManager = require("../helper/cache-manager");
-const deepTrim = require("deep-trim");
+const trimObject = require("../helper/trim-object");
 
 class ModelBase extends EventEmitter {
 
@@ -910,6 +910,7 @@ class ModelBase extends EventEmitter {
 
 		let keys = Object.keys(join);
 
+
 		let processWhere = (key, j)=> {
 			if (relations[key].where) {
 				j.where = j.where || {};
@@ -945,8 +946,6 @@ class ModelBase extends EventEmitter {
 		while (keys.length > 0) {
 			let key = keys[0];
 			if (relations[key]) {
-
-				//console.log("!!!!!!!!!!!!!!!!Key => " + key);
 
 				if (join[key] === true) {
 					join[key] = {}
@@ -1268,11 +1267,13 @@ class ModelBase extends EventEmitter {
 				}
 			} else if (foreignKeys[key]) {
 
+				//console.log("!!!!!!!!!!!!!!!!foreignKeys => " + key);
+
 				let j = _.clone(foreignKeys[key]);
 
 				let ForeignKeyModel = this.loadModel(foreignKeys[key].modelClass);
 				let foreignKeyModel = new ForeignKeyModel(this.req);
-				if (foreignKeys[key].debug) {
+				if (join[key].debug || foreignKeys[key].debug) {
 					foreignKeyModel.debug = true;
 				}
 
@@ -1288,9 +1289,6 @@ class ModelBase extends EventEmitter {
 						}
 					}
 				);
-
-				//console.log(this.tableName);
-				//console.log(idList);
 
 				if (idList.length > 0) {
 					idList = _.uniq(idList);
@@ -1500,7 +1498,7 @@ class ModelBase extends EventEmitter {
 					}
 				} else {
 					if (results.rows) {
-						return deepTrim(results.rows);
+						return trimObject(results.rows);
 					} else {
 						return results;
 					}

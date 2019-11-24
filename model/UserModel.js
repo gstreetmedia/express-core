@@ -29,11 +29,10 @@ class UserModel extends ModelBase {
 		return ModelBase.getFields(UserModel.tableName)
 	}
 
-	async index (query) {
-		return await super.index(query)
-	}
-
 	async create (data) {
+		if (data.email) {
+			data.email = data.email.toLowerCase();
+		}
 		if (data.password) {
 			data.password = hashPassword(data.password)
 		}
@@ -48,6 +47,9 @@ class UserModel extends ModelBase {
 	}
 
 	async update (id, data, fetch) {
+		if (data.email) {
+			data.email = data.email.toLowerCase();
+		}
 		if (data.password) {
 			data.password = hashPassword(data.password)
 		} else if (data.password === '') {
@@ -65,23 +67,34 @@ class UserModel extends ModelBase {
 	}
 
 	async login (username, password, ignorePassword) {
-
-		let user = await this.findOne(
-			{
-				where: {
-					or: [
-						{ email: username },
-						{ username: username }
-					],
-					status: 'active'
-				},
-				select: ['id', 'password', 'name', 'firstName', 'lastName', 'email', 'username', 'role', 'status']
-			}
-		)
+		username = username.toLowerCase();
+		let q = {
+			where: {
+				or: [
+					{ email: username },
+					{ username: username }
+				],
+				status: {"in" : ['active','pending']}
+			},
+			select: ['id', 'password', 'name', 'firstName', 'lastName', 'email', 'username', 'role', 'status']
+		};
+		let user = await this.findOne(q);
 
 		if (!user) {
 			return {
-				error: 'Unknown Username'
+				error: {
+					message : "Unknown User"
+				}
+			}
+		}
+
+		if (user.status === "pending") {
+			//await this.destroy(user.id);
+			return {
+				error: {
+					message : "Your account activation did not complete. Please register again.",
+					statusCode : 401
+				}
 			}
 		}
 
@@ -93,7 +106,8 @@ class UserModel extends ModelBase {
 				//Also note, this is a huge security risk, so turn if off in production.
 			} else if (hashedPassword !== user.password) {
 				return {
-					error: 'Incorrect Password'
+					error: 'Incorrect Password',
+					statusCode : 401
 				}
 			}
 		}
@@ -141,10 +155,12 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{token: *}>}
 	 */
 	async lostPasswordStart (email) {
+		email = email.toLowerCase();
 		let record = await this.findOne(
 			{
 				where: {
-					email: email
+					email: email,
+					status: 'active'
 				}
 			}
 		)
@@ -225,7 +241,8 @@ class UserModel extends ModelBase {
 	}
 
 	async register (data) {
-		let existing
+		let existing;
+		data.email = data.email.toLowerCase();
 		if (data.email) {
 			existing = await this.findOne(
 				{
@@ -242,12 +259,43 @@ class UserModel extends ModelBase {
 				}
 			)
 		}
-		if (existing) {
+
+		if (existing && existing.status === "active") {
 			return {
 				error : {
-					message : "This user already exists"
+					message : "A user with this email already exists in our system. Please login or try a different email.",
+					statusCode : 409
 				}
 			}
+		} else if (existing && existing.status === "pending") {
+			let token = jwt.sign(
+				{
+					id: existing.id,
+					action: 'user/register',
+					data : {
+						id : existing.id,
+						firstName : existing.firstName,
+						lastName : existing.lastName,
+						email : existing.email,
+						role : "user",
+						status : "pending"
+					}
+				},
+				process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
+				{
+					expiresIn: '7 days'
+				}
+			);
+			let record = await this.update(
+				existing.id,
+				{
+					emailStatus : "pending",
+					passwordResetToken : token,
+					passwordResetTokenExpiresAt : moment().tz("UTC").add(7,'days').toISOString(),
+				},
+				true
+			)
+			return record;
 		}
 
 		let id = uuid.v4();
@@ -345,9 +393,40 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async updateEmailStart (id, email) {
-		let result = await this.read(id)
+		let result = await this.read(id);
+		email = email.toLowerCase();
 
 		if (result) {
+
+			if (result.email === email) {
+				return {
+					error : {
+						message : "This is currently your email. Nothing to change!",
+						statusCode : 403
+					}
+				}
+			}
+
+			let emailResults = await this.find(
+				{
+					where : {
+						email : email
+					},
+					select : ['id','email']
+				}
+			);
+
+			console.log(emailResults);
+
+			if (emailResults.length > 0) {
+				return {
+					error : {
+						message : "Sorry. This email is already in use by another user.",
+						statusCode : 403
+					}
+				}
+			}
+
 			let token = jwt.sign(
 				{
 					id: result.id,
