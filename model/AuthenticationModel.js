@@ -116,7 +116,12 @@ class AuthenticationModel {
 
 		let key = req.headers['application-key']
 		if (!key) {
-			return { error: 'Missing Application Key' }
+			return {
+				error: {
+					message : 'Missing Application Key',
+					statusCode : 401
+				}
+			}
 		}
 
 		let secret = req.headers['application-secret'];
@@ -147,9 +152,21 @@ class AuthenticationModel {
 
 			if (!tokenRecord) {
 				if (secret) {
-					return { error: 'Invalid Application Key or Secret' }
+					return {
+						error: {
+							message : 'Invalid Application Key or Secret',
+							statusCode : 401
+						}
+					}
+
 				}
-				return { error: 'Invalid Application Key' }
+
+				return {
+					error: {
+						message : 'Invalid Application',
+						statusCode : 401
+					}
+				}
 			} else {
 				//This is at the very least a request using an API KEY
 				req.addRole('api-key')
@@ -167,7 +184,12 @@ class AuthenticationModel {
 					tokenRecord.config.settings.hosts
 				) {
 					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req) === false) {
-						return 'Token not allowed for this host'
+						return {
+							error: {
+								message : 'Token not allowed for this host',
+								statusCode : 401
+							}
+						}
 					}
 				}
 			} else if (secret && req.get('Referrer')) {
@@ -226,17 +248,21 @@ class AuthenticationModel {
 
 		if (decodedToken.error) {
 			return {
-				error : "Invalid Token"
+				error : "Invalid Token",
+				statusCode : 401
 			}
 		}
 
 		let session = await this.getSessionFromRequest(req)
 
 		if (session.error) {
-			console.log("SESSION ERROR");
+
 			return {
-				error : "Session Error"
-			};
+				error: {
+					message : "Session Error",
+					statusCode : 401
+				}
+			}
 		}
 
 		let cacheKey = 'authenticated_user_' + decodedToken.id //accountId
@@ -257,11 +283,16 @@ class AuthenticationModel {
 		} else {
 
 			return {
-				error : "Could Not Find User Record"
+				error : {
+					message: "Could Not Find User Record",
+					statusCode : 404
+				}
 			}
 		}
 
-		return true
+		return {
+			success : true
+		}
 	}
 
 	hasValidCookie (req) {
@@ -288,36 +319,38 @@ class AuthenticationModel {
 	 * @returns {Promise<void>}
 	 */
 	async verify (req) {
+		let keyResult = {};
+
 		this.checkLocalRequest(req);
 
 		if (this.hasValidCookie(req)
 		) {
-			let keyResult = await this.bearerToken(req)
+			keyResult = await this.bearerToken(req)
 			if (keyResult.error) {
-				//console.log('keyResult => ' + keyResult.error)
-			} else {
-				//console.log('Has Valid Cookie!!!')
+				return keyResult;
 			}
 			if (req.currentRoles.indexOf('super-admin') !== -1) {
-				return
+				return keyResult;
 			}
 		}
 
 		if (req.headers['application-key']) {
-			let keyResult = await this.applicationKey(req)
+			keyResult = await this.applicationKey(req)
 			if (keyResult.error) {
-				console.log('keyResult => ' + keyResult.error)
+				return keyResult;
 			}
-		} else {
-			//console.log('No Application Key. Hacker ???')
 		}
 
 		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req)
 			if (authResult.error) {
-				console.log('authResult => ' + authResult.error)
+				return authResult;
+			} else {
+				return authResult;
 			}
 		}
+
+		return keyResult;
 	}
 }
 
