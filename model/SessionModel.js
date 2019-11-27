@@ -109,16 +109,13 @@ class SessionModel extends ModelBase {
 	 * @param maxAge
 	 * @returns {Promise<*>}
 	 */
-	async getToken(data, req, maxAge) {
-		let userId = data.user ? data.user.id : data.userId ? data.userId : data.id;
+	async getToken(userId, data, req, maxAge) {
 
 		if (!userId) {
 			throw new Error(
 				"Cannot create session without user id"
 			)
 		}
-
-		data.id = userId;
 
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
@@ -131,10 +128,7 @@ class SessionModel extends ModelBase {
 
 		await this.houseKeeping(userId);
 
-		data = _.cloneDeep(data);
-		data.ipAddress = ipAddress;
-		data.userAgent = userAgent;
-
+		data = _.clone(data);
 		if (data.password) {
 			delete data.password;
 		}
@@ -143,7 +137,9 @@ class SessionModel extends ModelBase {
 			{
 				id : userId,
 				data : data,
-				systemId : process.env.JWT_TOKEN_SYSTEM_ID || process.env.CORE_JWT_TOKEN_SYSTEM_ID || "core"
+				systemId : process.env.JWT_TOKEN_SYSTEM_ID || process.env.CORE_JWT_TOKEN_SYSTEM_ID || "core",
+				userAgent : userAgent,
+				ipAddress : ipAddress
 			},
 			process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
 			{

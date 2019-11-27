@@ -113,7 +113,7 @@ class UserModel extends ModelBase {
 		}
 
 		let sm = new SessionModel(this.req)
-		let token = await sm.getToken(user, this.req)
+		let token = await sm.getToken(user.id, user, this.req)
 
 		await this.update(user.id,
 			{
@@ -194,9 +194,6 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{token: *}>}
 	 */
 	async lostPasswordComplete (token, password) {
-
-		console.log("WTF");
-
 		let decoded
 		try {
 			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
