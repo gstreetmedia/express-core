@@ -153,7 +153,7 @@ class SessionModel extends ModelBase {
 				ipAddress: ipAddress
 			}
 		);
-		console.log(result);
+
 		// All done.
 		return token;
 	}
