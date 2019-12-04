@@ -112,7 +112,7 @@ class UserModel extends ModelBase {
 		}
 
 		let sm = new SessionModel(this.req)
-		let token = await sm.getToken(user, this.req)
+		let token = await sm.getToken(user.id, user, this.req)
 
 		await this.update(user.id,
 			{

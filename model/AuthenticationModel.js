@@ -89,13 +89,19 @@ class AuthenticationModel {
 			if (moment(session.expiresAt).isBefore(moment().tz("UTC"))) {
 				await sm.destroy(session.id);
 				return {
-					error : "Expired Session"
+					error : "Expired Session",
+					statusCode : 401,
+					method : "getSessionFromRequest"
 				}
 			}
 			return session
 		}
 		return {
-			error: 'Missing, Expired or Invalid Session'
+			error: {
+				message : 'Missing, Expired or Invalid Session',
+				statusCode : 401,
+				method : "getSessionFromRequest"
+			}
 		}
 	}
 
@@ -355,9 +361,6 @@ class AuthenticationModel {
 
 		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req)
-			if (authResult.error) {
-				console.log('authResult => ' + authResult.error)
-			}
 			return authResult;
 		}
 

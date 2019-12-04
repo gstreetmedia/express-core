@@ -109,8 +109,9 @@ class SessionModel extends ModelBase {
 	 * @param maxAge
 	 * @returns {Promise<*>}
 	 */
-	async getToken(data, req, maxAge) {
-		let userId = data.user ? data.user.id : data.userId ? data.userId : data.id;
+	async getToken(userId, data, req, maxAge) {
+
+		data = _.cloneDeep(data);
 
 		if (!userId) {
 			throw new Error(
@@ -118,20 +119,11 @@ class SessionModel extends ModelBase {
 			)
 		}
 
-		data.id = userId;
-
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
 
-		if (!userId) {
-			return {
-				error : "Missing User Record or valid id"
-			};
-		}
-
 		await this.houseKeeping(userId);
 
-		data = _.cloneDeep(data);
 		data.ipAddress = ipAddress;
 		data.userAgent = userAgent;
 
