@@ -299,6 +299,7 @@ class AuthenticationModel {
 			req.user = user;
 			req.jwt = this.getTokenFromRequest(req);
 		} else {
+
 			return {
 				error: {
 					message : 'Unknown on Inactive User',
@@ -340,7 +341,9 @@ class AuthenticationModel {
 		) {
 			let keyResult = await this.bearerToken(req)
 			if (keyResult.error) {
-				return keyResult;
+				//console.log('keyResult => ' + keyResult.error)
+			} else {
+				//console.log('Has Valid Cookie!!!')
 			}
 			if (req.currentRoles.indexOf('super-admin') !== -1) {
 				return {

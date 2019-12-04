@@ -11,7 +11,7 @@ const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
 const EventEmitter = require("events");
 const cacheManager = require("../helper/cache-manager");
-const deepTrim = require("deep-trim");
+const trimObject = require("../helper/trim-object");
 
 class ModelBase extends EventEmitter {
 
@@ -1498,7 +1498,7 @@ class ModelBase extends EventEmitter {
 					}
 				} else {
 					if (results.rows) {
-						return deepTrim(results.rows);
+						return trimObject(results.rows);
 					} else {
 						return results;
 					}

@@ -106,7 +106,8 @@ class UserModel extends ModelBase {
 				//Also note, this is a huge security risk, so turn if off in production.
 			} else if (hashedPassword !== user.password) {
 				return {
-					error: 'Incorrect Password'
+					error: 'Incorrect Password',
+					statusCode : 401
 				}
 			}
 		}
@@ -193,9 +194,6 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{token: *}>}
 	 */
 	async lostPasswordComplete (token, password) {
-
-		console.log("WTF");
-
 		let decoded
 		try {
 			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
