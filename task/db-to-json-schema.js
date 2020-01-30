@@ -162,7 +162,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		if (schemaHash[name]) {
-			name += name + "-" + cs.database
+			name += name + "-" + cs.database;
 		}
 
 		schemaHash[name] = item;
