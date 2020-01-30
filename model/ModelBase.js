@@ -1028,6 +1028,8 @@ class ModelBase extends EventEmitter {
 					}
 				}
 
+				targetKeys = _.uniq(targetKeys);
+
 				///console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
 				//console.log("joinFrom => " + joinFrom);
 				//console.log("joinThroughTo => " + joinThroughTo);
@@ -1051,7 +1053,8 @@ class ModelBase extends EventEmitter {
 						continue;
 					}
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
-					targetKeys = _.flatten(targetKeys)
+					targetKeys = _.flatten(targetKeys);
+					targetKeys = _.uniq(targetKeys);
 					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
 					//console.log(targetKeys);
 
@@ -1079,7 +1082,7 @@ class ModelBase extends EventEmitter {
 						j.where = j.where || {};
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
-						j.limit = j.limit || relations[key].limit || null;
+						j.limit = j.limit || relations[key].limit || targetKeys.length;
 
 						if (fullJoin) {
 							j.join = "*"
@@ -1142,12 +1145,34 @@ class ModelBase extends EventEmitter {
 								}
 							)
 						} else {
+
 							for (let i = 0; i < list.length; i++) {
 								//TODO Arrays
-								results[fromIndex[list[i][joinTo]]][key] = list[i];
+								let o = {[joinFrom]:list[i][joinTo]};
+								for(let k = 0; k < results.length; k++) {
+									let item = results[k];
+									if (_.isArray(item[joinFrom]) && item[joinFrom].indexOf(list[i][joinTo]) !== -1) {
+										results[k][key] = list[i];
+										if (removeJoinTo) {
+											delete results[k][key][joinTo];
+										}
+									} else if (item[joinFrom] === list[i][joinTo]) {
+										results[k][key] = list[i];
+										if (removeJoinTo) {
+											delete results[k][key][joinTo];
+										}
+									}
+								}
+								/*
+								let index = _.findIndex(results, {[joinFrom]:list[i][joinTo]});
+								if (index !== -1) {
+									results[index][key] = list[i];
+								}
+								//results[fromIndex[list[i][joinTo]]][key] = list[i];
 								if (removeJoinTo) {
 									delete results[fromIndex[list[i][joinTo]]][key][joinTo];
 								}
+								 */
 							}
 						}
 
