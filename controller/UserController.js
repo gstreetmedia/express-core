@@ -73,10 +73,6 @@ class UserController extends ControllerBase {
 
 	async logout(req, res) {
 
-
-		console.log("!@EI@#(*(*@(#");
-		console.log(req.jwt);
-
 		if (!req.jwt && !req.token) {
 			return res.invalid("Missing Token");
 		}
