@@ -7,7 +7,7 @@ const sleep = require('util').promisify(setTimeout);
 
 module.exports = async (connectionString) => {
 
-	console.log(connectionString);
+	//console.log(connectionString);
 
 	let key = md5(connectionString);
 
@@ -19,7 +19,7 @@ module.exports = async (connectionString) => {
 
 	let cs = connectionStringParser(connectionString);
 
-	console.log(cs);
+	//console.log(cs);
 
 	let pool = new mssql.ConnectionPool({
 		connectionLimit: 10,

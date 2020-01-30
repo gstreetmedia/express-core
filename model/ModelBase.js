@@ -755,7 +755,7 @@ class ModelBase extends EventEmitter {
 			let result = await this.execute(command, this.queryBuilder.postProcess);
 			return result;
 		} catch (e) {
-			console.log(command.toString());
+			//console.log(command.toString());
 			console.log(e);
 			return null;
 		}
@@ -854,7 +854,7 @@ class ModelBase extends EventEmitter {
 	 */
 	async join(results, query) {
 
-		console.log("join " + this.tableName);
+		//console.log("join " + this.tableName);
 
 		if (!this.relations && !this.foreignKeys) {
 			return results;
@@ -1029,7 +1029,6 @@ class ModelBase extends EventEmitter {
 				}
 
 				///console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
-
 				//console.log("joinFrom => " + joinFrom);
 				//console.log("joinThroughTo => " + joinThroughTo);
 				//console.log("joinThroughFrom => " + joinThroughFrom);
@@ -1064,7 +1063,7 @@ class ModelBase extends EventEmitter {
 
 					case "HasOne":
 
-						console.log("HasOne " + key);
+						//console.log("HasOne " + key);
 
 						let HasOneModel = this.loadModel(item.modelClass);
 						let hasOneModel = new HasOneModel(this.req);
@@ -1155,7 +1154,7 @@ class ModelBase extends EventEmitter {
 						break;
 					case "HasMany" :
 
-						console.log("HasMany " + key);
+						//console.log("HasMany " + key);
 
 						let HasManyModel = this.loadModel(item.modelClass);
 						let hasManyModel = new HasManyModel(this.req);
@@ -1509,7 +1508,7 @@ class ModelBase extends EventEmitter {
 					}
 				}
 
-				console.log("command.postProcess => " + postProcess);
+				//console.log("command.postProcess => " + postProcess);
 
 				if (postProcess) {
 					if (results.rows) {
@@ -1587,7 +1586,7 @@ class ModelBase extends EventEmitter {
 	 * @returns {*}
 	 */
 	postProcessResponse(result) {
-		console.log("assholes");
+
 		// TODO: add special case for raw results (depends on dialect)
 		if (_.isArray(result)) {
 			result.forEach(

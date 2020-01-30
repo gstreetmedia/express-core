@@ -210,7 +210,7 @@ class MetaModel extends ModelBase {
 	 * @returns {*}
 	 */
 	setValue(meta) {
-		console.log(meta);
+		//console.log(meta);
 		if (meta.object === undefined) {
 			delete meta.object;
 			return;
