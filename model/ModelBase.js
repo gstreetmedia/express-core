@@ -496,7 +496,7 @@ class ModelBase extends EventEmitter {
 
 		let command = this.queryBuilder.select(obj);
 
-		let result = await this.execute(command);
+		let result = await this.execute(command, this.queryBuilder.postProcess);
 
 		if (result.error) {
 			return result;
@@ -752,7 +752,7 @@ class ModelBase extends EventEmitter {
 		);
 
 		try {
-			let result = await this.execute(command);
+			let result = await this.execute(command, this.queryBuilder.postProcess);
 			return result;
 		} catch (e) {
 			console.log(command.toString());
@@ -781,7 +781,7 @@ class ModelBase extends EventEmitter {
 		);
 
 		try {
-			let result = await this.execute(command);
+			let result = await this.execute(command, this.queryBuilder.postProcess);
 			return result;
 		} catch (e) {
 			console.log(e);
@@ -854,7 +854,7 @@ class ModelBase extends EventEmitter {
 	 */
 	async join(results, query) {
 
-		//console.log("join " + this.tableName);
+		console.log("join " + this.tableName);
 
 		if (!this.relations && !this.foreignKeys) {
 			return results;
@@ -910,7 +910,11 @@ class ModelBase extends EventEmitter {
 
 		let keys = Object.keys(join);
 
-
+		/**
+		 *
+		 * @param key
+		 * @param j
+		 */
 		let processWhere = (key, j)=> {
 			if (relations[key].where) {
 				j.where = j.where || {};
@@ -931,6 +935,11 @@ class ModelBase extends EventEmitter {
 			}
 		}
 
+		/**
+		 *
+		 * @param key
+		 * @param j
+		 */
 		let processSelect = (key, j) => {
 			if (relations[key].select) {
 				j.select = j.select || [];
@@ -1055,7 +1064,7 @@ class ModelBase extends EventEmitter {
 
 					case "HasOne":
 
-						//console.log("HasOne " + key);
+						console.log("HasOne " + key);
 
 						let HasOneModel = this.loadModel(item.modelClass);
 						let hasOneModel = new HasOneModel(this.req);
@@ -1146,7 +1155,7 @@ class ModelBase extends EventEmitter {
 						break;
 					case "HasMany" :
 
-						//console.log("HasMany " + key);
+						console.log("HasMany " + key);
 
 						let HasManyModel = this.loadModel(item.modelClass);
 						let hasManyModel = new HasManyModel(this.req);
@@ -1186,7 +1195,14 @@ class ModelBase extends EventEmitter {
 
 						list = await hasManyModel.query(j);
 
-						//console.log(hasManyModel.tableName + " => " + list.length);
+						if (list.length === 0) {
+							//console.log(list);
+							//console.log("HasMany Fail");
+							//console.log(JSON.stringify(j));
+							//console.log(hasManyModel.lastCommand.toString());
+						} else {
+							//console.log(hasManyModel.tableName + " => " + list.length);
+						}
 
 						if (list.error) {
 							keys.shift();
@@ -1236,8 +1252,9 @@ class ModelBase extends EventEmitter {
 								}
 							)
 						} else {
+
 							for (let i = 0; i < list.length; i++) {
-								try {
+								//try {
 									//TODO Arrays
 									if (!results[fromIndex[list[i][joinTo]]][key]) {
 										results[fromIndex[list[i][joinTo]]][key] = [];
@@ -1251,6 +1268,8 @@ class ModelBase extends EventEmitter {
 									}
 									results[fromIndex[targetKey]][key].push(value);
 
+
+								/*
 								} catch (e) {
 
 									console.log("Could not join " + key + " for " + this.tableName);
@@ -1260,6 +1279,8 @@ class ModelBase extends EventEmitter {
 									//console.log(j.select);
 									//console.log(m.lastCommand.toString());
 								}
+
+								 */
 							}
 						}
 
@@ -1458,12 +1479,10 @@ class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async execute(command, postProcess) {
-
 		let sql;
 		try {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
-			console.log(e);
 			return {
 				error: e,
 				message: "Error converting command to string"
@@ -1481,7 +1500,7 @@ class ModelBase extends EventEmitter {
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			let pool = await this.getPool("read");
 
-			try {
+			//try {
 				let results = await pool.query(sql);
 
 				if (results.recordset) { //mssql
@@ -1489,6 +1508,8 @@ class ModelBase extends EventEmitter {
 						rows: results.recordset
 					}
 				}
+
+				console.log("command.postProcess => " + postProcess);
 
 				if (postProcess) {
 					if (results.rows) {
@@ -1505,13 +1526,13 @@ class ModelBase extends EventEmitter {
 				}
 
 				//return results.rows;
-			} catch (e) {
-				this.lastError = e;
-				e.sql = sql;
-				return {
-					error: e
-				};
-			}
+			//} catch (e) {
+				//this.lastError = e;
+				//e.sql = sql;
+				//return {
+				//	error: e
+			//	};
+			//}
 		} else {
 			let pool = await this.getPool("write")
 			try {
@@ -1530,6 +1551,7 @@ class ModelBase extends EventEmitter {
 						rows: results
 					};
 				}
+
 			} catch (e) {
 				this.lastError = e;
 				e.sql = sql;
@@ -1565,6 +1587,7 @@ class ModelBase extends EventEmitter {
 	 * @returns {*}
 	 */
 	postProcessResponse(result) {
+		console.log("assholes");
 		// TODO: add special case for raw results (depends on dialect)
 		if (_.isArray(result)) {
 			result.forEach(
@@ -1573,6 +1596,25 @@ class ModelBase extends EventEmitter {
 						if (key.indexOf("_") !== -1) {
 							row[inflector.camelize(key, false)] = row[key];
 							delete row[key];
+						}
+						if (key.indexOf(".") !== -1) {
+							let parts = key.split(".");
+							let doDeep = (pieces, obj) => {
+								obj = obj || {};
+								if (pieces.length === 0) {
+									return obj;
+								}
+								obj[pieces[0]] = obj[pieces[0]] || {};
+								console.log('parts => ' + _.isArray(pieces));
+								return doDeep(pieces.shift(), obj);
+							}
+							let columnName = parts[0];
+							parts.shift();
+							row[columnName] = row[columnName] || {};
+							console.log("parts here " + _.isArray(parts));
+							console.log(row[columnName]);
+							let target = doDeep(parts, row[columnName]);
+							target = row[key];
 						}
 					}
 				}

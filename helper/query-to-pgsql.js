@@ -289,20 +289,28 @@ module.exports = class QueryToPgSql extends QueryBase{
 				queryBuilder[c.where](this.raw(columnName + " <= " + processedValue));
 				break;
 			case "in" :
-				queryBuilder[c.where](this.raw(columnName + " @> " + processedValue));
+				queryBuilder[c.where](this.raw(columnName + " <@ " + processedValue));
 				break;
 			case "nin" :
-				queryBuilder[c.whereNot](this.raw(columnName + " @> " + processedValue));
+				queryBuilder[c.whereNot](this.raw(columnName + " <@ " + processedValue));
 				break;
 			case "=" :
 			case "==" :
 			case "eq" :
-				queryBuilder[c.where](this.raw(columnName + " = " + processedValue));
+				if (processedValue === null) {
+					queryBuilder[c.where](this.raw(columnName + " isnull" ));
+				} else {
+					queryBuilder[c.where](this.raw(columnName + " = " + processedValue));
+				}
 				break;
 			case "!" :
 			case "!=" :
 			case "ne" :
-				queryBuilder[c.whereNot](this.raw(columnName + " = " + processedValue));
+				if (processedValue === null) {
+					queryBuilder[c.where](this.raw(columnName + " is not null" ));
+				} else {
+					queryBuilder[c.whereNot](this.raw(columnName + " = " + processedValue));
+				}
 				break;
 				break;
 			case "or" :
@@ -376,6 +384,8 @@ module.exports = class QueryToPgSql extends QueryBase{
 
 	buildSelect (key, subKey) {
 		if (this.properties[key].type === "object" && subKey) {
+			//this.postProcess = true;
+			//return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${key + "." + subKey}"`);
 			return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${subKey}"`);
 		}
 		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);

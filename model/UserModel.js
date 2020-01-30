@@ -186,6 +186,13 @@ class UserModel extends ModelBase {
 			)
 			return _.omit(record, ['password']);
 		}
+
+		return {
+			error: {
+				message : "If this email address exists in our system, we'll email you further instructions.",
+				statusCode : 404
+			}
+		}
 	}
 
 	/**
@@ -350,8 +357,6 @@ class UserModel extends ModelBase {
 
 		if (decoded.action === 'user/register') {
 			let user = await this.read(decoded.id);
-			console.log(user.passwordResetToken);
-			console.log(token);
 			if (user.passwordResetToken === token) {
 				let result = await this.update(
 					user.id,
@@ -412,8 +417,6 @@ class UserModel extends ModelBase {
 					select : ['id','email']
 				}
 			);
-
-			console.log(emailResults);
 
 			if (emailResults.length > 0) {
 				return {

@@ -6,7 +6,8 @@ let c = new Controller()
 router.use(authentication);
 
 router.use(async function(req, res, next){
-	req.allowRole('super-api');
+	console.log("adding roles for schema");
+	req.allowRole(['super-api','user','api-user','api-secret']);
 	//add other roles as needed, or call req.addRole('some-role') in individual endpoints 
 	return next();
 });

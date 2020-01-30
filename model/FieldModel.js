@@ -72,6 +72,7 @@ class FieldModel extends ModelBase {
 
 	async query(query) {
 		query.sort = "title ASC";
+		console.log(query);
 		return await super.query(query);
 	}
 
@@ -285,6 +286,19 @@ class FieldModel extends ModelBase {
 				on _schemas (table_name);
 			`
 		)
+	}
+
+	get relations() {
+		return {
+			schema : {
+				relation : "HasOne",
+				modelClass : "SchemaModel",
+				join : {
+					from : "tableName",
+					to : "tableName"
+				}
+			}
+		}
 	}
 
 }
