@@ -1095,7 +1095,7 @@ class ModelBase extends EventEmitter {
 							removeJoinTo = true;
 						}
 
-						list = await hasOneModel.find(j);
+						list = await hasOneModel.query(j);
 
 						if (list.error) {
 							keys.shift();
