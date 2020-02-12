@@ -1317,6 +1317,9 @@ class ModelBase extends EventEmitter {
 				let j = _.clone(foreignKeys[key]);
 
 				let ForeignKeyModel = this.loadModel(foreignKeys[key].modelClass);
+				if (!ForeignKeyModel) {
+					console.warn("Foreign Key Join Error. " + key + " does not exist");
+				}
 				let foreignKeyModel = new ForeignKeyModel(this.req);
 				if (join[key].debug || foreignKeys[key].debug) {
 					foreignKeyModel.debug = true;
@@ -1524,7 +1527,7 @@ class ModelBase extends EventEmitter {
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			let pool = await this.getPool("read");
 
-			//try {
+			try {
 				let results = await pool.query(sql);
 
 				if (results.recordset) { //mssql
@@ -1550,13 +1553,14 @@ class ModelBase extends EventEmitter {
 				}
 
 				//return results.rows;
-			//} catch (e) {
-				//this.lastError = e;
-				//e.sql = sql;
-				//return {
-				//	error: e
-			//	};
-			//}
+			} catch (e) {
+				this.lastError = e;
+				e.sql = sql;
+				console.log(sql);
+				return {
+					error: e
+				};
+			}
 		} else {
 			let pool = await this.getPool("write")
 			try {
