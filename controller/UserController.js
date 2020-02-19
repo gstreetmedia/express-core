@@ -87,7 +87,7 @@ class UserController extends ControllerBase {
 	}
 
 	async register(req, res) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let result = await m.register(req.body);
 
 		if (result.error) {
@@ -95,11 +95,10 @@ class UserController extends ControllerBase {
 		}
 
 		return res.success(result);
-
 	}
 
 	async registerComplete(req, res) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let result = await m.registerComplete(req.body.token, req.body.password);
 
 		if (result.error) {

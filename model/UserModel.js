@@ -373,7 +373,7 @@ class UserModel extends ModelBase {
 			} else {
 				return {
 					error : {
-						message : "Token mistmatch",
+						message : "Token mismatch",
 						statusCode : 401
 					}
 				}
