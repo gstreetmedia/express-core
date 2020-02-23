@@ -289,9 +289,18 @@ module.exports = class QueryToPgSql extends QueryBase{
 				queryBuilder[c.where](this.raw(columnName + " <= " + processedValue));
 				break;
 			case "in" :
-				queryBuilder[c.where](this.raw(columnName + " <@ " + processedValue));
+			case "rightInLeft" :
+				queryBuilder[c.where](this.raw(columnName + " @> " + processedValue));
 				break;
 			case "nin" :
+			case "rightNinLeft" :
+				queryBuilder[c.whereNot](this.raw(columnName + " @> " + processedValue));
+				break;
+			case "leftInRight" :
+				queryBuilder[c.where](this.raw(columnName + " <@ " + processedValue));
+				break;
+
+			case "leftNinRight" :
 				queryBuilder[c.whereNot](this.raw(columnName + " <@ " + processedValue));
 				break;
 			case "=" :
