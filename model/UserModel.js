@@ -395,6 +395,9 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async updateEmailStart (id, email) {
+
+		console.log("UserModel:updateEmailStart");
+
 		let result = await this.read(id);
 		email = email.toLowerCase();
 
@@ -417,6 +420,8 @@ class UserModel extends ModelBase {
 					select : ['id','email']
 				}
 			);
+
+			console.log(emailResults);
 
 			if (emailResults.length > 0) {
 				return {
