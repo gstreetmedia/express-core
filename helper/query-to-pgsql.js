@@ -395,7 +395,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 		if (this.properties[key].type === "object" && subKey) {
 			//this.postProcess = true;
 			//return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${key + "." + subKey}"`);
-			return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${subKey}"`);
+			return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${key}.${subKey}"`);
 		}
 		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);
 	}
