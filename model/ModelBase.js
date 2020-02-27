@@ -926,9 +926,14 @@ class ModelBase extends EventEmitter {
 					let compare = Object.keys(expression)[0];
 					if (expression[compare].indexOf("{{") === 0) {
 						let targetKey = expression[compare].replace("{{", "").replace("}}","");
-						if (results[0][targetKey]) {
-							expression[compare] = results[0][targetKey];
+						try {
+							if (results[0][targetKey]) {
+								expression[compare] = results[0][targetKey];
+							}
+						} catch (e) {
+							console.log("processWhere issue join " + targetKey);
 						}
+
 					}
 					j.where[p] = expression;
 				}
