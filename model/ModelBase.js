@@ -911,7 +911,6 @@ class ModelBase extends EventEmitter {
 		let keys = Object.keys(join);
 
 		/**
-		 *
 		 * @param key
 		 * @param j
 		 */
@@ -932,8 +931,8 @@ class ModelBase extends EventEmitter {
 							}
 						} catch (e) {
 							console.log("processWhere issue join " + targetKey);
+							console.log(results);
 						}
-
 					}
 					j.where[p] = expression;
 				}
@@ -941,7 +940,6 @@ class ModelBase extends EventEmitter {
 		}
 
 		/**
-		 *
 		 * @param key
 		 * @param j
 		 */
