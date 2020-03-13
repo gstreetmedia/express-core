@@ -2,7 +2,7 @@
 	<%
 	var q = _.clone(query);
 	if (query.where) {
-		var where = "?where=" + JSON.stringify(q.where) + "";
+		var where = "?where=" + JSON.stringify(q.where).replace('"','&quot;') + "";
 	} else {
 		where = "?";
 	}
@@ -71,7 +71,7 @@
 				<a class="page-link" href="/admin/<%- slug %><%= where %>&offset=<%- nextPage * req.limit %>&limit=<%- req.limit %>"
 				   aria-label="Next">
 					<i class="material-icons">chevron_right</i>
-					<span class="sr-only">Next Page</span>
+					<span class="sr-only">Next Page</span>Crap
 				</a>
 			</li>
 			<% } %>
