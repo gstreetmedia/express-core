@@ -1688,6 +1688,14 @@ class ModelBase extends EventEmitter {
 		return this.property[property].columnName + " as " + property;
 	}
 
+	async afterQuery(results) {
+
+	}
+
+	async afterRead(results) {
+
+	}
+
 	/**
 	 * Before creating a record, pass the data over.
 	 * This could be used to clean the data, check permission, etc
@@ -1740,6 +1748,8 @@ class ModelBase extends EventEmitter {
 	async beforeDestroy(id, data) {
 		return true;
 	}
+
+
 
 	/**
 	 * Now that record is gone, maybe you want to move it to some log file, or history table
