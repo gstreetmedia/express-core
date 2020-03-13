@@ -112,7 +112,8 @@ class AdminController extends ViewControllerBase {
 				action : "index",
 				query : req.query,
 				_ : _,
-				inflector : inflector
+				inflector : inflector,
+				pagination : require("../views/template-parts/pagination")
 			},
 			req,
 			res
