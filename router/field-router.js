@@ -6,13 +6,22 @@ let c = new Controller()
 router.use(authentication);
 
 router.use(async function(req, res, next){
-	req.allowRole('super-api');
+	req.allowRole(['super-api','user','api-user','api-secret']);
 	//add other roles as needed, or call req.addRole('some-role') in individual endpoints 
 	return next();
 });
 
 router.get('/', async function (req, res, next) {
 	if(req.checkRole()){
+		req.body = {
+			"where" : {
+				"status" : "active"
+			},
+			"select" : ["title","tableName","publicIndex","publicCreate","publicRead","publicUpdate"],
+			"join" : {
+				"schema" : true
+			}
+		};
 		return await c.query(req, res);
 	}
 	return next();

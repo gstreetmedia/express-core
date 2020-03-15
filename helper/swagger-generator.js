@@ -35,11 +35,6 @@ module.exports = (app, options) => {
 					in : "header",
 					name : "application-secret"
 				},
-				organizationKey : {
-					type : "apiKey",
-					in : "header",
-					name : "application-org"
-				},
 				authorizationBearer : {
 					type : "apiKey",
 					in : "header",
@@ -51,7 +46,6 @@ module.exports = (app, options) => {
 			{
 				applicationKey : [],
 				applicationSecret : [],
-				organizationKey : [],
 				authorizationBearer : []
 			}
 		]
@@ -68,6 +62,7 @@ module.exports = (app, options) => {
 	);
 
 	let read = [
+		/*
 		{
 			name: "select",
 			in: "query",
@@ -86,8 +81,10 @@ module.exports = (app, options) => {
 				type: "string"
 			}
 		}
+		 */
 	];
 	let query = [
+		/*
 		{
 			name: "where",
 			in: "query",
@@ -133,6 +130,7 @@ module.exports = (app, options) => {
 				type: "string"
 			}
 		}
+		 */
 	];
 
 	endPoints.forEach(

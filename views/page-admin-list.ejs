@@ -7,6 +7,7 @@
 	</div>
 </div>
 <%- include ./template-parts/gridded.ejs %>
-<%- include ./template-parts/pagination.ejs %>
+
+<%- pagination(query, data, slug, req) %>
 <%- include ./footer-admin %>
 

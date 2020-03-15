@@ -2,7 +2,7 @@ const ModelBase = require('../core/model/ModelBase');
 const _ = require('lodash');
 const moment = require("moment-timezone");
 
-module.exports = class KeyStoreModel extends ModelBase {
+class KeyStoreModel extends ModelBase {
 
 
 	async set(key, value, ttl) {
@@ -97,3 +97,5 @@ module.exports = class KeyStoreModel extends ModelBase {
 	}
 
 }
+
+module.exports = KeyStoreModel;

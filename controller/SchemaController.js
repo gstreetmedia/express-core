@@ -1,8 +1,9 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
+const Model = require("../../model/SchemaModel");
+const validator = require("validator");
 
-
-module.exports = class SchemaController extends ControllerBase {
+class SchemaController extends ControllerBase {
 
 	constructor(Model) {
 		if(!Model) {
@@ -11,16 +12,25 @@ module.exports = class SchemaController extends ControllerBase {
 		super(Model);
 	}
 
-	async index(req, res){
-		return await super.index(req, res);
-	}
-
 	async create(req, res){
 		return await super.create(req, res);
 	}
 
 	async read(req, res){
-		return await super.read(req, res);
+		let results;
+		if (validator.isUUID) {
+			results = await super.read(req, res);
+		} else {
+			let m = new Model();
+			results = await m.findOne(
+				{
+					where : {
+						tableName : req.params.id
+					}
+				}
+			)
+		}
+
 	}
 
 	async update(req, res){
@@ -36,3 +46,5 @@ module.exports = class SchemaController extends ControllerBase {
 	}
 
 }
+
+module.exports = SchemaController;

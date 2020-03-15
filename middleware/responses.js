@@ -65,8 +65,11 @@ module.exports = async function (req, res, next) {
 		res.status(404).send(e);
 	};
 
-	res.notAllowed = (e)=> {
-		res.status(401).send({error:true,message:"Missing/Invalid Credentials"});
+	res.notAllowed = (message)=> {
+		res.status(401).send({
+			error:true,
+			message: message || "Not authorized"
+		});
 	};
 
 	res.invalid = (message)=> {

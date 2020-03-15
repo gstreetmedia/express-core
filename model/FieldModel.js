@@ -11,7 +11,7 @@ const knex = require("knex");
 const path = require("path");
 
 
-module.exports = class FieldModel extends ModelBase {
+class FieldModel extends ModelBase {
 
 
 	constructor(req) {
@@ -72,6 +72,7 @@ module.exports = class FieldModel extends ModelBase {
 
 	async query(query) {
 		query.sort = "title ASC";
+		console.log(query);
 		return await super.query(query);
 	}
 
@@ -287,4 +288,19 @@ module.exports = class FieldModel extends ModelBase {
 		)
 	}
 
+	get relations() {
+		return {
+			schema : {
+				relation : "HasOne",
+				modelClass : "SchemaModel",
+				join : {
+					from : "tableName",
+					to : "tableName"
+				}
+			}
+		}
+	}
+
 }
+
+module.exports = FieldModel;

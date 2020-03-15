@@ -4,5 +4,6 @@ module.exports = {
 	numeral : require("numeral"),
 	moment : require("moment"),
 	form : require("./form"),
-	_ : require("lodash")
+	_ : require("lodash"),
+	pagination : require("../../views/template-parts/pagination")
 }

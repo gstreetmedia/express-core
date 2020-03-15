@@ -1,7 +1,7 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
 
-module.exports = class TokenController extends ControllerBase {
+class TokenController extends ControllerBase {
 
 	constructor(Model) {
 		if(!Model) {
@@ -35,3 +35,5 @@ module.exports = class TokenController extends ControllerBase {
 	}
 
 }
+
+module.exports = TokenController;

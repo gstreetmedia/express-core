@@ -11,9 +11,9 @@ const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
 const EventEmitter = require("events");
 const cacheManager = require("../helper/cache-manager");
-const deepTrim = require("deep-trim");
+const trimObject = require("../helper/trim-object");
 
-module.exports = class ModelBase extends EventEmitter {
+class ModelBase extends EventEmitter {
 
 	/**
 	 * @param schema - json schema for this model
@@ -433,7 +433,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 	async updateWhere(query, data) {
 
-		data.updatedAt = now();
+		data[this.updatedAt] = now();
 
 		let params = this.convertDataTypes(data);
 		let required = this.checkRequiredProperties(params, "update");
@@ -460,12 +460,8 @@ module.exports = class ModelBase extends EventEmitter {
 			};
 		}
 
-		this.emit("beforeUpdateWhere", result);
-
 		let command = this.queryBuilder.update(query, params);
-
 		let result = await this.execute(command);
-		this.emit("updateWhere", result);
 
 		if (result.error) {
 			return result;
@@ -500,7 +496,7 @@ module.exports = class ModelBase extends EventEmitter {
 
 		let command = this.queryBuilder.select(obj);
 
-		let result = await this.execute(command);
+		let result = await this.execute(command, this.queryBuilder.postProcess);
 
 		if (result.error) {
 			return result;
@@ -567,25 +563,25 @@ module.exports = class ModelBase extends EventEmitter {
 	 */
 	async find(query, cache) {
 		let cacheKey;
-		let result;
+		let results;
 		if (cache === true) {
 			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
-			result = await cacheManager.get(cacheKey);
-			if (result) {
-				return result;
+			results = await cacheManager.get(cacheKey);
+			if (results) {
+				return results;
 			}
 		}
-		result = await this.query(query);
+		results = await this.query(query);
 
-		if (result.error) {
-			return result;
+		if (results.error) {
+			return results;
 		}
 
 		if (cacheKey) {
-			await cacheManager.set(cacheKey, result);
+			await cacheManager.set(cacheKey, results);
 		}
 
-		return result;
+		return results;
 	}
 
 	/**
@@ -756,10 +752,10 @@ module.exports = class ModelBase extends EventEmitter {
 		);
 
 		try {
-			let result = await this.execute(command);
+			let result = await this.execute(command, this.queryBuilder.postProcess);
 			return result;
 		} catch (e) {
-			console.log(command.toString());
+			//console.log(command.toString());
 			console.log(e);
 			return null;
 		}
@@ -785,7 +781,7 @@ module.exports = class ModelBase extends EventEmitter {
 		);
 
 		try {
-			let result = await this.execute(command);
+			let result = await this.execute(command, this.queryBuilder.postProcess);
 			return result;
 		} catch (e) {
 			console.log(e);
@@ -914,6 +910,10 @@ module.exports = class ModelBase extends EventEmitter {
 
 		let keys = Object.keys(join);
 
+		/**
+		 * @param key
+		 * @param j
+		 */
 		let processWhere = (key, j)=> {
 			if (relations[key].where) {
 				j.where = j.where || {};
@@ -925,8 +925,13 @@ module.exports = class ModelBase extends EventEmitter {
 					let compare = Object.keys(expression)[0];
 					if (expression[compare].indexOf("{{") === 0) {
 						let targetKey = expression[compare].replace("{{", "").replace("}}","");
-						if (results[0][targetKey]) {
-							expression[compare] = results[0][targetKey];
+						try {
+							if (results[0][targetKey]) {
+								expression[compare] = results[0][targetKey];
+							}
+						} catch (e) {
+							console.log("processWhere issue join " + targetKey);
+							console.log(results);
 						}
 					}
 					j.where[p] = expression;
@@ -934,6 +939,10 @@ module.exports = class ModelBase extends EventEmitter {
 			}
 		}
 
+		/**
+		 * @param key
+		 * @param j
+		 */
 		let processSelect = (key, j) => {
 			if (relations[key].select) {
 				j.select = j.select || [];
@@ -950,10 +959,12 @@ module.exports = class ModelBase extends EventEmitter {
 			let key = keys[0];
 			if (relations[key]) {
 
-				//console.log("!!!!!!!!!!!!!!!!Key => " + key);
-
 				if (join[key] === true) {
 					join[key] = {}
+				} else if (join[key] === false) {
+					console.log("remove join " + key);
+					keys.shift();
+					continue;
 				}
 
 				let list;
@@ -1004,6 +1015,7 @@ module.exports = class ModelBase extends EventEmitter {
 				 */
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
+
 					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
 						//Allow for join on json value
 						let value = _.get(results[i], joinFrom, null);
@@ -1011,17 +1023,17 @@ module.exports = class ModelBase extends EventEmitter {
 						fromIndex[value] = i;
 					} else if (results[i][joinFrom]) {
 						if (_.isArray(results[i][joinFrom])) {
-							targetKeys.concat(results[i][joinFrom]);
+							targetKeys = targetKeys.concat(results[i][joinFrom]);
 						} else {
 							targetKeys.push(results[i][joinFrom]);
 						}
-
 						fromIndex[results[i][joinFrom]] = i;
 					}
 				}
 
-				//console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
+				targetKeys = _.uniq(targetKeys);
 
+				///console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
 				//console.log("joinFrom => " + joinFrom);
 				//console.log("joinThroughTo => " + joinThroughTo);
 				//console.log("joinThroughFrom => " + joinThroughFrom);
@@ -1039,9 +1051,16 @@ module.exports = class ModelBase extends EventEmitter {
 						throughModel.debug = true;
 					}
 					throughList = await throughModel.query(joinThrough);
+					if (throughList.length === 0) {
+						keys.shift();
+						continue;
+					}
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
+					targetKeys = _.flatten(targetKeys);
+					targetKeys = _.uniq(targetKeys);
 					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
 					//console.log(targetKeys);
+
 				}
 
 				let j = _.clone(join[key]);
@@ -1051,7 +1070,6 @@ module.exports = class ModelBase extends EventEmitter {
 					case "HasOne":
 
 						//console.log("HasOne " + key);
-
 
 						let HasOneModel = this.loadModel(item.modelClass);
 						let hasOneModel = new HasOneModel(this.req);
@@ -1067,7 +1085,7 @@ module.exports = class ModelBase extends EventEmitter {
 						j.where = j.where || {};
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
-						j.limit = j.limit || relations[key].limit || null;
+						j.limit = j.limit || relations[key].limit || targetKeys.length;
 
 						if (fullJoin) {
 							j.join = "*"
@@ -1080,7 +1098,7 @@ module.exports = class ModelBase extends EventEmitter {
 							removeJoinTo = true;
 						}
 
-						list = await hasOneModel.find(j);
+						list = await hasOneModel.query(j);
 
 						if (list.error) {
 							keys.shift();
@@ -1090,13 +1108,33 @@ module.exports = class ModelBase extends EventEmitter {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									let obj = {};
-									obj[joinThroughTo] = row[joinTo];
-									let throughItems = _.filter(throughList, obj);
+									let throughItems = [];
+									throughList.forEach(
+										function(item) {
+											if (_.isArray(item[joinThroughTo])) {
+												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
+													throughItems.push(item)
+												}
+											} else if (item[joinThroughTo] === row[joinTo]) {
+												throughItems.push(item);
+											}
+										}
+									)
 									throughItems.forEach(
 										function(throughItem) {
 											try {
-												let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												let resultsIndex;
+												if (_.isArray(throughItem[joinThroughFrom])) {
+													for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
+														let k = throughItem[joinThroughFrom][i];
+														if (k in fromIndex) {
+															resultsIndex = fromIndex[k];
+															break;
+														}
+													}
+												} else {
+													resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+												}
 												if (removeJoinTo) {
 													delete row[joinTo];
 												}
@@ -1110,11 +1148,34 @@ module.exports = class ModelBase extends EventEmitter {
 								}
 							)
 						} else {
+
 							for (let i = 0; i < list.length; i++) {
-								results[fromIndex[list[i][joinTo]]][key] = list[i];
+								//TODO Arrays
+								let o = {[joinFrom]:list[i][joinTo]};
+								for(let k = 0; k < results.length; k++) {
+									let item = results[k];
+									if (_.isArray(item[joinFrom]) && item[joinFrom].indexOf(list[i][joinTo]) !== -1) {
+										results[k][key] = list[i];
+										if (removeJoinTo) {
+											delete results[k][key][joinTo];
+										}
+									} else if (item[joinFrom] === list[i][joinTo]) {
+										results[k][key] = list[i];
+										if (removeJoinTo) {
+											delete results[k][key][joinTo];
+										}
+									}
+								}
+								/*
+								let index = _.findIndex(results, {[joinFrom]:list[i][joinTo]});
+								if (index !== -1) {
+									results[index][key] = list[i];
+								}
+								//results[fromIndex[list[i][joinTo]]][key] = list[i];
 								if (removeJoinTo) {
 									delete results[fromIndex[list[i][joinTo]]][key][joinTo];
 								}
+								 */
 							}
 						}
 
@@ -1161,7 +1222,14 @@ module.exports = class ModelBase extends EventEmitter {
 
 						list = await hasManyModel.query(j);
 
-						//console.log(hasManyModel.tableName + " => " + list.length);
+						if (list.length === 0) {
+							//console.log(list);
+							//console.log("HasMany Fail");
+							//console.log(JSON.stringify(j));
+							//console.log(hasManyModel.lastCommand.toString());
+						} else {
+							//console.log(hasManyModel.tableName + " => " + list.length);
+						}
 
 						if (list.error) {
 							keys.shift();
@@ -1171,12 +1239,33 @@ module.exports = class ModelBase extends EventEmitter {
 						if (item.throughClass) {
 							list.forEach(
 								function (row) {
-									let obj = {};
-									obj[joinThroughTo] = row[joinTo];
-									let throughItems = _.filter(throughList, obj);
+									let throughItems = [];
+									throughList.forEach(
+										function(item) {
+											if (_.isArray(item[joinThroughTo])) {
+												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
+													throughItems.push(item)
+												}
+											} else if (item[joinThroughTo] === row[joinTo]) {
+												throughItems.push(item);
+											}
+										}
+									)
 									throughItems.forEach(
 										function(throughItem){
-											let resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+											let resultsIndex;
+											if (_.isArray(throughItem[joinThroughFrom])) {
+												for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
+													let k = throughItem[joinThroughFrom][i];
+													if (k in fromIndex) {
+														resultsIndex = fromIndex[k];
+														break;
+													}
+												}
+											} else {
+												resultsIndex = fromIndex[throughItem[joinThroughFrom]];
+											}
+
 											results[resultsIndex][key] = results[resultsIndex][key] || [];
 											let filter = {[item.join.to]:row[item.join.to]};
 											if (!_.find(results[resultsIndex][key], filter)) {
@@ -1190,11 +1279,14 @@ module.exports = class ModelBase extends EventEmitter {
 								}
 							)
 						} else {
+
 							for (let i = 0; i < list.length; i++) {
-								try {
+								//try {
+									//TODO Arrays
 									if (!results[fromIndex[list[i][joinTo]]][key]) {
 										results[fromIndex[list[i][joinTo]]][key] = [];
 									}
+
 									let targetKey = list[i][joinTo];
 									let value = list[i];
 
@@ -1203,6 +1295,8 @@ module.exports = class ModelBase extends EventEmitter {
 									}
 									results[fromIndex[targetKey]][key].push(value);
 
+
+								/*
 								} catch (e) {
 
 									console.log("Could not join " + key + " for " + this.tableName);
@@ -1212,6 +1306,8 @@ module.exports = class ModelBase extends EventEmitter {
 									//console.log(j.select);
 									//console.log(m.lastCommand.toString());
 								}
+
+								 */
 							}
 						}
 
@@ -1219,11 +1315,16 @@ module.exports = class ModelBase extends EventEmitter {
 				}
 			} else if (foreignKeys[key]) {
 
+				//console.log("!!!!!!!!!!!!!!!!foreignKeys => " + key);
+
 				let j = _.clone(foreignKeys[key]);
 
 				let ForeignKeyModel = this.loadModel(foreignKeys[key].modelClass);
+				if (!ForeignKeyModel) {
+					console.warn("Foreign Key Join Error. " + key + " does not exist");
+				}
 				let foreignKeyModel = new ForeignKeyModel(this.req);
-				if (foreignKeys[key].debug) {
+				if (join[key].debug || foreignKeys[key].debug) {
 					foreignKeyModel.debug = true;
 				}
 
@@ -1239,9 +1340,6 @@ module.exports = class ModelBase extends EventEmitter {
 						}
 					}
 				);
-
-				//console.log(this.tableName);
-				//console.log(idList);
 
 				if (idList.length > 0) {
 					idList = _.uniq(idList);
@@ -1411,12 +1509,10 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async execute(command, postProcess) {
-
 		let sql;
 		try {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
-			console.log(e);
 			return {
 				error: e,
 				message: "Error converting command to string"
@@ -1443,6 +1539,8 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 				}
 
+				//console.log("command.postProcess => " + postProcess);
+
 				if (postProcess) {
 					if (results.rows) {
 						return this.postProcessResponse(results.rows);
@@ -1451,7 +1549,7 @@ module.exports = class ModelBase extends EventEmitter {
 					}
 				} else {
 					if (results.rows) {
-						return deepTrim(results.rows);
+						return trimObject(results.rows);
 					} else {
 						return results;
 					}
@@ -1461,6 +1559,7 @@ module.exports = class ModelBase extends EventEmitter {
 			} catch (e) {
 				this.lastError = e;
 				e.sql = sql;
+				console.log(sql);
 				return {
 					error: e
 				};
@@ -1483,6 +1582,7 @@ module.exports = class ModelBase extends EventEmitter {
 						rows: results
 					};
 				}
+
 			} catch (e) {
 				this.lastError = e;
 				e.sql = sql;
@@ -1518,6 +1618,7 @@ module.exports = class ModelBase extends EventEmitter {
 	 * @returns {*}
 	 */
 	postProcessResponse(result) {
+
 		// TODO: add special case for raw results (depends on dialect)
 		if (_.isArray(result)) {
 			result.forEach(
@@ -1526,6 +1627,25 @@ module.exports = class ModelBase extends EventEmitter {
 						if (key.indexOf("_") !== -1) {
 							row[inflector.camelize(key, false)] = row[key];
 							delete row[key];
+						}
+						if (key.indexOf(".") !== -1) {
+							let parts = key.split(".");
+							let doDeep = (pieces, obj) => {
+								obj = obj || {};
+								if (pieces.length === 0) {
+									return obj;
+								}
+								obj[pieces[0]] = obj[pieces[0]] || {};
+								console.log('parts => ' + _.isArray(pieces));
+								return doDeep(pieces.shift(), obj);
+							}
+							let columnName = parts[0];
+							parts.shift();
+							row[columnName] = row[columnName] || {};
+							console.log("parts here " + _.isArray(parts));
+							console.log(row[columnName]);
+							let target = doDeep(parts, row[columnName]);
+							target = row[key];
 						}
 					}
 				}
@@ -1566,6 +1686,14 @@ module.exports = class ModelBase extends EventEmitter {
 	 */
 	selectAs(property) {
 		return this.property[property].columnName + " as " + property;
+	}
+
+	async afterQuery(results) {
+
+	}
+
+	async afterRead(results) {
+
 	}
 
 	/**
@@ -1621,6 +1749,8 @@ module.exports = class ModelBase extends EventEmitter {
 		return true;
 	}
 
+
+
 	/**
 	 * Now that record is gone, maybe you want to move it to some log file, or history table
 	 * @param id
@@ -1669,3 +1799,5 @@ module.exports = class ModelBase extends EventEmitter {
 	}
 
 }
+
+module.exports = ModelBase;

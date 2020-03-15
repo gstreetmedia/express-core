@@ -7,7 +7,19 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication
 	let m = new AuthenticationModel();
 	module.exports = async function (req, res, next) {
 		try {
-			await m.verify(req);
+			if (req.isAuth === true) {
+				if (next) {
+					return next();
+				}
+			}
+			let result = await m.verify(req);
+
+			if (result.error) {
+				return res.error(result.error);
+			}
+
+			req.isAuth = true;
+
 			if (next) {
 				next();
 			}
@@ -15,9 +27,8 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication
 			console.log(e);
 			res.error("Unknown Server Error", 500);
 		}
-	};
+	}
 
 } else {
-	console.log("using local authentication");
 	module.exports = require(global.appRoot + "/src/middleware/authentication");
 }

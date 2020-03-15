@@ -3,7 +3,7 @@ let validateAgainstSchema = require("../helper/validate-against-schema");
 let _ = require("lodash");
 let cache = require("../helper/cache-manager");
 
-module.exports = class ControllerBase {
+class ControllerBase {
 	constructor(Model) {
 		this.Model = Model;
 		this.cache = cache;
@@ -95,7 +95,8 @@ module.exports = class ControllerBase {
 		//console.log("ControllerBase:read");
 
 		let queryTest = this.testQuery(req, res);
-		if (queryTest.error) {
+
+		if (queryTest && queryTest.error) {
 			if (res) {
 				return res.invalid(queryTest);
 			} else {
@@ -130,7 +131,7 @@ module.exports = class ControllerBase {
 
 		try {
 			let result;
-			if (req.query.where) {
+			if (req.query && req.query.where) {
 				let result = await new this.Model(req).updateWhere(req.body, req.query);
 			} else {
 				result = await new this.Model(req).update(req.params.id, req.body);
@@ -346,7 +347,7 @@ module.exports = class ControllerBase {
 		let list = [];
 
 		for(let field in hash) {
-			let values = _.uniq(hash[field]);;
+			let values = _.uniq(hash[field]);
 			values.forEach(
 				function(item) {
 					list.push(
@@ -397,13 +398,11 @@ module.exports = class ControllerBase {
 		}
 	}
 
-
 	async adminIndex(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let keys = Object.keys(m.foreignKeys);
 		req.query.join = req.query.join || {};
 
-		console.log(m.tableName);
 		let fields = m.fields.adminIndex;
 
 		while (keys.length > 0) {
@@ -413,11 +412,30 @@ module.exports = class ControllerBase {
 			keys.shift();
 		}
 
-		return await this.query(req);
+		let count = await m.count(req.query);
+
+		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		if (isNaN(req.query.limit)) {
+			req.query.limit = 500;
+		}
+
+		req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
+
+		if (isNaN(req.query.offset)) {
+			req.query.offset = 0;
+		}
+
+		req.limit = req.query.limit;
+		req.offset = req.query.offset || 0;
+		req.count = parseInt(count);
+
+		let result = await m.find(req.query);
+
+		return result;
 	}
 
 	async adminCreate(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
 		let data = {
@@ -442,10 +460,10 @@ module.exports = class ControllerBase {
 	}
 
 	async adminUpdate(req) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
-		let data = await this.read(req);
+		let data = await m.read(req.params.id);
 
 		data.lookup = {};
 		data.search = {};
@@ -464,6 +482,16 @@ module.exports = class ControllerBase {
 		}
 
 		return data;
+	}
+
+	async adminView(req) {
+		let m = new this.Model(req);
+		return await m.read(req.params.id, req.query);
+	}
+
+	async adminDestroy(req) {
+		let m = new this.Model(req);
+		return await m.destroy(req.params.id);
 	}
 
 
@@ -547,3 +575,5 @@ module.exports = class ControllerBase {
 	}
 
 }
+
+module.exports = ControllerBase;

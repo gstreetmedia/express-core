@@ -4,7 +4,7 @@ const moment = require("moment-timezone");
 const helpers = require("../helper/view/index");
 const fs = require("fs");
 
-module.exports = class ViewControllerBase {
+class ViewControllerBase {
 	constructor() {
 
 	}
@@ -119,3 +119,5 @@ module.exports = class ViewControllerBase {
 
 
 }
+
+module.exports = ViewControllerBase;

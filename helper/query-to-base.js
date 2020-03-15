@@ -118,12 +118,9 @@ module.exports = class QueryToSqlBase {
 
 			for (let i = 0; i < query.select.length; i++) {
 				let key = query.select[i];
-				if (key.indexOf(".") !== -1) {
-
-				}
 				if (this.properties[key]) {
 					selects.push(this.buildSelect(key));
-				} else if (key.indexOf('as') !== -1) {
+				} else if (key.indexOf(' as ') !== -1) {
 					selects.push(key);
 				} else if (key.indexOf(".") !== -1) {
 					key = key.split(".");
@@ -165,7 +162,9 @@ module.exports = class QueryToSqlBase {
 					hasSkip = true;
 					break;
 				case "limit" :
-					queryBuilder.limit(parseInt(query[key]));
+					if (!isNaN(parseInt(query[key]))) {
+						queryBuilder.limit(parseInt(query[key]));
+					}
 					break;
 				case "sort" :
 					//TODO support array sort
@@ -204,7 +203,6 @@ module.exports = class QueryToSqlBase {
 
 	buildSelect (key, subKey) {
 		let query = `"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`;
-		console.log(query);
 		return this.knexRaw(query);
 	}
 

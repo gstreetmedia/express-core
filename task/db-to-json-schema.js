@@ -162,7 +162,7 @@ async function convert(destination, connectionString, options) {
 		}
 
 		if (schemaHash[name]) {
-			name += name + "-" + cs.database
+			name += name + "-" + cs.database;
 		}
 
 		schemaHash[name] = item;
@@ -439,7 +439,7 @@ async function convert(destination, connectionString, options) {
 
 	routers.forEach(
 		function (item) {
-			let ep = inflector.dasherize(inflector.singularize(item), false);
+			let ep = inflector.dasherize(inflector.singularize(item), false).toLowerCase();
 			ep = ep.split("metum").join("meta");
 			s += "router.use('/" + ep + "', " + inflector.camelize(item, false) + "Router);\n"
 		}

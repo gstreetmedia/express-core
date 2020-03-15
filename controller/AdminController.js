@@ -7,7 +7,7 @@ let helpers = require("../helper/view/index");
 const FieldModel = require("../model/FieldModel");
 let schemaList;
 
-module.exports = class AdminController extends ViewControllerBase {
+class AdminController extends ViewControllerBase {
 
 	constructor() {
 		super();
@@ -112,7 +112,8 @@ module.exports = class AdminController extends ViewControllerBase {
 				action : "index",
 				query : req.query,
 				_ : _,
-				inflector : inflector
+				inflector : inflector,
+				pagination : require("../views/template-parts/pagination")
 			},
 			req,
 			res
@@ -416,9 +417,6 @@ module.exports = class AdminController extends ViewControllerBase {
 		let baseName = inflector.classify(inflector.underscore(req.params.model));
 		let altName = inflector.singularize(baseName);
 
-		console.log(baseName);
-		console.log(altName);
-
 		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
 
 		if (fs.existsSync(c + ".js")) {
@@ -439,3 +437,5 @@ module.exports = class AdminController extends ViewControllerBase {
 	}
 
 }
+
+module.exports = AdminController;

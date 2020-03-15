@@ -7,8 +7,7 @@ const moment = require("moment");
 const uuid = require("node-uuid");
 const now = require("../../core/helper/now");
 
-
-module.exports = class SessionModel extends ModelBase {
+class SessionModel extends ModelBase {
 
 	constructor(req) {
 		super(req);
@@ -52,7 +51,7 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 	async destroyWhere(query) {
-		return await super.destroyWhere(id);
+		return await super.destroyWhere(query);
 	}
 
 	/**
@@ -80,7 +79,7 @@ module.exports = class SessionModel extends ModelBase {
 				let decoded;
 
 				try {
-					decoded = jwt.decode(sessions[i].token, process.env.JWT_TOKEN_SECRET);
+					decoded = jwt.decode(sessions[i].token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET);
 				} catch (e) {
 					decoded = null;
 				}
@@ -110,8 +109,9 @@ module.exports = class SessionModel extends ModelBase {
 	 * @param maxAge
 	 * @returns {Promise<*>}
 	 */
-	async getToken(data, req, maxAge) {
-		let userId = data.user ? data.user.id : data.userId ? data.userId : data.id;
+	async getToken(userId, data, req, maxAge) {
+
+		data = _.cloneDeep(data);
 
 		if (!userId) {
 			throw new Error(
@@ -119,20 +119,11 @@ module.exports = class SessionModel extends ModelBase {
 			)
 		}
 
-		data.userId = userId;
-
 		let ipAddress = getIpAddress(req);
 		let userAgent = req.headers['user-agent'];
 
-		if (!userId) {
-			return {
-				error : "Missing User Record or valid id"
-			};
-		}
-
 		await this.houseKeeping(userId);
 
-		data = _.cloneDeep(data);
 		data.ipAddress = ipAddress;
 		data.userAgent = userAgent;
 
@@ -144,9 +135,9 @@ module.exports = class SessionModel extends ModelBase {
 			{
 				id : userId,
 				data : data,
-				systemId : process.env.JWT_TOKEN_SYSTEM_ID || "core"
+				systemId : process.env.JWT_TOKEN_SYSTEM_ID || process.env.CORE_JWT_TOKEN_SYSTEM_ID || "core"
 			},
-			process.env.JWT_TOKEN_SECRET,
+			process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET,
 			{
 				expiresIn: process.env.CORE_JWT_DURATION || "30 days"
 			}
@@ -162,7 +153,7 @@ module.exports = class SessionModel extends ModelBase {
 				ipAddress: ipAddress
 			}
 		);
-		console.log(result);
+
 		// All done.
 		return token;
 	}
@@ -226,3 +217,5 @@ module.exports = class SessionModel extends ModelBase {
 	}
 
 }
+
+module.exports = SessionModel;

@@ -10,7 +10,7 @@ let TokenModel = require('../../model/TokenModel')
 let UserModel = require('../../model/UserModel')
 let SessionModel = require('../../model/SessionModel')
 
-module.exports = class AuthenticationModel {
+class AuthenticationModel {
 
 	checkLocalRequest (req) {
 		if (req.headers['referer'] &&
@@ -54,27 +54,28 @@ module.exports = class AuthenticationModel {
 		let token = this.getTokenFromRequest(req)
 
 		if (token.error) {
-			return token.error
+			return token
 		}
 
 		let decodedToken
 		try {
-			decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET)
+			decodedToken = jwt.decode(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
 			return {
 				error: 'Expired Token'
 			}
 		}
 
-		req.jwt = decodedToken
+		req.jwt = decodedToken;
 
-		return decodedToken
+		return decodedToken;
 	}
 
 	async getSessionFromRequest (req) {
 		let sm = new SessionModel()
 		let decodedToken = this.getDecodedTokenFromRequest(req)
 		let token = this.getTokenFromRequest(req)
+
 		let session = await sm.findOne(
 			{
 				userId: decodedToken.id,
@@ -83,11 +84,24 @@ module.exports = class AuthenticationModel {
 			},
 			true
 		)
+
 		if (session && !session.error) {
+			if (moment(session.expiresAt).isBefore(moment().tz("UTC"))) {
+				await sm.destroy(session.id);
+				return {
+					error : "Expired Session",
+					statusCode : 401,
+					method : "getSessionFromRequest"
+				}
+			}
 			return session
 		}
 		return {
-			error: 'Missing, Expired or Invalid Session'
+			error: {
+				message : 'Missing, Expired or Invalid Session',
+				statusCode : 401,
+				method : "getSessionFromRequest"
+			}
 		}
 	}
 
@@ -108,7 +122,12 @@ module.exports = class AuthenticationModel {
 
 		let key = req.headers['application-key']
 		if (!key) {
-			return { error: 'Missing Application Key' }
+			return {
+				error: {
+					message : 'Missing Application Key',
+					statusCode : 401
+				}
+			}
 		}
 
 		let secret = req.headers['application-secret'];
@@ -139,9 +158,19 @@ module.exports = class AuthenticationModel {
 
 			if (!tokenRecord) {
 				if (secret) {
-					return { error: 'Invalid Application Key or Secret' }
+					return {
+						error: {
+							message : 'Invalid Application Key or Secret',
+							statusCode : 401
+						}
+					}
 				}
-				return { error: 'Invalid Application Key' }
+				return {
+					error: {
+						message : 'Invalid Application Key',
+						statusCode : 401
+					}
+				}
 			} else {
 				//This is at the very least a request using an API KEY
 				req.addRole('api-key')
@@ -158,12 +187,22 @@ module.exports = class AuthenticationModel {
 					tokenRecord.config.settings &&
 					tokenRecord.config.settings.hosts
 				) {
-					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req.get('Referrer')) === false) {
-						return 'Token not allowed for this host'
+					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req) === false) {
+						return {
+							error: {
+								message : 'Token not allowed for this host',
+								statusCode : 401
+							}
+						}
 					}
 				}
 			} else if (secret && req.get('Referrer')) {
-				return { error: 'Please do not include an Application Secret when making requests from a browser.' }
+				return {
+					error: {
+						message : 'Please do not include an Application Secret when making requests from a browser.',
+						statusCode : 401
+					}
+				}
 			} else if (secret) {
 				req.addRole('api-secret')
 			}
@@ -179,14 +218,14 @@ module.exports = class AuthenticationModel {
 				function (key) {
 					if (tokenRecord[key]) {
 						obj[key] = tokenRecord[key]
-						delete tokenRecord[key]
+						//delete tokenRecord[key]
 					}
 				}
 			)
 
 			obj.token = tokenRecord;
 
-			await cache.set('configuration_' + key, obj, process.env.CACHE_DURATION_LONG);
+			await cache.set('configuration_' + key, obj, process.env.CACHE_DURATION_LONG || process.env.CORE_CACHE_DURATION_LONG);
 
 		} else {
 			req.addRole('api-key')
@@ -212,17 +251,29 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async bearerToken (req) {
-		console.log('bearerToken.parent')
+		//console.log('bearerToken.parent')
 		let token
-		let decodedToken = this.getDecodedTokenFromRequest(req)
+		let decodedToken = this.getDecodedTokenFromRequest(req);
+
 		if (decodedToken.error) {
-			return decodedToken.error
+			return {
+				error: {
+					message : 'Invalid or Expired Token',
+					statusCode : 401
+				}
+			}
 		}
 
 		let session = await this.getSessionFromRequest(req)
 
 		if (session.error) {
-			return session.error //Not a valid token
+			console.log("SESSION ERROR");
+			return {
+				error: {
+					message : 'Session Error',
+					statusCode : 401
+				}
+			}
 		}
 
 		let cacheKey = 'authenticated_user_' + decodedToken.id //accountId
@@ -230,18 +281,32 @@ module.exports = class AuthenticationModel {
 		//Check the memory cache for this Account
 		let user = await cache.get(cacheKey) //Try Cache first
 
-		if (!user && decodedToken.data && decodedToken.data.id) {
+		if (!user) {
 			let um = new UserModel(req)
-			user = await um.read(decodedToken.data.id)
-			await cache.set(cacheKey, user)
+			user = await um.findOne(
+				{
+					id : decodedToken.id,
+					status : 'active'
+				}
+			);
+			if (user) {
+				await cache.set(cacheKey, user);
+			}
 		}
 
 		if (user) {
-			req.addRole(user.role)
-		}
+			req.addRole(user.role);
+			req.user = user;
+			req.jwt = this.getTokenFromRequest(req);
+		} else {
 
-		req.user = user
-		req.jwt = token
+			return {
+				error: {
+					message : 'Unknown on Inactive User',
+					statusCode : 401
+				}
+			}
+		}
 
 		return true
 	}
@@ -270,37 +335,42 @@ module.exports = class AuthenticationModel {
 	 * @returns {Promise<void>}
 	 */
 	async verify (req) {
-		this.checkLocalRequest(req)
+		this.checkLocalRequest(req);
 
 		if (this.hasValidCookie(req)
 		) {
 			let keyResult = await this.bearerToken(req)
 			if (keyResult.error) {
-				console.log('keyResult => ' + keyResult.error)
+				//console.log('keyResult => ' + keyResult.error)
 			} else {
-				console.log('Has Valid Cookie!!!')
+				//console.log('Has Valid Cookie!!!')
 			}
 			if (req.currentRoles.indexOf('super-admin') !== -1) {
-				return
+				return {
+
+				}
 			}
 		}
 
 		if (req.headers['application-key']) {
 			let keyResult = await this.applicationKey(req)
 			if (keyResult.error) {
-				console.log('keyResult => ' + keyResult.error)
+				console.log('keyResult => ' + keyResult.error);
+				return keyResult;
 			}
 		} else {
-			console.log('No Application Key. Hacker ???')
+			//console.log('No Application Key. Hacker ???')
 		}
 
 		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req)
-			if (authResult.error) {
-				console.log('authResult => ' + authResult.error)
-			}
+			return authResult;
+		}
+
+		return {
+			success : true
 		}
 	}
 }
 
-
+module.exports = AuthenticationModel;
