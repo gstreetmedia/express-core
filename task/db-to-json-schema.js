@@ -29,12 +29,6 @@ if (!fs.existsSync(fieldBase)) {
 	fs.mkdirSync(fieldBase);
 }
 
-let validationBase = schemaBase + "/validation";
-//console.log(validationBase);
-if (!fs.existsSync(validationBase)) {
-	fs.mkdirSync(validationBase);
-}
-
 let modelBase = sourceBase + "/model";
 //console.log(modelBase);
 if (!fs.existsSync(modelBase)) {
@@ -54,9 +48,9 @@ if (!fs.existsSync(routerBase)) {
 }
 
 
-async function convert(destination, connectionString, options) {
+async function convert(connectionString, options) {
 
-	options = options || {};
+	console.log(options);
 
 	let schemaModel = new SchemaModel();
 	//schemaModel.createTable(); //TODO do this only once
@@ -65,7 +59,6 @@ async function convert(destination, connectionString, options) {
 	//FieldModel.createTable(); //TODO do this only once
 
 	let converter;
-	let schemas = [];
 
 	if (!connectionString) {
 		connectionString = [process.env.DEFAULT_DB]
@@ -74,8 +67,11 @@ async function convert(destination, connectionString, options) {
 	}
 
 	let cs;
+	let routers = [];
 
 	for (let i = 0; i < connectionString.length; i++) {
+		let schemas = [];
+		let schemaHash = {};
 
 		cs = connectionString[i];
 		let pool;
@@ -93,7 +89,6 @@ async function convert(destination, connectionString, options) {
 		} //TODO elastic?
 
 		cs = connectionStringParser(cs);
-		//console.log(cs);
 
 		let schema = await converter(
 			_.extend({
@@ -101,21 +96,21 @@ async function convert(destination, connectionString, options) {
 				indent: 2,
 				dbName: cs.database,
 				connectionString: cs
-			}, options), pool);
+			}, options[i]), pool);
 
 		schema.forEach(
 			function (item) {
 				//console.log(item.tableName);
 				item.dataSource = cs.database;
-				if (options.settings && options.settings[i].ignore) {
-					if (_.indexOf(options.settings[i].ignore, item.tableName) === -1) {
+				if (options[i].ignore) {
+					if (_.indexOf(options[i].ignore, item.tableName) === -1) {
 						//console.log("Adding item " + item.tableName);
 						return schemas.push(item);
 					} else {
 						console.log("Not adding item " + item.tableName);
 					}
-				} else if (options.settings && options.settings[i].include) {
-					if (_.indexOf(options.settings[i].include, item.tableName) !== -1) {
+				} else if (options[i].include) {
+					if (_.indexOf(options[i].include, item.tableName) !== -1) {
 						//console.log("Adding item " + item.tableName);
 						return schemas.push(item);
 					} else {
@@ -128,300 +123,299 @@ async function convert(destination, connectionString, options) {
 			}
 		)
 
-	}
+		for (let q = 0; q < schemas.length; q++) {
 
+			let destination = options[i].destination || "file";
+			let item = schemas[q];
+			let existingSchema = await schemaModel.get(item.tableName, false);
+			let name = item.tableName;
 
-	// Schema's is an array of json-schema objects
-	//
-	let routers = [];
-	let schemaHash = {};
-
-	for (let q = 0; q < schemas.length; q++) {
-		let item = schemas[q];
-
-		let existingSchema = await schemaModel.get(item.tableName, false);
-
-		if (item.tableName.indexOf("_") === 0) { //private tables
-			//continue;
-		}
-
-		let name = item.tableName;
-
-		if (options.removePrefix) {
-			if (_.isString(options.removePrefix)) {
-				options.removePrefix = [options.removePrefix]
-			}
-			options.removePrefix.forEach(
-				function(item) {
-					let tempName = name.split(item).join("");
-					if (!schemaHash[tempName]) {
-						name = tempName;
-					}
+			if (options[i].removePrefix) {
+				if (_.isString(options[i].removePrefix)) {
+					options[i].removePrefix = [options[i].removePrefix]
 				}
-			)
-		}
-
-		if (schemaHash[name]) {
-			name += name + "-" + cs.database;
-		}
-
-		schemaHash[name] = item;
-
-		item.title = inflector.titleize(name);
-
-		let keys = [];
-		let properties = {};
-		let primaryKey = item.primaryKey || "id";
-		if (primaryKey === '') {
-			primaryKey = 'id';
-		}
-
-		//TODO we need to see if the column name exist already, but the developer may have changed the property name
-		//TODO in this case, we should leave the property name intact
-		for (let key in item.properties) {
-			//TODO allow developer to choose type, (snake_case, camelCase, PascalCase)
-			let k = inflector.camelize(inflector.underscore(key), false);
-			if (k.length === 2) {
-				k = k.toLowerCase();
-			}
-			if (existingSchema) { //Allow developer override of property names
-				Object.keys(existingSchema.properties).forEach(
-					function(propertyName) {
-						if (item.columnName === key) {
-							if (propertyName !== k) {
-								k = propertyName;
-							}
+				options[i].removePrefix.forEach(
+					function(item) {
+						let tempName = name.split(item).join("");
+						if (!schemaHash[tempName]) {
+							name = tempName;
 						}
 					}
 				)
 			}
-			properties[k] = _.clone(item.properties[key]);
-			properties[k].columnName = key;
-			keys.push(k);
-		}
 
-		for (let i = 0; i < item.required.length; i++) {
-			let k = inflector.camelize(item.required[i], false);
-			if (k.length === 2) {
-				k = k.toLowerCase();
+			if (schemaHash[name]) {
+				name += name + "-" + cs.database;
 			}
-			item.required[i] = k;
-		}
 
-		keys = _.uniq(keys);
-		keys.sort();
-		let filtered = keys.filter(
-			(value, index, arr) => {
-				if (value === item.primaryKey ||
-					value === "createdAt" ||
-					value === "updatedAt" ||
-					value === "name"
-				) {
-					return false
+			schemaHash[name] = item;
+
+			item.title = inflector.titleize(name);
+
+			let keys = [];
+			let properties = {};
+			let primaryKey = item.primaryKey || "id";
+			if (primaryKey === '') {
+				primaryKey = 'id';
+			}
+
+			//TODO we need to see if the column name exist already, but the developer may have changed the property name
+			//TODO in this case, we should leave the property name intact
+			for (let key in item.properties) {
+				//TODO allow developer to choose type, (snake_case, camelCase, PascalCase)
+				let k = inflector.camelize(inflector.underscore(key), false);
+				if (k.length === 2) {
+					k = k.toLowerCase();
 				}
-				return true;
+				if (existingSchema) { //Allow developer override of property names
+					Object.keys(existingSchema.properties).forEach(
+						function(propertyName) {
+							if (item.columnName === key) {
+								if (propertyName !== k) {
+									k = propertyName;
+								}
+							}
+						}
+					)
+				}
+				properties[k] = _.clone(item.properties[key]);
+				properties[k].columnName = key;
+				keys.push(k);
 			}
-		);
 
-		if (keys.indexOf("name") !== -1) {
-			filtered.unshift("name")
-		}
-		filtered.unshift(item.primaryKey);
+			for (let i = 0; i < item.required.length; i++) {
+				let k = inflector.camelize(item.required[i], false);
+				if (k.length === 2) {
+					k = k.toLowerCase();
+				}
+				item.required[i] = k;
+			}
 
-		if (keys.indexOf("createdAt") !== -1) {
-			filtered.push("createdAt")
-		}
-		if (keys.indexOf("updatedAt") !== -1) {
-			filtered.push("updatedAt")
-		}
-
-		keys = filtered;
-		item.properties = properties;
-
-		if (name.indexOf("_") === 0) {
-			name = name.substring(1, name.length);
-		}
-
-		console.log("Name => " + name);
-
-		let schemaName = schemaBase + "/" + inflector.dasherize(name).toLowerCase() + "-schema";
-		let validationPath = validationBase + "/" + inflector.dasherize(name).toLowerCase() + "-validation.js";
-		let fieldPath = fieldBase + "/" + inflector.dasherize(name).toLowerCase() + "-fields.js";
-		let modelPath = modelBase + "/" + inflector.classify(name) + "Model.js";
-		let controllerPath = controllerBase + "/" + inflector.classify(name) + "Controller.js";
-		let routerPath = routerBase + "/" + inflector.dasherize(name).toLowerCase() + "-router.js";
-
-		let tableName = item.tableName;
-		//TODO need to remove schemas that no longer exist
-		if (destination !== "file") {
-			let result = await schemaModel.set(item.tableName, item);
-		}
-
-		let fields = await fieldModel.get(tableName);
-
-		let fieldSchema = {
-			title: inflector.titleize(item.tableName),
-			tableName: item.tableName,
-			dataSource: item.dataSource,
-			adminIndex: [],
-			adminCreate: [],
-			adminRead: [],
-			adminUpdate: [],
-			publicIndex: [],
-			publicCreate: [],
-			publicRead: [],
-			publicUpdate: [],
-			status: "active"
-		};
-
-		let keysSorted = _.clone(keys);
-
-		if (!fields) {
-			keysSorted.forEach(
-				function (k) {
-
-					let visible = true;
-					if (k === "createdAt" || k === "updatedAt") {
-						visible = false;
+			keys = _.uniq(keys);
+			keys.sort();
+			let filtered = keys.filter(
+				(value, index, arr) => {
+					if (value === item.primaryKey ||
+						value === "createdAt" ||
+						value === "updatedAt" ||
+						value === "name"
+					) {
+						return false
 					}
-
-					fieldSchema.adminIndex.push({
-						property: k,
-						visible: visible
-					});
-					fieldSchema.publicIndex.push({
-						property: k,
-						visible: visible
-					});
-
-					visible = true;
-					if (k === "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
-						visible = false;
-					}
-
-					fieldSchema.adminCreate.push({
-						property: k,
-						visible: visible
-					});
-					fieldSchema.publicCreate.push({
-						property: k,
-						visible: visible
-					});
-
-					fieldSchema.adminUpdate.push({
-						property: k,
-						visible: visible
-					});
-					fieldSchema.publicUpdate.push({
-						property: k,
-						visible: visible
-					});
-
-					visible = true;
-					if (k === "createdAt" || k === "updatedAt") {
-						visible = false;
-					}
-
-					fieldSchema.adminRead.push({
-						property: k,
-						visible: true
-					});
-					fieldSchema.publicRead.push({
-						property: k,
-						visible: visible
-					});
-
-
+					return true;
 				}
 			);
-		} else {
-			//console.log(keysSorted);
 
-			//TODO need to keep original sort
-			function addKeys(origin, keysSorted) {
-				let order = [];
+			if (keys.indexOf("name") !== -1) {
+				filtered.unshift("name")
+			}
+			filtered.unshift(item.primaryKey);
 
-				keysSorted = _.clone(keysSorted);
-
-				//add existing if they still exist
-				fields[origin].forEach(
-					function (item) {
-						//console.log("checking " + item.property)
-						let index = _.indexOf(keysSorted, item.property);
-						if (index !== -1) {
-							//console.log("Adding existing field key =>" + item.property);
-							fieldSchema[origin].push(item);
-							keysSorted.splice(index, 1);
-						}
-					}
-				);
-				keysSorted.forEach(
-					function (key) {
-						//console.log("Adding new field key =>" + key);
-						fieldSchema[origin].push(
-							{
-								property: key,
-								visible: true
-							}
-						)
-					}
-				);
+			if (keys.indexOf("createdAt") !== -1) {
+				filtered.push("createdAt")
+			}
+			if (keys.indexOf("updatedAt") !== -1) {
+				filtered.push("updatedAt")
 			}
 
-			addKeys("adminIndex", keysSorted);
-			addKeys("adminCreate", keysSorted);
-			addKeys("adminRead", keysSorted);
-			addKeys("adminUpdate", keysSorted);
-			addKeys("publicIndex", keysSorted);
-			addKeys("publicCreate", keysSorted);
-			addKeys("publicRead", keysSorted);
-			addKeys("publicUpdate", keysSorted);
+			keys = filtered;
+			item.properties = properties;
+
+			if (name.indexOf("_") === 0) {
+				name = name.substring(1, name.length);
+			}
+
+			name = name.toLowerCase().replace(".", "_");
+
+			console.log("Name => " + name);
+
+			let className = inflector.classify(name);
+
+			if (!isNaN(parseInt(className))) {
+				className = "_" + className;
+			}
+
+			let fileRoot = inflector.dasherize(name);
+
+			if (!isNaN(parseInt(fileRoot))) {
+				fileRoot = "_" + fileRoot;
+			}
+
+			let controllerPath = controllerBase + "/" + className + "Controller.js";
+			let modelPath = modelBase + "/" + className + "Model.js";
+			let schemaName = schemaBase + "/" + fileRoot + "-schema";
+			let fieldPath = fieldBase + "/" + fileRoot + "-fields.js";
+			let routerPath = routerBase + "/" + fileRoot + "-router.js";
+
+			let tableName = item.tableName;
+			//TODO need to remove schemas that no longer exist
+			if (destination !== "file") {
+				let result = await schemaModel.set(item.tableName, item);
+			}
+
+			let fields = await fieldModel.get(tableName);
+
+			let fieldSchema = {
+				title: inflector.titleize(item.tableName),
+				tableName: item.tableName,
+				dataSource: item.dataSource,
+				adminIndex: [],
+				adminCreate: [],
+				adminRead: [],
+				adminUpdate: [],
+				publicIndex: [],
+				publicCreate: [],
+				publicRead: [],
+				publicUpdate: [],
+				status: "active"
+			};
+
+			let keysSorted = _.clone(keys);
+
+			if (!fields) {
+				keysSorted.forEach(
+					function (k) {
+
+						let visible = true;
+						if (k === "createdAt" || k === "updatedAt") {
+							visible = false;
+						}
+
+						fieldSchema.adminIndex.push({
+							property: k,
+							visible: visible
+						});
+
+						fieldSchema.publicIndex.push({
+							property: k,
+							visible: visible
+						});
+
+						visible = true;
+						if (k === "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
+							visible = false;
+						}
+
+						fieldSchema.adminCreate.push({
+							property: k,
+							visible: visible
+						});
+						fieldSchema.publicCreate.push({
+							property: k,
+							visible: visible
+						});
+
+						fieldSchema.adminUpdate.push({
+							property: k,
+							visible: visible
+						});
+						fieldSchema.publicUpdate.push({
+							property: k,
+							visible: visible
+						});
+
+						visible = true;
+						if (k === "createdAt" || k === "updatedAt") {
+							visible = false;
+						}
+
+						fieldSchema.adminRead.push({
+							property: k,
+							visible: true
+						});
+						fieldSchema.publicRead.push({
+							property: k,
+							visible: visible
+						});
+
+
+					}
+				);
+			} else {
+				//console.log(keysSorted);
+
+				//TODO need to keep original sort
+				function addKeys(origin, keysSorted) {
+					let order = [];
+
+					keysSorted = _.clone(keysSorted);
+
+					//add existing if they still exist
+					fields[origin].forEach(
+						function (item) {
+							//console.log("checking " + item.property)
+							let index = _.indexOf(keysSorted, item.property);
+							if (index !== -1) {
+								//console.log("Adding existing field key =>" + item.property);
+								fieldSchema[origin].push(item);
+								keysSorted.splice(index, 1);
+							}
+						}
+					);
+					keysSorted.forEach(
+						function (key) {
+							//console.log("Adding new field key =>" + key);
+							fieldSchema[origin].push(
+								{
+									property: key,
+									visible: true
+								}
+							)
+						}
+					);
+				}
+
+				addKeys("adminIndex", keysSorted);
+				addKeys("adminCreate", keysSorted);
+				addKeys("adminRead", keysSorted);
+				addKeys("adminUpdate", keysSorted);
+				addKeys("publicIndex", keysSorted);
+				addKeys("publicCreate", keysSorted);
+				addKeys("publicRead", keysSorted);
+				addKeys("publicUpdate", keysSorted);
+			}
+
+
+
+			if (destination === "db") {
+				await fieldModel.set(tableName, fieldSchema);
+			}
+
+			//schemas are always written because the DB can change
+			fs.writeFileSync(schemaName + ".js", "module.exports=" +
+				stt(stringify(item, {
+					indent: '  ',
+					singleQuotes: false
+				}), 4) + ";");
+
+
+			if (options[i].overwrite || !fs.existsSync(fieldPath)) {
+				let template = require("./templates/fields");
+				let s=template(fieldSchema);
+				fs.writeFileSync(fieldPath, s);
+			}
+
+			if (options[i].overwrite || !fs.existsSync(modelPath)) {
+				let modelName = inflector.classify(name);
+				let template = require("./templates/model");
+				fs.writeFileSync(modelPath, template(modelName, tableName));
+			}
+
+			if (options[i].overwrite || !fs.existsSync(controllerPath)) {
+				let modelName = inflector.classify(name);
+				let template = require("./templates/controller");
+				fs.writeFileSync(controllerPath, template(modelName));
+			}
+
+			if (options[i].overwrite || !fs.existsSync(routerPath)) {
+				let modelName = inflector.classify(name);
+				let endpoint = inflector.dasherize(inflector.singularize(name), false)
+				let template = require("./templates/route");
+				fs.writeFileSync(routerPath, template(modelName, endpoint));
+			}
+
+			routers.push(name);
 		}
-
-		if (destination !== "file") {
-			await fieldModel.set(tableName, fieldSchema);
-		}
-
-		//schemas are always written because the DB can change
-		fs.writeFileSync(schemaName + ".js", "module.exports=" +
-			stt(stringify(item, {
-				indent: '  ',
-				singleQuotes: false
-			}), 4) + ";");
-
-
-		if (options.overwrite || !fs.existsSync(fieldPath)) {
-			let template = require("./templates/fields");
-			let s=template(fieldSchema);
-			fs.writeFileSync(fieldPath, s);
-		}
-
-		if (options.overwrite || !fs.existsSync(modelPath)) {
-			let modelName = inflector.classify(name);
-			let template = require("./templates/model");
-			fs.writeFileSync(modelPath, template(modelName, tableName));
-		}
-
-		if (options.overwrite || !fs.existsSync(controllerPath)) {
-			let modelName = inflector.classify(name);
-			let template = require("./templates/controller");
-			fs.writeFileSync(controllerPath, template(modelName));
-		}
-
-		if (options.overwrite || !fs.existsSync(routerPath)) {
-			let modelName = inflector.classify(name);
-			let endpoint = inflector.dasherize(inflector.singularize(name), false)
-			let template = require("./templates/route");
-			fs.writeFileSync(routerPath, template(modelName, endpoint));
-		}
-
-		routers.push(name);
-		//}
-		//);
-	}
-
-	if (destination === "memory") {
-		return;
 	}
 
 	routers.sort();
@@ -431,7 +425,13 @@ async function convert(destination, connectionString, options) {
 	let s = "let router = require('express').Router();\n";
 	routers.forEach(
 		function (item) {
-			s += "const " + inflector.camelize(item, false) + "Router = require('./" + inflector.dasherize(item).toLowerCase() + "-router');\n"
+			item = item.replace(".", "_").toLowerCase();
+			let varName = inflector.camelize(item, false);
+			let fileRoot = inflector.dasherize(item, false).toLowerCase();
+			if (!isNaN(parseInt(fileRoot))) {
+				fileRoot = "_" + fileRoot;
+			}
+			s += "const " + varName + "Router = require('./" + fileRoot + "-router');\n"
 		}
 	);
 
@@ -439,9 +439,11 @@ async function convert(destination, connectionString, options) {
 
 	routers.forEach(
 		function (item) {
+			item = item.replace(".", "_").toLowerCase();
+			let varName = inflector.camelize(item, false);
 			let ep = inflector.dasherize(inflector.singularize(item), false).toLowerCase();
 			ep = ep.split("metum").join("meta");
-			s += "router.use('/" + ep + "', " + inflector.camelize(item, false) + "Router);\n"
+			s += "router.use('/" + ep + "', " + varName + "Router);\n"
 		}
 	);
 

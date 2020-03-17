@@ -99,7 +99,7 @@ destroyFunction = (key) => {
 };
 
 exports.set = async (key, value, ttl) => {
-	//console.log("cache-manager set " + key);
+	console.log("cache-manager set " + key);
 	return await setFunction(
 		cachePrefix + "_" + key, value,
 		{
