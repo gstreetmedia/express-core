@@ -10,7 +10,7 @@ const FieldModel = require("../model/FieldModel");
 const jsonFix = require("json-beautify");
 
 //used to format output
-const stt = require('spaces-to-tabs');
+const stt = require('../helper/spaces-to-tab');
 const stringify = require("stringify-object");
 
 let sourceBase = path.resolve(__dirname + "/../../");
