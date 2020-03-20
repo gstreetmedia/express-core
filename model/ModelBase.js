@@ -1281,7 +1281,7 @@ class ModelBase extends EventEmitter {
 						} else {
 
 							for (let i = 0; i < list.length; i++) {
-								//try {
+								try {
 									//TODO Arrays
 									if (!results[fromIndex[list[i][joinTo]]][key]) {
 										results[fromIndex[list[i][joinTo]]][key] = [];
@@ -1296,7 +1296,7 @@ class ModelBase extends EventEmitter {
 									results[fromIndex[targetKey]][key].push(value);
 
 
-								/*
+
 								} catch (e) {
 
 									console.log("Could not join " + key + " for " + this.tableName);
@@ -1307,7 +1307,7 @@ class ModelBase extends EventEmitter {
 									//console.log(m.lastCommand.toString());
 								}
 
-								 */
+
 							}
 						}
 
