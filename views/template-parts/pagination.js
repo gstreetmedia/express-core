@@ -97,7 +97,6 @@ module.exports = (query, data, slug, req) => {
             ${ start } to ${ end } of ${ totalPages } Pages
         </div>` : `` }
 	</div>
-	
 	<style>
 	    .page-counter {
 	        position: absolute;
@@ -106,4 +105,4 @@ module.exports = (query, data, slug, req) => {
 	        z-index: 1;
 	    }
 	</style>`
-}
+};
