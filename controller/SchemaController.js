@@ -30,7 +30,6 @@ class SchemaController extends ControllerBase {
 				}
 			)
 		}
-
 	}
 
 	async update(req, res){
