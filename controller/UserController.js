@@ -46,6 +46,15 @@ class UserController extends ControllerBase {
 		let username = req.body.username || req.query.username || req.query.email || req.body.email;
 		let password = req.body.password || req.query.password;
 
+		if (!username || !password) {
+			return res.error(
+				{
+					message : "Missing Credentials",
+					statusCode : 401
+				}
+			)
+		}
+
 		let m = new this.Model(req);
 
 		let result = await m.login(

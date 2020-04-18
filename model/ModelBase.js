@@ -940,6 +940,7 @@ class ModelBase extends EventEmitter {
 		}
 
 		/**
+		 * Add any selects defined in the relation
 		 * @param key
 		 * @param j
 		 */
@@ -954,6 +955,28 @@ class ModelBase extends EventEmitter {
 				j.select = _.uniq(j.select);
 			}
 		}
+
+		/**
+		 * If a select was present remove extra keys from join
+		 * @param results
+		 * @param key
+		 * @param originalSelect
+		 */
+		let processExtras = (results, key, originalSelect) => {
+			if (originalSelect) {
+				let keys = Object.keys(results[0][key]);
+				console.log(keys);
+				console.log(originalSelect);
+				for(let i = 0; i < results.length; i++) {
+					keys.forEach((field)=> {
+							if (originalSelect.indexOf(field) === -1) {
+								delete results[i][key][field];
+							}
+						}
+					);
+				}
+			}
+		};
 
 		while (keys.length > 0) {
 			let key = keys[0];
@@ -1064,6 +1087,8 @@ class ModelBase extends EventEmitter {
 				}
 
 				let j = _.clone(join[key]);
+				//keep a copy so we can clean out non selected props
+				let originalSelect = j.select ? _.clone(j.select) : null;
 
 				switch (item.relation) {
 
@@ -1091,7 +1116,9 @@ class ModelBase extends EventEmitter {
 							j.join = "*"
 						}
 
-						processSelect(key, j);
+						if (!originalSelect || originalSelect.length === 0) {
+							processSelect(key, j);
+						}
 
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
 							j.select.push(joinTo);
@@ -1119,7 +1146,7 @@ class ModelBase extends EventEmitter {
 												throughItems.push(item);
 											}
 										}
-									)
+									);
 									throughItems.forEach(
 										function(throughItem) {
 											try {
@@ -1148,7 +1175,6 @@ class ModelBase extends EventEmitter {
 								}
 							)
 						} else {
-
 							for (let i = 0; i < list.length; i++) {
 								//TODO Arrays
 								let o = {[joinFrom]:list[i][joinTo]};
@@ -1156,28 +1182,14 @@ class ModelBase extends EventEmitter {
 									let item = results[k];
 									if (_.isArray(item[joinFrom]) && item[joinFrom].indexOf(list[i][joinTo]) !== -1) {
 										results[k][key] = list[i];
-										if (removeJoinTo) {
-											delete results[k][key][joinTo];
-										}
 									} else if (item[joinFrom] === list[i][joinTo]) {
 										results[k][key] = list[i];
-										if (removeJoinTo) {
-											delete results[k][key][joinTo];
-										}
 									}
 								}
-								/*
-								let index = _.findIndex(results, {[joinFrom]:list[i][joinTo]});
-								if (index !== -1) {
-									results[index][key] = list[i];
-								}
-								//results[fromIndex[list[i][joinTo]]][key] = list[i];
-								if (removeJoinTo) {
-									delete results[fromIndex[list[i][joinTo]]][key][joinTo];
-								}
-								 */
 							}
 						}
+
+						processExtras(results, key, originalSelect);
 
 						break;
 					case "HasMany" :
@@ -1204,7 +1216,9 @@ class ModelBase extends EventEmitter {
 						j.offset = relations[key].offset || 0;
 						j.limit = j.limit || relations[key].limit || null;
 
-						processSelect(key, j);
+						if (!originalSelect || originalSelect.length === 0) {
+							processSelect(key, j);
+						}
 
 						//must select the targetJoin key
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
@@ -1221,15 +1235,6 @@ class ModelBase extends EventEmitter {
 						//console.log(j);
 
 						list = await hasManyModel.query(j);
-
-						if (list.length === 0) {
-							//console.log(list);
-							//console.log("HasMany Fail");
-							//console.log(JSON.stringify(j));
-							//console.log(hasManyModel.lastCommand.toString());
-						} else {
-							//console.log(hasManyModel.tableName + " => " + list.length);
-						}
 
 						if (list.error) {
 							keys.shift();
@@ -1310,6 +1315,8 @@ class ModelBase extends EventEmitter {
 
 							}
 						}
+
+						processExtras(results, key, originalSelect);
 
 						break;
 				}
