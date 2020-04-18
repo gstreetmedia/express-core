@@ -120,7 +120,7 @@ class AuthenticationModel {
 
 		req.locals = req.locals || {}
 
-		let key = req.headers['application-key']
+		let key = req.headers['application-key'];
 		if (!key) {
 			return {
 				error: {
@@ -138,7 +138,7 @@ class AuthenticationModel {
 			key = md5(key);
 		}
 
-		let obj = await cache.get('configuration_' + key)
+		let obj = await cache.get('configuration_' + key);
 
 		if (!obj) {
 			let query = {
@@ -221,7 +221,7 @@ class AuthenticationModel {
 						//delete tokenRecord[key]
 					}
 				}
-			)
+			);
 
 			obj.token = tokenRecord;
 
