@@ -124,7 +124,9 @@ module.exports = class QueryToSqlBase {
 					selects.push(key);
 				} else if (key.indexOf(".") !== -1) {
 					key = key.split(".");
-					selects.push(this.buildSelect(key[0], key[1]));
+					let column = key[0];
+					key.shift();
+					selects.push(this.buildSelect(column, key));
 				}
 			}
 		}
