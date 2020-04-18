@@ -392,7 +392,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 	}
 
 	buildSelect (key, subKey) {
-		console.log("key => " + key + " -- subKey => " + subKey);
+		//console.log("key => " + key + " -- subKey => " + subKey);
 		if (this.properties[key].type === "object" && subKey) {
 			let count = 0;
 			let as = `${key}.${subKey.map((val)=>{return val}).join(".")}`;
