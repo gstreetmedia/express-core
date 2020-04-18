@@ -126,7 +126,9 @@ module.exports = class QueryToSqlBase {
 					key = key.split(".");
 					let column = key[0];
 					key.shift();
-					selects.push(this.buildSelect(column, key));
+					if (this.properties[key]) {
+						selects.push(this.buildSelect(column, key));
+					}
 				}
 			}
 		}
