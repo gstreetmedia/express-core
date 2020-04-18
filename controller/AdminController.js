@@ -5,6 +5,7 @@ const fs = require('fs');
 const inflector = require("../helper/inflector");
 let helpers = require("../helper/view/index");
 const FieldModel = require("../model/FieldModel");
+const pagination = require("../helper/view/pagination");
 let schemaList;
 
 class AdminController extends ViewControllerBase {
@@ -100,12 +101,14 @@ class AdminController extends ViewControllerBase {
 			data = await controller.query(req);
 		}
 
+		let slug = inflector.dasherize(inflector.singularize(req.params.model));
+
 		return this.render(
 			'page-admin-list',
 			{
 				title : req.params.model,
 				name : inflector.singularize(inflector.titleize(inflector.dasherize(req.params.model))),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
+				slug : slug,
 				model : model,
 				data : data,
 				schemaList : AdminController.getSchemaList(),
@@ -113,7 +116,7 @@ class AdminController extends ViewControllerBase {
 				query : req.query,
 				_ : _,
 				inflector : inflector,
-				pagination : require("../views/template-parts/pagination")
+				pagination : pagination(req.query, data, slug, req)
 			},
 			req,
 			res
