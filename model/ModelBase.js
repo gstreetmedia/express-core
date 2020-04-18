@@ -963,10 +963,14 @@ class ModelBase extends EventEmitter {
 		 * @param originalSelect
 		 */
 		let processExtras = (results, key, originalSelect) => {
-			if (originalSelect) {
+
+			console.log(key + " -> " + originalSelect);
+			if (results &&
+				results.length > 0 &&
+				results[0][key] &&
+				originalSelect &&
+				originalSelect.length > 0) {
 				let keys = Object.keys(results[0][key]);
-				console.log(keys);
-				console.log(originalSelect);
 				for(let i = 0; i < results.length; i++) {
 					keys.forEach((field)=> {
 							if (originalSelect.indexOf(field) === -1) {
@@ -994,7 +998,7 @@ class ModelBase extends EventEmitter {
 				let m;
 				let throughList;
 				let item = relations[key];
-
+				let originalSelect = item.join.select ? _.clone(item.join.select) : null;
 				let joinFrom = item.join.from;
 				let joinTo = item.join.to;
 				let joinThroughFrom = item.join.through ? item.join.through.from : null;
@@ -1088,7 +1092,7 @@ class ModelBase extends EventEmitter {
 
 				let j = _.clone(join[key]);
 				//keep a copy so we can clean out non selected props
-				let originalSelect = j.select ? _.clone(j.select) : null;
+
 
 				switch (item.relation) {
 
