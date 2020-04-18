@@ -77,7 +77,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 						}
 						as += "." + parts[i];
 					}
-					fieldName = parts[parts.length-1];
+					//fieldName = parts[parts.length-1];
 					//sqlBuilder.select(this.raw(this.tableName + "." + columnName + " as \"" + as + "\""));
 				} else {
 					console.log("no object column named " + key);
@@ -394,9 +394,18 @@ module.exports = class QueryToPgSql extends QueryBase{
 	buildSelect (key, subKey) {
 		//console.log("key => " + key + " -- subKey => " + subKey);
 		if (this.properties[key].type === "object" && subKey) {
-			//this.postProcess = true;
-			//return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${key + "." + subKey}"`);
-			return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}"->>'${subKey}' as "${key}.${subKey}"`);
+			let count = 0;
+			let as = `${key}.${subKey.map((val)=>{return val}).join(".")}`;
+			let from = `${subKey.map((val)=>{
+				count++;
+				if (count < subKey.length) {
+					return "->'" + val + "'";
+				} else {
+					return "->>'" + val + "'";
+				}
+			}).join("")}`;
+			let select = `"${this.tableName}"."${this.properties[key].columnName}"${from} as "${as}"`;
+			return this.knexRaw(select);
 		}
 		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);
 	}
