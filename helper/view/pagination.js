@@ -1,7 +1,7 @@
 let _ = require("lodash");
 
 module.exports = (query, data, slug, req) => {
-
+	console.log("pagination");
 	let q = _.clone(query);
 	let where;
 	if (query.where) {
@@ -10,7 +10,7 @@ module.exports = (query, data, slug, req) => {
 		where = "?";
 	}
 	if (req.count && req.limit && req.offset === 0) {
-		return ``;
+		//return ``;
 	}
 	let totalPages = Math.ceil(req.count / req.limit);
 	let currentPage = Math.ceil(req.offset / req.limit);
