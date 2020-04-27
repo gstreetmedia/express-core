@@ -1,0 +1,53 @@
+{
+  "name": "core.js",
+  "version": "1.0.0",
+  "description": "Basic CRUD for express",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gstreetmedia/core.js.git"
+  },
+  "author": "Andrew Greenstreet",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt-nodejs": "0.0.3",
+    "body-parser": "^1.19.0",
+    "cache-manager": "^2.9.1",
+    "cache-manager-redis": "^0.6.0",
+    "cookie-parser": "^1.4.4",
+    "cors": "^2.8.5",
+    "dotenv": "^6.2.0",
+    "ejs": "~2.5.7",
+    "events": "^3.0.0",
+    "follow-redirects": "^1.7.0",
+    "inflected": "^2.0.4",
+    "json-beautify": "^1.1.0",
+    "jsonlint": "^1.6.3",
+    "jsonwebtoken": "^8.5.1",
+    "just-diff": "^2.2.0",
+    "knex": "^0.15.0",
+    "knex-stringcase": "^0.2.6",
+    "lodash": "^4.17.14",
+    "md5": "^2.2.1",
+    "moment": "^2.24.0",
+    "moment-timezone": "^0.5.26",
+    "node-uuid": "^1.4.8",
+    "numeral": "^2.0.6",
+    "path-to-regexp": "^3.1.0",
+    "rate-limiter-flexible": "^1.0.3",
+    "redis": "^2.8.0",
+    "titleize": "^2.1.0",
+    "validator": "^10.11.0"
+  },
+  "devDependencies": {
+    "spaces-to-tabs": "0.0.3",
+    "stringify-object": "^3.3.0"
+  },
+  "bugs": {
+    "url": "https://github.com/gstreetmedia/core.js/issues"
+  },
+  "homepage": "https://github.com/gstreetmedia/core.js#readme"
+}
