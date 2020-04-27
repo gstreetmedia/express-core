@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gstreetmedia/core.js.git"
+    "url": "git+https://github.com/gstreetmedia/express-core.git"
   },
   "author": "Andrew Greenstreet",
   "license": "ISC",
