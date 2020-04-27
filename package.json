@@ -1,5 +1,5 @@
 {
-  "name": "api-skeleton",
+  "name": "express-core",
   "version": "1.0.0",
   "description": "Basic CRUD for express",
   "main": "index.js",
