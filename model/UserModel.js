@@ -160,7 +160,7 @@ class UserModel extends ModelBase {
 			{
 				where: {
 					email: email,
-					status: 'active'
+					status: {"in" : ['active','pending']}
 				}
 			}
 		)
