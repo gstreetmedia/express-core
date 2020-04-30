@@ -404,7 +404,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 					return "->>'" + val + "'";
 				}
 			}).join("")}`;
-			let select = `"${this.tableName}"."${this.properties[key].columnName}"${from} as "${as}"`;
+			let select = `to_json("${this.tableName}"."${this.properties[key].columnName}"${from}) as "${as}"`;
 			return this.knexRaw(select);
 		}
 		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);
