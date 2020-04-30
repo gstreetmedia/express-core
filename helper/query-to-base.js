@@ -91,7 +91,6 @@ module.exports = class QueryToSqlBase {
 	}
 
 	raw(value) {
-
 		return knex(
 			{
 				client: this.client
