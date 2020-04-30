@@ -1288,9 +1288,6 @@ class ModelBase extends EventEmitter {
 							)
 						} else {
 
-							console.log("targetKeys");
-							console.log(targetKeys);
-
 							for (let i = 0; i < list.length; i++) {
 								try {
 									//If the joinFrom is an array, we need to recurse all results
