@@ -963,8 +963,6 @@ class ModelBase extends EventEmitter {
 		 * @param originalSelect
 		 */
 		let processExtras = (results, key, originalSelect) => {
-
-			console.log(key + " -> " + originalSelect);
 			if (results &&
 				results.length > 0 &&
 				results[0][key] &&
