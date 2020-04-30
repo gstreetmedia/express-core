@@ -242,6 +242,7 @@ class ModelBase extends EventEmitter {
 
 		if (result.length === 1) {
 			result = result[0];
+			result = await this.afterRead(result);
 			if (query && query.join) {
 				result = await this.join(result, query);
 			}
@@ -475,9 +476,6 @@ class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async query(query, cache) {
-
-		//console.log("query > " + this.tableName);
-
 		let cacheKey;
 		if (cache === true) {
 			cacheKey = this.tableName + "::" + md5(JSON.stringify(query));
@@ -590,6 +588,7 @@ class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async findOne(query, cache) {
+		console.log("findOne");
 		query.limit = 1;
 		let cacheKey;
 		let result;
@@ -612,7 +611,8 @@ class ModelBase extends EventEmitter {
 			if (cacheKey) {
 				await cacheManager.set(cacheKey, result[0]);
 			}
-			return result[0];
+
+			return this.afterRead(result[0]);
 		}
 
 		return null;
@@ -1042,7 +1042,6 @@ class ModelBase extends EventEmitter {
 				 */
 
 				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
-
 					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
 						//Allow for join on json value
 						let value = _.get(results[i], joinFrom, null);
@@ -1289,11 +1288,31 @@ class ModelBase extends EventEmitter {
 							)
 						} else {
 
+							console.log("targetKeys");
+							console.log(targetKeys);
+
 							for (let i = 0; i < list.length; i++) {
 								try {
-									//TODO Arrays
-									if (!results[fromIndex[list[i][joinTo]]][key]) {
-										results[fromIndex[list[i][joinTo]]][key] = [];
+									//If the joinFrom is an array, we need to recurse all results
+									//to find out if the array of each matches the joinTo
+									if(this.properties[joinFrom].type === "array") {
+										for(let k = 0; k < results.length; k++) {
+											if (results[k][joinFrom].includes(list[i][joinTo])) {
+												results[k][key] = results[k][key] || [];
+												results[k][key].push(list[i]);
+											}
+										}
+										continue;
+									}
+
+									try {
+										if (!results[fromIndex[list[i][joinTo]]][key]) {
+											results[fromIndex[list[i][joinTo]]][key] = [];
+										}
+									} catch(e) {
+										console.log("something went wrong");
+										console.log("joinTo -> " + joinTo);
+										//console.log(list[i]);
 									}
 
 									let targetKey = list[i][joinTo];
@@ -1304,19 +1323,14 @@ class ModelBase extends EventEmitter {
 									}
 									results[fromIndex[targetKey]][key].push(value);
 
-
-
 								} catch (e) {
-
 									console.log("Could not join " + key + " for " + this.tableName);
 									console.log("joinTo => " + joinTo);
-									console.log(fromIndex);
+									//console.log(fromIndex);
 									console.log(e);
 									//console.log(j.select);
 									//console.log(m.lastCommand.toString());
 								}
-
-
 							}
 						}
 
@@ -1699,12 +1713,65 @@ class ModelBase extends EventEmitter {
 		return this.property[property].columnName + " as " + property;
 	}
 
-	async afterQuery(results) {
-
+	async afterRead(result) {
+		if (!result || result.error) {
+			return result;
+		}
+		let r = await this.afterQuery([result]);
+		console.log(r);
+		return r[0];
 	}
 
-	async afterRead(results) {
-
+	async afterQuery(results) {
+		if (!results || !_.isArray(results) || results.length === 0) {
+			return results;
+		}
+		let keys = Object.keys(results[0]);
+		if (keys.join("_").indexOf(".") === -1) {
+			return results;
+		}
+		let hash = {};
+		let hasElements;
+		let context = this;
+		keys.forEach(
+			(key) => {
+				if (key.indexOf(".") !== -1) {
+					let parts = key.split(".");
+					if (context.properties[parts[0]]) {
+						hasElements = true;
+						hash[key] = hash[key] || {
+							field : parts[0],
+							subfield : parts[1] //TODO can we go deeper than one level???
+						}
+					}
+				}
+			}
+		);
+		if (hasElements) {
+			results.forEach(
+				function(row) {
+					keys.forEach(
+						(key) => {
+							if (hash[key]) {
+								row[hash[key].field] = row[hash[key].field] || {};
+								let value = row[key];
+								try {
+									value = JSON.parse(row[key]);
+								} catch (e) {
+									//Not JSON.
+								}
+								row[hash[key].field][hash[key].subfield] = value;
+								delete row[key];
+							}
+						}
+					)
+					if (row.id && row.record) {
+						row.record.id = row.id; //TODO this should be done during insert
+					}
+				}
+			);
+		}
+		return results;
 	}
 
 	/**
@@ -1773,7 +1840,9 @@ class ModelBase extends EventEmitter {
 	}
 
 	async afterFind(data) {
-		return ;
+		if (this.afterQuery) {
+			return await this.afterQuery(data)
+		}
 	}
 
 	/**
