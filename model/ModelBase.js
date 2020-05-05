@@ -1045,7 +1045,7 @@ class ModelBase extends EventEmitter {
 						let value = _.get(results[i], joinFrom, null);
 						targetKeys.push(value);
 						fromIndex[value] = i;
-					} else if (results[i][joinFrom]) {
+					} else if (results[i] && results[i][joinFrom]) {
 						if (_.isArray(results[i][joinFrom])) {
 							targetKeys = targetKeys.concat(results[i][joinFrom]);
 						} else {
