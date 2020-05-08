@@ -6,6 +6,39 @@ const now = require("../helper/now");
 class MetaModel extends ModelBase {
 
 
+	async create(data) {
+		if (data.objectId && data.key && data.value) {
+			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
+			return result;
+		}
+		return {
+			error : "Malformed Data",
+			statusCode : 400
+		}
+	}
+
+	async update(data) {
+		if (data.objectId && data.key && data.value) {
+			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
+			return result;
+		}
+		return {
+			error : "Malformed Data",
+			statusCode : 400
+		}
+	}
+
+	async destroy(data) {
+		if (data.objectId && data.key) {
+			let result = await this.unset(data.objectId, data.key);
+			return result;
+		}
+		return {
+			error : "Malformed Data",
+			statusCode : 400
+		}
+	}
+
 	/**
 	 * Store a simple key / value pair or key / object or key / value / object pair
 	 * @param objectId
@@ -13,10 +46,10 @@ class MetaModel extends ModelBase {
 	 * @param value
 	 * @param object
 	 * @param isUnique
-	 * @param secondsToLive
+	 * @param ttl
 	 * @returns {Promise<null>}
 	 */
-	async set(objectId, key, value, isUnique, secondsToLive) {
+	async set(objectId, key, value, isUnique, ttl) {
 
 		if (!objectId) {
 			return null;
@@ -53,7 +86,7 @@ class MetaModel extends ModelBase {
 					value : value,
 					object : object,
 					isUnique : !!isUnique,
-					expiresAt : _.isNumber(secondsToLive) ? moment().add(secondsToLive, "seconds").tz("UTC").toISOString() : null
+					expiresAt : _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 				}
 			)
 		} else {
@@ -64,7 +97,7 @@ class MetaModel extends ModelBase {
 						key: key,
 						value : value,
 						object : object,
-						expiresAt: _.isNumber(secondsToLive) ? moment().add(secondsToLive, "seconds").tz("UTC").toISOString() : null
+						expiresAt: _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 					}
 				);
 			} else {
@@ -77,7 +110,7 @@ class MetaModel extends ModelBase {
 								value : value,
 								object : object,
 								isUnique : !!isUnique,
-								expiresAt : _.isNumber(secondsToLive) ? moment().add(secondsToLive, "seconds").tz("UTC").toISOString() : null
+								expiresAt : _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 							}
 						)
 					}
