@@ -66,7 +66,7 @@ class MetaModel extends ModelBase {
 		let object = null;
 		if (typeof value === "object") {
 			object = value;
-			value = null;
+			value = JSON.stringify(value);
 		} else if (typeof value !== "string") {
 			object = {"_value" : value}
 		}
