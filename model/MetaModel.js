@@ -7,7 +7,7 @@ class MetaModel extends ModelBase {
 
 
 	async create(data) {
-		console.log("create");
+
 		if (data.objectId && data.key && data.value) {
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
@@ -19,7 +19,7 @@ class MetaModel extends ModelBase {
 	}
 
 	async update(data) {
-		console.log("update");
+
 		if (data.objectId && data.key && data.value) {
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
@@ -31,7 +31,7 @@ class MetaModel extends ModelBase {
 	}
 
 	async destroy(data) {
-		console.log("destroy");
+
 		if (data.objectId && data.key) {
 			let result = await this.unset(data.objectId, data.key);
 			return result;
@@ -53,7 +53,7 @@ class MetaModel extends ModelBase {
 	 * @returns {Promise<null>}
 	 */
 	async set(objectId, key, value, isUnique, ttl) {
-		console.log("set!!!");
+
 
 		if (!objectId) {
 			return {

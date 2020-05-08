@@ -588,7 +588,7 @@ class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async findOne(query, cache) {
-		console.log("findOne");
+		//console.log("findOne");
 		query.limit = 1;
 		let cacheKey;
 		let result;
@@ -1713,7 +1713,6 @@ class ModelBase extends EventEmitter {
 			return result;
 		}
 		let r = await this.afterQuery([result]);
-		console.log(r);
 		return r[0];
 	}
 

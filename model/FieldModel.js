@@ -72,7 +72,7 @@ class FieldModel extends ModelBase {
 
 	async query(query) {
 		query.sort = "title ASC";
-		console.log(query);
+		//console.log(query);
 		return await super.query(query);
 	}
 
