@@ -85,6 +85,7 @@ class MetaModel extends ModelBase {
 		});
 
 		if (record.length === 0) {
+			console.log(1);
 			let result = await super.create(
 				{
 					objectId : objectId,
@@ -98,6 +99,7 @@ class MetaModel extends ModelBase {
 			return result;
 		} else {
 			if (record.length === 1 && record[0].isUnique) {
+				console.log(2);
 				let result = await super.update(
 					record[0].id,
 					{
@@ -112,7 +114,7 @@ class MetaModel extends ModelBase {
 				let results = [];
 				while (record.length > 0) {
 					if (record[0].value !== value && record[0].object === object) {
-						let result = super.create(
+						let result = await super.create(
 							{
 								objectId : objectId,
 								key : key,
@@ -121,11 +123,11 @@ class MetaModel extends ModelBase {
 								isUnique : !!isUnique,
 								expiresAt : _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 							}
-						)
+						);
 						results.push(result);
-						return result;
 					}
 				}
+				return results;
 			}
 		}
 	}
