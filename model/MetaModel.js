@@ -7,6 +7,7 @@ class MetaModel extends ModelBase {
 
 
 	async create(data) {
+		console.log("create");
 		if (data.objectId && data.key && data.value) {
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
@@ -18,6 +19,7 @@ class MetaModel extends ModelBase {
 	}
 
 	async update(data) {
+		console.log("update");
 		if (data.objectId && data.key && data.value) {
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
@@ -29,6 +31,7 @@ class MetaModel extends ModelBase {
 	}
 
 	async destroy(data) {
+		console.log("destroy");
 		if (data.objectId && data.key) {
 			let result = await this.unset(data.objectId, data.key);
 			return result;
@@ -50,13 +53,20 @@ class MetaModel extends ModelBase {
 	 * @returns {Promise<null>}
 	 */
 	async set(objectId, key, value, isUnique, ttl) {
+		console.log("set!!!");
 
 		if (!objectId) {
-			return null;
+			return {
+				error : "Null ObjectId",
+				statusCode : 400
+			};
 		}
 
 		if (!key) {
-			return null;
+			return {
+				error : "Null Key. Please use unset.",
+				statusCode : 400
+			};
 		}
 
 		if (isUnique !== false) {
@@ -71,7 +81,7 @@ class MetaModel extends ModelBase {
 			object = {"_value" : value}
 		}
 
-		let record = await this.find({
+		let record = await super.find({
 			where : {
 				objectId : objectId,
 				key : key
@@ -79,7 +89,7 @@ class MetaModel extends ModelBase {
 		});
 
 		if (record.length === 0) {
-			let result = await this.create(
+			let result = await super.create(
 				{
 					objectId : objectId,
 					key : key,
@@ -89,9 +99,10 @@ class MetaModel extends ModelBase {
 					expiresAt : _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 				}
 			)
+			return result;
 		} else {
 			if (record.length === 1 && record[0].isUnique) {
-				let result = await this.update(
+				let result = await super.update(
 					record[0].id,
 					{
 						key: key,
@@ -100,10 +111,12 @@ class MetaModel extends ModelBase {
 						expiresAt: _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 					}
 				);
+				return result;
 			} else {
+				let results = [];
 				while (record.length > 0) {
 					if (record[0].value !== value && record[0].object === object) {
-						this.create(
+						let result = super.create(
 							{
 								objectId : objectId,
 								key : key,
@@ -113,6 +126,8 @@ class MetaModel extends ModelBase {
 								expiresAt : _.isNumber(ttl) ? moment().add(ttl, "seconds").tz("UTC").toISOString() : null
 							}
 						)
+						results.push(result);
+						return result;
 					}
 				}
 			}
@@ -128,7 +143,7 @@ class MetaModel extends ModelBase {
 	async get(objectId, key) {
 		let m = moment();
 
-		let result = await this.find(
+		let result = await super.find(
 			{
 				where : {
 					objectId : objectId,
@@ -195,7 +210,7 @@ class MetaModel extends ModelBase {
 	 */
 	async unset(objectId, key, value) {
 		if (!key && !value) {
-			await this.destroyWhere(
+			await super.destroyWhere(
 				{
 					where : {
 						objectId : objectId
@@ -203,7 +218,7 @@ class MetaModel extends ModelBase {
 				}
 			)
 		} else if (key && !value) {
-			await this.destroyWhere(
+			await super.destroyWhere(
 				{
 					where : {
 						objectId : objectId,
@@ -213,7 +228,7 @@ class MetaModel extends ModelBase {
 			)
 		}  else if (key && value) {
 			if (_.isObject(value)) {
-				await this.destroyWhere(
+				await super.destroyWhere(
 					{
 						where : {
 							objectId : objectId,
@@ -223,7 +238,7 @@ class MetaModel extends ModelBase {
 					}
 				)
 			} else {
-				await this.destroyWhere(
+				await super.destroyWhere(
 					{
 						where : {
 							objectId : objectId,
