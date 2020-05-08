@@ -1300,7 +1300,8 @@ class ModelBase extends EventEmitter {
 									} else {
 										for(let k = 0; k < results.length; k++) {
 											if (results[k][joinFrom] === list[i][joinTo]) {
-												results[k][key] = list[i];
+												results[k][key] = results[k][key] || [];
+												results[k][key].push(list[i]);
 											}
 										}
 									}
