@@ -39,22 +39,6 @@ class MetaModel extends ModelBase {
 		}
 	}
 
-	async query(query) {
-		let keys = Object.keys(query.where);
-		if (keys.length === 2 && query.where.objectId && query.where.key) {
-			let result = await this.get(query.where.objectId, query.where.key);
-			let list = [];
-			result.forEach(
-				(item) => {
-					list.push(
-						{[query.where.key]: item}
-					);
-				}
-			);
-			return list;
-		}
-		return await super.query(query);
-	}
 
 	/**
 	 * Store a simple key / value pair or key / object or key / value / object pair
