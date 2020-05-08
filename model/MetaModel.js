@@ -7,7 +7,6 @@ class MetaModel extends ModelBase {
 
 
 	async create(data) {
-
 		if (data.objectId && data.key && data.value) {
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
@@ -19,7 +18,6 @@ class MetaModel extends ModelBase {
 	}
 
 	async update(data) {
-
 		if (data.objectId && data.key && data.value) {
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
@@ -31,7 +29,6 @@ class MetaModel extends ModelBase {
 	}
 
 	async destroy(data) {
-
 		if (data.objectId && data.key) {
 			let result = await this.unset(data.objectId, data.key);
 			return result;
@@ -40,6 +37,23 @@ class MetaModel extends ModelBase {
 			error : "Malformed Data",
 			statusCode : 400
 		}
+	}
+
+	async query(query) {
+		let keys = Object.keys(query.where);
+		if (keys.length === 2 && query.where.objectId && query.where.key) {
+			let result = await this.get(query.where.objectId, query.where.key);
+			let list = [];
+			result.forEach(
+				(item) => {
+					list.push(
+						{[query.where.key]: item}
+					);
+				}
+			);
+			return list;
+		}
+		return await super.query(query);
 	}
 
 	/**
@@ -53,8 +67,6 @@ class MetaModel extends ModelBase {
 	 * @returns {Promise<null>}
 	 */
 	async set(objectId, key, value, isUnique, ttl) {
-
-
 		if (!objectId) {
 			return {
 				error : "Null ObjectId",
@@ -141,9 +153,10 @@ class MetaModel extends ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async get(objectId, key) {
+		console.log('get ' + objectId + " key " + key);
 		let m = moment();
-
-		let result = await super.find(
+		this.debug = true;
+		let result = await super.query(
 			{
 				where : {
 					objectId : objectId,
@@ -161,7 +174,9 @@ class MetaModel extends ModelBase {
 				return _.map(result, "value");
 			}
 		}
-		return null;
+		return {
+
+		};
 	}
 
 	/**
@@ -176,9 +191,7 @@ class MetaModel extends ModelBase {
 
 		data.forEach(
 			function(item) {
-
 				context.setValue(item);
-
 				if (item.expiresAt) {
 					if (!m.isAfter(item.expiresAt)) {
 						list.push(item);
