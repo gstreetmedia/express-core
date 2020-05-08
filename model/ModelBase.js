@@ -1297,8 +1297,15 @@ class ModelBase extends EventEmitter {
 												results[k][key].push(list[i]);
 											}
 										}
-										continue;
+									} else {
+										for(let k = 0; k < results.length; k++) {
+											if (results[k][joinFrom] === list[i][joinTo]) {
+												results[k][key] = list[i];
+											}
+										}
 									}
+									/*
+
 
 									try {
 										if (!results[fromIndex[list[i][joinTo]]][key]) {
@@ -1316,7 +1323,17 @@ class ModelBase extends EventEmitter {
 									if (removeJoinTo === true) {
 										value = _.omit(value, joinTo);
 									}
-									results[fromIndex[targetKey]][key].push(value);
+
+									try {
+										results[fromIndex[targetKey]][key].push(value);
+									} catch (e) {
+										console.log(results);
+										console.log(targetKey);
+										console.log(fromIndex);
+										console.log(e);
+									}
+
+									 */
 
 								} catch (e) {
 									console.log("Could not join " + key + " for " + this.tableName);
