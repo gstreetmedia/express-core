@@ -147,8 +147,6 @@ exports.select = (attr) => {
 		)
 	}
 
-	console.log(options);
-
 	return `
 	<select class="select" 
 			id="${attr.id}" 

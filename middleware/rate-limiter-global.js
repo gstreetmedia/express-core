@@ -9,9 +9,6 @@ if (process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS && !limiter) {
 
 	let connection = connectionStringParser(process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS);
 
-	console.log("Rate Limiter Global Redis");
-	console.log(connection);
-
 	const redisClient = redis.createClient({
 		host: connection.host,
 		port: connection.port,
