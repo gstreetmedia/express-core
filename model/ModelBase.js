@@ -522,9 +522,10 @@ class ModelBase extends EventEmitter {
 	 */
 	async count(query, cache) {
 		let cacheKey;
+		let result;
 
 		if (cache === true) {
-			cacheKey = this.tableName + "::count::" + md5(JSON.stringify(query));
+			cacheKey = this.tableName + "_count_" + md5(JSON.stringify(query));
 			result = await cacheManager.get(cacheKey);
 			if (result) {
 				return result;
@@ -532,7 +533,7 @@ class ModelBase extends EventEmitter {
 		}
 
 		let command = this.queryBuilder.count(query);
-		let result = await this.execute(command);
+		result = await this.execute(command);
 
 		if (result.error) {
 			return result;
