@@ -206,7 +206,7 @@ class ControllerBase {
 		}
 
 		let m = new this.Model(req);
-		let count = await m.count(req.query);
+		let count = await m.count(req.query, true);
 
 		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		if (isNaN(req.query.limit)) {
