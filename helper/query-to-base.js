@@ -510,7 +510,7 @@ module.exports = class QueryToSqlBase {
 							}
 
 							//compare, columnName, key, value, properties, queryBuilder
-							console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
+							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
 							//TODO need recursive syntax for
 							//and (condition1 or condition2)
 							//table, key, compare, value, properties, queryBuilder

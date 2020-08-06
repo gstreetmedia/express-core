@@ -219,9 +219,10 @@ class UserModel extends ModelBase {
 					{
 						password: password,
 						passwordResetToken: null,
-						passwordResetTokenExpiresAt: null
+						passwordResetTokenExpiresAt: null,
+						status : "active"
 					}
-				)
+				);
 				let sm = new SessionModel();
 				await sm.destroyWhere(
 					{
@@ -349,7 +350,7 @@ class UserModel extends ModelBase {
 		} catch (e) {
 			return {
 				error : {
-					message : "Expired or Invalid Token",
+					message : "Expired or Invalid Registration Link",
 					statusCode : 401
 				}
 			}
@@ -364,7 +365,7 @@ class UserModel extends ModelBase {
 						password: password,
 						passwordResetToken: null,
 						passwordResetTokenExpiresAt: null,
-						status : "active",
+						status: "active",
 						emailStatus: "active"
 					},
 					true
@@ -373,7 +374,7 @@ class UserModel extends ModelBase {
 			} else {
 				return {
 					error : {
-						message : "Token mismatch",
+						message : "Your activation link has expired, please create a new account.",
 						statusCode : 401
 					}
 				}

@@ -19,6 +19,12 @@ class MetaModel extends ModelBase {
 
 	async update(data) {
 		if (data.objectId && data.key && data.value) {
+			if (data.value === null) {
+				await this.unset(data.objectId, data.key);
+				return {
+					success : true
+				}
+			}
 			let result = await this.set(data.objectId, data.key, data.value, data.isUnique, data.ttl);
 			return result;
 		}
