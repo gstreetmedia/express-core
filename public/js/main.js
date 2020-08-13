@@ -196,6 +196,12 @@ $(document).ready(
 									}
 
 									break;
+								default :
+									if (inputType === "text") {
+										if (value === "") {
+											data[name] = null;
+										}
+									}
 
 							}
 						}
@@ -223,7 +229,13 @@ $(document).ready(
 							error: function (error) {
 								console.log(error);
 								target.find(".btn").removeAttr("disabled");
-								swal("Oops!", "Something went wrong", error);
+								let message = "Hmmm..."
+								if (error.responseJSON && error.responseJSON.error) {
+									swal("Oops!", error.responseJSON.error.detail);
+								} else {
+									swal("Oops!", "Something went wrong");
+								}
+
 							}
 						}
 					);
