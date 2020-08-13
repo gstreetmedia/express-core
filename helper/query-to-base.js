@@ -171,7 +171,7 @@ module.exports = class QueryToSqlBase {
 					break;
 				case "sort" :
 					//TODO support array sort
-					let terms = query[key].split(",");
+					let terms = _.isArray(query.sort) ? query.sort : query[key].split(",");
 					let context = this;
 					terms.forEach(
 						function(term) {
