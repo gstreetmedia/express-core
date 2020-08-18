@@ -219,7 +219,9 @@ module.exports = class QueryToSqlBase {
 		let queryBuilder = this.parseQuery(query);
 		//return queryBuilder.count("*");
 		//TODO support count by composite key
-		return queryBuilder.count(this.raw(this.properties[this.getPrimaryKey()].columnName));
+		let columnName = this.properties[this.getPrimaryKey()].columnName;
+		columnName = this.raw(`"${this.tableName}"."${columnName}"`);
+		return queryBuilder.count(columnName);
 	}
 
 	/**
