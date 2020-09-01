@@ -450,8 +450,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 						} else {
 							return null;
 						}
-
-
 						break;
 					default :
 						try {
