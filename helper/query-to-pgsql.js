@@ -410,6 +410,26 @@ module.exports = class QueryToPgSql extends QueryBase{
 		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);
 	}
 
+	buildSort(propertyName, direction) {
+		let columnName;
+		if (propertyName.indexOf(".") !== -1) {
+			//TODO this is postgres, move to postgres
+			let parts = propertyName.split(".");
+			if (this.properties[parts[0]]) {
+				columnName = '"' + this.properties[parts[0]].columnName + '"';
+				for (let i = 1; i < parts.length; i++) {
+					columnName += "->>'" + parts[i] + "'";
+				}
+			}
+		} else if (this.properties[propertyName]) {
+			columnName = '"' + this.properties[propertyName].columnName + '"';
+		}
+		if (columnName) {
+			return this.knexRaw('"' + this.tableName + '".' + columnName);
+		}
+		return null;
+	}
+
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
 	 * @param value
