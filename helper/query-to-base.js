@@ -141,7 +141,7 @@ module.exports = class QueryToSqlBase {
 		delete query.select;
 
 		selects.forEach(
-			function(item) {
+			function (item) {
 				//allow bypass of column names and assume the developer knows what they are doing
 				queryBuilder.select(context.raw(item));
 			}
@@ -174,22 +174,26 @@ module.exports = class QueryToSqlBase {
 					let terms = _.isArray(query.sort) ? query.sort : query[key].split(",");
 					let context = this;
 					terms.forEach(
-						function(term) {
+						function (term) {
+							if (!term) {
+								return;
+							}
 							let params = term.split(" ");
 							let direction = "ASC";
-							if (context.properties[params[0]]) {
-								if (params.length > 1) {
-									if (params[1].toLowerCase() === "desc") {
-										direction = "DESC";
-									}
+							if (params.length > 1) {
+								if (params[1].toLowerCase() === "desc") {
+									direction = "DESC";
 								}
-								queryBuilder.orderBy(context.raw('"' + context.properties[params[0]].columnName + '"'), direction);
+							}
+							let sort = context.buildSort(params[0], direction);
+							if (sort) {
+								queryBuilder.orderBy(sort, direction);
+								hasSort = true;
 							}
 						}
 					);
 
 					break;
-					hasSort = true;
 				case "select" :
 					break;
 			}
@@ -204,9 +208,16 @@ module.exports = class QueryToSqlBase {
 		return queryBuilder;
 	}
 
-	buildSelect (key, subKey) {
+	buildSelect(key, subKey) {
 		let query = `"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`;
 		return this.knexRaw(query);
+	}
+
+	buildSort(propertyName) {
+		if (this.properties[propertyName]) {
+			return this.knexRaw('"' + this.tableName + '"."' + this.properties[propertyName].columnName + '"');
+		}
+		return null;
 	}
 
 	/**
@@ -296,8 +307,8 @@ module.exports = class QueryToSqlBase {
 		if (required.length > 0) {
 			//console.log(data);
 			return {
-				error : required,
-				message : "Missing or Invalid Fields"
+				error: required,
+				message: "Missing or Invalid Fields"
 			}
 		}
 
@@ -401,22 +412,22 @@ module.exports = class QueryToSqlBase {
 		}
 
 		let c = {
-			where : "where",
-			whereIn : "whereIn",
-			whereNotIn : "whereNotIn",
-			whereNull : "whereNull",
-			whereNot : "whereNot",
-			whereNotNull : "whereNotNull"
+			where: "where",
+			whereIn: "whereIn",
+			whereNotIn: "whereNotIn",
+			whereNull: "whereNull",
+			whereNot: "whereNot",
+			whereNotNull: "whereNotNull"
 		}
 
 		if (isOr) {
 			c = {
-				where : "orWhere",
-				whereIn : "orWhereIn",
-				whereNotIn : "orWhereNotIn",
-				whereNull : "orWhereNull",
-				whereNot : "orWhereNot",
-				whereNotNull : "orWhereNotNull"
+				where: "orWhere",
+				whereIn: "orWhereIn",
+				whereNotIn: "orWhereNotIn",
+				whereNull: "orWhereNull",
+				whereNot: "orWhereNot",
+				whereNotNull: "orWhereNotNull"
 			}
 		}
 
@@ -489,7 +500,7 @@ module.exports = class QueryToSqlBase {
 				 * or : [
 				 *  {field1: val1},
 				 *  {field2 {">":val2}
-			        * ]
+				 * ]
 				 */
 
 				isOr = compare === "or";
@@ -533,7 +544,8 @@ module.exports = class QueryToSqlBase {
 	 * @param value
 	 * @param queryBuilder
 	 */
-	processObjectColumn(key, compare, value, queryBuilder, isOr) {}
+	processObjectColumn(key, compare, value, queryBuilder, isOr) {
+	}
 
 
 	column(column) {
@@ -572,10 +584,10 @@ module.exports = class QueryToSqlBase {
 			}
 
 			let parts = inflector.underscore(this.properties[key].columnName.toLowerCase()).split("_");
-			if (parts[parts.length-1] === "id" || parts[parts.length-1] === "number") {
+			if (parts[parts.length - 1] === "id" || parts[parts.length - 1] === "number") {
 				return key;
 			}
-			if (parts[parts.length-1] === "date") {
+			if (parts[parts.length - 1] === "date") {
 				return key;
 			}
 		}
@@ -590,7 +602,8 @@ module.exports = class QueryToSqlBase {
 	 * @param value
 	 * @param queryBuilder
 	 */
-	processArrayColumn(key, compare, value, queryBuilder) {}
+	processArrayColumn(key, compare, value, queryBuilder) {
+	}
 
 	/**
 	 * decode funny query string values
