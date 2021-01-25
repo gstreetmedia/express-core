@@ -498,6 +498,7 @@ class ControllerBase {
 	testQuery(req, res) {
 
 		if (req.body) {
+
 			if (req.body.where) {
 				req.query.where = req.body.where;
 			}
@@ -516,8 +517,10 @@ class ControllerBase {
 			if (req.body.sort) {
 				req.query.sort = req.body.sort;
 			}
+			//NOTE Ingore EVERYTHING else, especially req.body.sql
 		}
 
+		//TODO we can probably remove this as the JSON parser handles it for us
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
 				let result = jsonlint.parse(req.query.where);
@@ -570,6 +573,8 @@ class ControllerBase {
 				req.query.select = req.query.select.split(",");  //comma sepparated field1,field2,field3
 			}
 		}
+
+		delete req.query.sql; //for security purposes. modelbase::query allows for query.sql for joins.
 
 		return req.query;
 	}

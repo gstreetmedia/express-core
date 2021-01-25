@@ -8,7 +8,6 @@ module.exports = class QueryToSqlBase {
 
 	constructor(model) {
 		this.model = model;
-		//console.log("New Builder for " + this.tableName);
 	}
 
 	get properties() {
@@ -185,9 +184,9 @@ module.exports = class QueryToSqlBase {
 									direction = "DESC";
 								}
 							}
-							let sort = context.buildSort(params[0], direction);
+							let sort = context.buildSort(params[0]);
 							if (sort) {
-								queryBuilder.orderBy(sort, direction);
+								queryBuilder.orderByRaw(sort + " " + direction);
 								hasSort = true;
 							}
 						}
@@ -215,7 +214,7 @@ module.exports = class QueryToSqlBase {
 
 	buildSort(propertyName) {
 		if (this.properties[propertyName]) {
-			return this.knexRaw('"' + this.tableName + '"."' + this.properties[propertyName].columnName + '"');
+			return `"${this.tableName}"."${this.properties[propertyName].columnName}"`;
 		}
 		return null;
 	}

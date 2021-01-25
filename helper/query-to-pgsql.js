@@ -5,7 +5,6 @@ const knex = require("knex");
 
 module.exports = class QueryToPgSql extends QueryBase{
 
-
 	/**
 	 *
 	 * @returns {string}
@@ -416,16 +415,16 @@ module.exports = class QueryToPgSql extends QueryBase{
 			//TODO this is postgres, move to postgres
 			let parts = propertyName.split(".");
 			if (this.properties[parts[0]]) {
-				columnName = '"' + this.properties[parts[0]].columnName + '"';
+				columnName = this.properties[parts[0]].columnName;
 				for (let i = 1; i < parts.length; i++) {
 					columnName += "->>'" + parts[i] + "'";
 				}
 			}
 		} else if (this.properties[propertyName]) {
-			columnName = '"' + this.properties[propertyName].columnName + '"';
+			columnName = this.properties[propertyName].columnName;
 		}
 		if (columnName) {
-			return this.knexRaw('"' + this.tableName + '".' + columnName);
+			return `"${this.tableName}"."${columnName}"`;
 		}
 		return null;
 	}
