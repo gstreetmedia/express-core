@@ -494,6 +494,32 @@ class ModelBase extends EventEmitter {
 
 		let command = this.queryBuilder.select(obj);
 
+		if (_.isArray(query.sql)) {
+			query.sql.forEach(
+				(item) => {
+					let key = Object.keys(item)[0];
+					switch (key) {
+						case "join" :
+							command.joinRaw(item[key].query);
+							if (item[key].where) {
+								command.whereRaw(item[key].where);
+							}
+							this.debug = true;
+							break;
+						case "where" :
+							command.whereRaw(item[key].query);
+							break;
+						case "group" :
+							command.groupByRaw(item[key].query);
+							break;
+						case "having" :
+							command.havingRaw(item[key].query);
+							break;
+					}
+				}
+			)
+		}
+
 		let result = await this.execute(command, this.queryBuilder.postProcess);
 
 		if (result.error) {
@@ -983,6 +1009,7 @@ class ModelBase extends EventEmitter {
 
 		while (keys.length > 0) {
 			let key = keys[0];
+
 			if (relations[key]) {
 
 				if (join[key] === true) {
@@ -1072,6 +1099,7 @@ class ModelBase extends EventEmitter {
 					joinThrough.where[joinThroughFrom] = {in: targetKeys};
 					joinThrough.select = [joinThroughFrom, joinThroughTo];
 					joinThrough.sort = joinThroughSort || null;
+					joinThrough.sql = item.join.through.sql || null;
 					if (joinThrough.debug) {
 						throughModel.debug = true;
 					}
@@ -1113,6 +1141,7 @@ class ModelBase extends EventEmitter {
 						j.where[joinTo] = {in: targetKeys};
 						j.sort = j.sort || null;
 						j.limit = j.limit || relations[key].limit || targetKeys.length;
+						j.sql = relations[key].sql || null;
 
 						if (fullJoin) {
 							j.join = "*"
@@ -1196,8 +1225,6 @@ class ModelBase extends EventEmitter {
 						break;
 					case "HasMany" :
 
-						//console.log("HasMany " + key);
-
 						let HasManyModel = this.loadModel(item.modelClass);
 						let hasManyModel = new HasManyModel(this.req);
 
@@ -1217,6 +1244,7 @@ class ModelBase extends EventEmitter {
 						j.sort = relations[key].sort || null;
 						j.offset = relations[key].offset || 0;
 						j.limit = j.limit || relations[key].limit || null;
+						j.sql = relations[key].sql || null;
 
 						if (!originalSelect || originalSelect.length === 0) {
 							processSelect(key, j);
@@ -1231,6 +1259,8 @@ class ModelBase extends EventEmitter {
 						if (fullJoin) {
 							j.join = "*"
 						}
+
+						j.sql = relations[key].sql;
 
 						//console.log("condition 2 "  + this.tableName);
 						//console.log("hasManyModel.tableName " + hasManyModel.tableName);
