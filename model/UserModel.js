@@ -517,6 +517,24 @@ class UserModel extends ModelBase {
 		}
 	}
 
+	relations() {
+		return {
+			roles: {
+				relation: "HasMany",
+				modelClass: "RoleModel",
+				throughClass: "UserRoleModel",
+				join: {
+					from: "id",
+					through: {
+						from: "userId",
+						to: "roleId"
+					},
+					to: "id"
+				}
+			},
+		}
+	}
+
 }
 
 module.exports = UserModel;

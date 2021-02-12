@@ -1,7 +1,6 @@
 const ModelBase = require('../model/ModelBase');
 const _ = require('lodash');
 const moment = require("moment-timezone");
-const now = require("../helper/now");
 
 class MetaModel extends ModelBase {
 
@@ -145,9 +144,7 @@ class MetaModel extends ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async get(objectId, key) {
-		console.log('get ' + objectId + " key " + key);
 		let m = moment();
-		this.debug = true;
 		let result = await super.query(
 			{
 				where : {

@@ -1,50 +1,32 @@
-const ModelBase = require('./ModelBase');
-const _ = require('lodash');
-const uuid = require("node-uuid");
-const hashPassword = require("../helper/hash-password");
+let ModelBase = require('../core/model/TokenModel');
 
-class TokenModel extends ModelBase {
+module.exports = class TokenModel extends ModelBase {
 
-	constructor(req) {
-		super(req);
-	}
 
-	get tableName() {
-		return TokenModel.tableName;
-	}
+	async destroy(id) {
 
-	static get tableName() {
-		return "tokens";
-	}
+		let M = require("./TokenPermissionModel");
+		m = new M();
+		await m.destroyWhere(
+			{
+				where : {
+					tokenId : id
+				}
+			}
+		)
+		await super.destroy(id);
 
-	static get schema() { return ModelBase.getSchema(TokenModel.tableName); }
+		M = require("./TokenRoleModel");
+		let m = new M();
+		await m.destroyWhere(
+			{
+				where : {
+					tokenId : id
+				}
+			}
+		);
 
-	static get fields() { return ModelBase.getFields(TokenModel.tableName); }
-
-	async index(query){
-		return await super.index(query);
-	}
-
-	async create(data){
-		data.key = uuid.v4();
-		data.secret = uuid.v4();
-		return await super.create(data);
-	}
-
-	async read(id, query){
-		return await super.read(id, query);
-	}
-
-	async update(id, data, query){
-		return await super.update(id, data, query);
-	}
-
-	async query(query){
-		return await super.query(query);
-	}
-
-	async destroy(id){
-		return await super.destroy(id);
+		return this.destroy(id);
 	}
 
 	get relations() {
@@ -56,19 +38,52 @@ class TokenModel extends ModelBase {
 					from: "configId",
 					to: "id"
 				}
+			},
+			roles: {
+				relation: "HasMany",
+				modelClass: "RoleModel",
+				throughClass: "TokenRoleModel",
+				join: {
+					from: "id",
+					through: {
+						from: "tokenId",
+						to: "roleId"
+					},
+					to: "id"
+				}
+			},
+			permissions: {
+				relation: "HasMany",
+				modelClass: "TokenPermissionModel",
+				join: {
+					from: "id",
+					to: "tokenId"
+				}
 			}
 		}
 	}
 
 	get foreignKeys() {
 		return {
-			configId : {
-				modelClass : "ConfigModel",
-				to : "id"
-			}
 		}
 	}
+}
 
-};
+/*
 
-module.exports = TokenModel;
+
+			datasets: {
+				relation: "HasOne",
+				throughClass : "ConfigModel",
+				modelClass: "DatasetModel",
+				join: {
+					from: "configId",
+					through : {
+						from : "id",
+						to : "datasetId"
+					},
+					to: "id"
+				},
+				debug : true
+			},
+ */

@@ -19,10 +19,6 @@ class ConfigModel extends ModelBase {
 
 	static get fields() { return ModelBase.getFields(ConfigModel.tableName); }
 
-	async index(query){
-		return await super.index(query);
-	}
-
 	async create(data){
 		return await super.create(data);
 	}

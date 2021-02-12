@@ -47,7 +47,7 @@ module.exports = class QueryToSql {
 					 * @returns {*}
 					 */
 					wrapIdentifier: (value, origImpl, queryContext) => {
-						if (value.indexOf("_") === -1) {
+						if (value.indexOf("_") === -1 && process.env.CORE_DB_COLUMN_SNAKE_CASE !== "false") {
 							//console.log(value + " => " + inflector.underscore(value));
 							value = inflector.underscore(value);
 						}

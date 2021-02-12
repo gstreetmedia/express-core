@@ -1,13 +1,18 @@
 let router = require('express').Router();
+const fs = require("fs");
 let authentication = require('../middleware/authentication');
-const Controller = require('../controller/ConfigController');
-let c = new Controller()
+let Controller;
+if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/ConfigController.js"))) {
+	Controller = require('../controller/ConfigController');
+} else {
+	Controller = require(global.appRoot + "/src/controller/ConfigController");
+}
 
 router.use(authentication);
 
 router.use(async function(req, res, next){
 	req.allowRole('super-api');
-	//add other roles as needed, or call req.addRole('some-role') in individual endpoints 
+	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
 	return next();
 });
 

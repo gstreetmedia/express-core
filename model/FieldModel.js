@@ -53,11 +53,6 @@ class FieldModel extends ModelBase {
 		return FieldModel.fields;
 	}
 
-	async index(query) {
-		query.sort = "title ASC";
-		return await super.index(query);
-	}
-
 	async create(data) {
 		return await super.create(data);
 	}
@@ -72,7 +67,6 @@ class FieldModel extends ModelBase {
 
 	async query(query) {
 		query.sort = "title ASC";
-		//console.log(query);
 		return await super.query(query);
 	}
 
@@ -144,21 +138,6 @@ class FieldModel extends ModelBase {
 
 				}
 			)
-			/*
-			let files = fs.readdirSync(global.appRoot + '/src/schema/fields');
-			files.forEach(
-				function(file) {
-					if (file.indexOf(".js") === -1) {
-						return;
-					}
-					let tableName = inflector.underscore(file.split("-fields.js").join(""));
-					let field = require("../../schema/fields/" + file);
-
-					global.fieldCache[tableName] = ;
-					count++;
-				}
-			);
-			 */
 		}
 		console.log("Loaded " + Object.keys(global.fieldCache).length + " fields");
 		return true;
@@ -214,6 +193,7 @@ class FieldModel extends ModelBase {
 			}
 			return null;
 		} else {
+			console.log("global.appRoot = " + global.appRoot);
 			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
 			if (fs.existsSync(p)) {
 				global.fieldCache[tableName] = require(p.split(".js").join(""));

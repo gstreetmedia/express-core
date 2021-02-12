@@ -34,6 +34,12 @@ class AdminController extends ViewControllerBase {
 		);
 	}
 
+	async async schemeList(req, res) {
+		return res.success(
+			AdminController.getSchemaList()
+		)
+	}
+
 	/**
 	 * Get a list of a model, typically of id's
 	 * @param req

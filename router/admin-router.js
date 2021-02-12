@@ -101,6 +101,12 @@ router.get("/search/:controller", async (req, res, next) => {
 	}
 );
 
+router.get("/schema-list",
+	async ()=> {
+		return await c.schemeList(req, res);
+	})
+
+
 
 
 

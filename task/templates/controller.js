@@ -9,11 +9,7 @@ module.exports = class ${ModelName}Controller extends ControllerBase {
 	constructor() {
 		super(Model);
 	}
-
-	async index(req, res) {
-		return await super.index(req, res);
-	}
-
+	
 	async create(req, res) {
 		return await super.create(req, res);
 	}
@@ -28,10 +24,6 @@ module.exports = class ${ModelName}Controller extends ControllerBase {
 
 	async query(req, res) {
 		return await super.query(req, res);
-	}
-
-	async search(req, res) {
-		return await super.search(req, res);
 	}
 
 	async destroy(req, res) {

@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require("path");
 const inflector = require("../helper/inflector");
 const _ = require("lodash");
-const connectionStringParser = require("../helper/connection-string-parser");
+const connectionStringParser = require("../../core/helper/connection-string-parser");
 const SchemaModel = require("../model/SchemaModel");
 const FieldModel = require("../model/FieldModel");
 const jsonFix = require("json-beautify");
@@ -14,7 +14,7 @@ const stt = require('../helper/spaces-to-tab');
 const stringify = require("stringify-object");
 
 let sourceBase = path.resolve(__dirname + "/../../");
-
+let sourceBaseCore = path.resolve(__dirname + "/../../core/");
 let templatePath = path.resolve(__dirname + "/templates");
 
 let schemaBase = sourceBase + "/schema";
@@ -30,18 +30,21 @@ if (!fs.existsSync(fieldBase)) {
 }
 
 let modelBase = sourceBase + "/model";
+let modelBaseCore = sourceBaseCore + "/model";
 //console.log(modelBase);
 if (!fs.existsSync(modelBase)) {
 	fs.mkdirSync(modelBase);
 }
 
 let controllerBase = sourceBase + "/controller";
+let controllerBaseCore = sourceBaseCore + "/controller";
 //console.log(controllerBase);
 if (!fs.existsSync(controllerBase)) {
 	fs.mkdirSync(controllerBase);
 }
 
 let routerBase = sourceBase + "/router";
+let routerBaseCore = sourceBaseCore + "/router";
 //console.log(routerBase);
 if (!fs.existsSync(routerBase)) {
 	fs.mkdirSync(routerBase);
@@ -49,8 +52,6 @@ if (!fs.existsSync(routerBase)) {
 
 
 async function convert(connectionString, options) {
-
-	console.log(options);
 
 	let schemaModel = new SchemaModel();
 	//schemaModel.createTable(); //TODO do this only once
@@ -167,6 +168,7 @@ async function convert(connectionString, options) {
 				if (k.length === 2) {
 					k = k.toLowerCase();
 				}
+				console.log(existingSchema);
 				if (existingSchema) { //Allow developer override of property names
 					Object.keys(existingSchema.properties).forEach(
 						function(propertyName) {
@@ -192,7 +194,7 @@ async function convert(connectionString, options) {
 			}
 
 			keys = _.uniq(keys);
-			keys.sort();
+			//keys.sort();
 			let filtered = keys.filter(
 				(value, index, arr) => {
 					if (value === item.primaryKey ||
@@ -242,14 +244,17 @@ async function convert(connectionString, options) {
 			}
 
 			let controllerPath = controllerBase + "/" + className + "Controller.js";
+			let controllerPathCore = controllerBaseCore + "/" + className + "Controller.js";
 			let modelPath = modelBase + "/" + className + "Model.js";
+			let modelPathCore = modelBaseCore + "/" + className + "Model.js";
 			let schemaName = schemaBase + "/" + fileRoot + "-schema";
 			let fieldPath = fieldBase + "/" + fileRoot + "-fields.js";
 			let routerPath = routerBase + "/" + fileRoot + "-router.js";
+			let routerPathCore = routerBaseCore + "/" + fileRoot + "-router.js";
 
 			let tableName = item.tableName;
 			//TODO need to remove schemas that no longer exist
-			if (destination !== "file") {
+			if (destination !== "file" && !options.saveSchema === false) {
 				let result = await schemaModel.set(item.tableName, item);
 			}
 
@@ -398,12 +403,18 @@ async function convert(connectionString, options) {
 			if (options[i].overwrite || !fs.existsSync(modelPath)) {
 				let modelName = inflector.classify(name);
 				let template = require("./templates/model");
+				if (fs.existsSync(modelPathCore)) {
+					template = require("./templates/linked-model")
+				}
 				fs.writeFileSync(modelPath, template(modelName, tableName));
 			}
 
 			if (options[i].overwrite || !fs.existsSync(controllerPath)) {
 				let modelName = inflector.classify(name);
 				let template = require("./templates/controller");
+				if (fs.existsSync(controllerPathCore)) {
+					template = require("./templates/linked-controller")
+				}
 				fs.writeFileSync(controllerPath, template(modelName));
 			}
 
@@ -411,6 +422,9 @@ async function convert(connectionString, options) {
 				let modelName = inflector.classify(name);
 				let endpoint = inflector.dasherize(inflector.singularize(name), false)
 				let template = require("./templates/route");
+				if (fs.existsSync(routerPathCore)) {
+					template = require("./templates/linked-route")
+				}
 				fs.writeFileSync(routerPath, template(modelName, endpoint));
 			}
 

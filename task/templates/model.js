@@ -45,14 +45,6 @@ module.exports = class ${ModelName}Model extends ModelBase {
 	 * @param {object} query
 	 * @returns {Promise<*>}
 	 */
-	async index(query) {
-		return await super.index(query);
-	}
-
-	/**
-	 * @param {object} query
-	 * @returns {Promise<*>}
-	 */
 	async create(data) {
 		return await super.create(data);
 	}

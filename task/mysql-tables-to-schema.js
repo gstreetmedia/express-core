@@ -1,8 +1,6 @@
-var _ = require( 'lodash' );
+const _ = require( 'lodash' );
 const inflector = require("../helper/inflector");
-var fs = require("fs");
-const connctionStringParser = require("connection-string");
-let connectionString = connctionStringParser(process.env.DEFAULT_DB);
+const fs = require("fs");
 const promisify = (fn) => new Promise((resolve, reject) => fn(resolve));
 
 
@@ -18,9 +16,9 @@ var emptySchema = {
 module.exports = async function( options, pool )
 {
 
-	let data =  await pool.query("SELECT * FROM information_schema.columns WHERE table_schema = '"+options.tableName+"'");
+	let data =  await pool.query("SELECT * FROM information_schema.columns WHERE table_schema = '"+options.dbName +"'");
 
-	fs.writeFileSync(global.appRoot + "/table.json", JSON.stringify(data));
+
 
 	let rows = [];
 	data.forEach(
@@ -35,6 +33,8 @@ module.exports = async function( options, pool )
 			rows.push(obj);
 		}
 	)
+
+	//rows.sort((a,b)=> (a.column_name > b.column_name) ? 1 : -1);
 
 	let schema = {};
 
@@ -60,7 +60,7 @@ module.exports = async function( options, pool )
 				}
 			}
 			schema[tableName].properties[columnName] = convertColumnType(column);
-			schema[tableName].properties[columnName].description = column.col_description || '';
+			schema[tableName].properties[columnName].description = column.column_comment || '';
 
 			if (column.column_key === "PRI") {
 				if (columnName === "ID") {
@@ -109,7 +109,7 @@ var convertColumnType = function( column )
 	switch( column.data_type )
 	{
 		case 'text':
-		case '"char"':
+
 		case "character varying":
 		case "varchar" :
 		case "longtext" :
@@ -118,9 +118,14 @@ var convertColumnType = function( column )
 			schemaProperty.type   = 'string';
 		} break;
 
+		case 'char':
+			schemaProperty.type   = 'string';
+			schemaProperty.length = column.character_maximum_length;
+			break;
 		case 'uuid': {
 			schemaProperty.type = 'string';
 			schemaProperty.format = 'uuid';
+			schemaProperty.length = column.character_maximum_length;
 			break;
 		}
 
@@ -211,10 +216,11 @@ var convertColumnType = function( column )
 	if ("column_default" in column) {
 		switch (column.column_default) {
 			case "CURRENT_TIMESTAMP" :
+			case "current_timestamp()" :
 				schemaProperty.default = "now";
 				break;
 			default :
-				schemaProperty.default = column.column_default;
+				schemaProperty.default = column.column_default === "NULL" ? null : column.column_default;
 		}
 	}
 
@@ -230,7 +236,9 @@ var convertColumnType = function( column )
 			delete schemaProperty.default;
 		}
 	}
-
+	if (column.column_key === "UNI") {
+		schemaProperty.unique = true;
+	}
 
 	return schemaProperty;
 }

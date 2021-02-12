@@ -40,7 +40,6 @@ module.exports = class QueryToSql extends QueryBase{
 		switch (property.type) {
 			case "object" :
 				switch (property.format) {
-
 					default :
 						try {
 							return _.isObject(value) ? JSON.stringify(value) : value;
@@ -48,30 +47,12 @@ module.exports = class QueryToSql extends QueryBase{
 							return null;
 						}
 				}
-
 				break;
 			case "array" :
-				if (isInsertOrUpdate) {
-					if (property.format === "string") {
-						//console.log(value);
-						return this.knexRaw("ARRAY['" + value.join("','") + "']");
-					} else {
-						return this.knexRaw("ARRAY[" + value.join(",") + "]");
-					}
+				if (_.isString(value) || _.isNumber(value)) {
+					return "["+value+"]";
 				}
-				if (_.isArray(value)) {
-					if (property.format === "string") {
-						return "('" + value.join("','") + "')";
-					} else {
-						return "(" + value.join(",") + ")";
-					}
-				} else {
-					if (property.format === "string") {
-						return "'" + value + "'";
-					} else {
-						return value;
-					}
-				}
+				return _.isObject(value) ? JSON.stringify(value) : value;
 			case "number" :
 				if (!_.isNumber(value)) {
 					if (property.type && property.type === "integer") {

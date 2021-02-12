@@ -9,46 +9,67 @@ const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
-const EventEmitter = require("events");
+
 const cacheManager = require("../helper/cache-manager");
 const trimObject = require("../helper/trim-object");
 
-class ModelBase extends EventEmitter {
+class ModelBase {
 
 	/**
-	 * @param schema - json schema for this model
-	 * @param primaryKey - optional primary key, defaults to id
 	 * @param req - the express request (or other object). looking for the request context really. req.role = "api-user"
 	 * or req.account.id etc.
 	 */
 	constructor(req) {
-		super();
 		this.req = req;
 		if (req && req.connectionString) {
 			this._connectionString = req.connectionString;
 		}
 	}
 
+	/**
+	 * Returns the Fields without the instantiation of an instance
+	 * @param tableName
+	 * @returns {*}
+	 */
 	static getFields(tableName) {
 		return getFields(tableName);
 	}
 
+	/**
+	 * Returns the Schema without the instantiation of an instance
+	 * @param tableName
+	 * @returns {*}
+	 */
 	static getSchema(tableName) {
 		return getSchema(tableName);
 	}
 
+	/**
+	 * Set the tablename, meh, not sure if this is really needed
+	 * @param value
+	 */
 	set tableName(value) {
 		this._tableName = value;
 	}
 
+	/**
+	 * Return the name of the DB table used by this model.
+	 * @returns {*}
+	 */
 	get tableName() {
 		if (this._tableName) {
 			return this._tableName;
 		}
-		//return this.schema.tableName;
-
 		let name = this.constructor.name.split("Model").join("");
-		this._tableName = inflector.underscore(inflector.pluralize(name));
+
+		if (process.env.CORE_DB_TABLE_PLURALIZE !== "false") {
+			this._tableName = inflector.pluralize(name)
+		}
+
+		if (process.env.CORE_DB_TABLE_SNAKE_CASE !== "false") {
+			this._tableName = inflector.underscore(this._tableName)
+		}
+
 		return this._tableName;
 	}
 
@@ -88,20 +109,32 @@ class ModelBase extends EventEmitter {
 		return this.schema.primaryKey;
 	}
 
+	get dataSource() {
+		if (this._dataSource) {
+			return this._dataSource;
+		}
+		if (this.schema.dataSource) {
+			this._dataSource = this.schema.dataSource;
+			return this._dataSource;
+		}
+	}
+
+	set dataSource(value) {
+		this._dataSource = value;
+	}
+
 	get connectionString() {
 
 		if (this._connectionString) {
 			return this._connectionString;
 		}
 
-		let dataSource = this.dataSource || this.schema.dataSource;
+		let dataSource = this.dataSource;
 
 		//Allow for generic naming like DEFAULT_DB
 		if (process.env[dataSource]) {
 			this._connectionString = process.env[dataSource];
 		}
-
-		//TODO Convert this to use a connection string parser
 
 		for (let key in process.env) {
 
@@ -128,7 +161,8 @@ class ModelBase extends EventEmitter {
 	}
 
 	/**
-	 *
+	 * Returns the correct connection pool for this connection
+	 * Note: You need to manually install pg, mysql, mssql, elasticsearch, etc
 	 * @returns {Pool}
 	 */
 	async getPool(action) {
@@ -143,7 +177,7 @@ class ModelBase extends EventEmitter {
 			return await require("../helper/mssql-pool")(this.connectionString);
 		}
 
-		//TODO Elastic, Redis
+		//TODO Elastic, Mongo, Redis
 	}
 
 	/**
@@ -174,7 +208,7 @@ class ModelBase extends EventEmitter {
 
 		this._builder = new builder(this);
 		return this._builder;
-		//TODO MSSQL, ElasticSearch, Mongo, Redis
+		//TODO ElasticSearch, Mongo, Redis
 	}
 
 	addPrimaryKeyToQuery(id, query) {
@@ -183,9 +217,9 @@ class ModelBase extends EventEmitter {
 			id = id.split("|");
 			if (id.length !== this.primaryKey.length) {
 				return {
-					error : {
-						message : "Missing parts for primary key. Got " + id.length + " expected " + this.primaryKey.length,
-						statusCode : 500
+					error: {
+						message: "Missing parts for primary key. Got " + id.length + " expected " + this.primaryKey.length,
+						statusCode: 500
 					}
 				}
 			}
@@ -204,63 +238,74 @@ class ModelBase extends EventEmitter {
 	 *
 	 * @param id
 	 * @param query - used to pass in select & join
+	 * @param {boolean} cache - should the data come from cache?
 	 * @returns {Promise<*>}
 	 */
 	async read(id, query, cache) {
 
-		let cacheKey;
-		if (cache === true) {
-			cacheKey = this.tableName + "::" + id;
-			if (query) {
-				cacheKey += "::" + md5(JSON.stringify(query));
+		let proceed = await this.beforeRead(id, query);
+
+		if (proceed !== false) {
+
+			let cacheKey;
+			if (cache === true) {
+				cacheKey = this.tableName + "::read::" + id;
+				if (query) {
+					cacheKey += "::" + md5(JSON.stringify(query));
+				}
+				let record = await cacheManager.get(cacheKey);
+				if (record) {
+					return record;
+				}
 			}
-			let record = await cacheManager.get(cacheKey);
-			if (record) {
-				return record;
+
+			let obj = {
+				where: {},
+				select: null
+			};
+
+			this.addPrimaryKeyToQuery(id, obj);
+
+			if (query && query.select) {
+				obj.select = query.select;
+				this.addJoinFromKeys(query, obj);
+			}
+
+			let command = this.queryBuilder.select(obj);
+
+			let result = await this.execute(command);
+
+			if (result.error) {
+				return result;
+			}
+
+			if (result.length === 1) {
+				result = result[0];
+				result = await this.afterRead(result);
+				if (query && query.join) {
+					result = await this.join(result, query);
+				}
+				if (cacheKey) {
+					await cacheManager.set(cacheKey, result);
+				}
+				return result;
+			} else if (result.length === 0) {
+				return null;
 			}
 		}
-
-		let obj = {
-			where: {},
-			select : null
-		};
-
-		this.addPrimaryKeyToQuery(id, obj);
-
-		if (query && query.select) {
-			obj.select = query.select;
-			this.addJoinFromKeys(query, obj);
+		return {
+			error: "Update blocked by BeforeRead"
 		}
 
-		let command = this.queryBuilder.select(obj);
-
-		let result = await this.execute(command);
-
-		if (result.error) {
-			return result;
-		}
-
-		if (result.length === 1) {
-			result = result[0];
-			result = await this.afterRead(result);
-			if (query && query.join) {
-				result = await this.join(result, query);
-			}
-			if (cacheKey) {
-				await cacheManager.set(cacheKey, result);
-			}
-			return result;
-		} else if (result.length === 0) {
-			return null;
-		}
 	}
 
 	/**
-	 * create a new record
-	 * @param data
-	 * @returns {Promise<*>}
+	 * * create a new record
+	 * @param {object} data - the data to insert
+	 * @param {boolean} fetch - return the full valid record
+	 * @returns {Promise<{error: {data: *, invalid: *, action: string}}|{}|{error: {data: *, missing: Promise<*>, action: string}}|*|{error}|{error: string}>}
 	 */
-	async create(data) {
+	async create(data, fetch) {
 
 		this.checkPrimaryKey(data);
 
@@ -295,27 +340,41 @@ class ModelBase extends EventEmitter {
 			};
 		}
 
-		await this.beforeCreate(params);
-		this.emit("beforeCreate", params);
+		let proceed = await this.beforeCreate(params);
 
-		let command = this.queryBuilder.insert(params);
+		if (proceed !== false) {
+			let command = this.queryBuilder.insert(params);
 
-		if (command.error) {
-			return command;
+			if (command.error) {
+				return command;
+			}
+
+			let result = await this.execute(command);
+
+			if (result.error) {
+				return result;
+			}
+
+
+			if (fetch) {
+				let record = await this.read(data[this.primaryKey]);
+
+				await this.afterCreate(data[this.primaryKey], record);
+
+				return record;
+			}
+
+			return {
+				[this.primaryKey] : data[this.primaryKey],
+				action : "create",
+				success : true
+			}
+
 		}
 
-		let result = await this.execute(command);
-
-		if (result.error) {
-			return result;
+		return {
+			error : "Create blocked by BeforeCreate"
 		}
-
-		let record = await this.read(data[this.primaryKey]);
-
-		await this.afterCreate(data[this.primaryKey], record);
-		this.emit("create", data[this.primaryKey], record);
-
-		return record;
 	}
 
 	/**
@@ -344,85 +403,7 @@ class ModelBase extends EventEmitter {
 
 		let exists = await this.exists(id);
 
-		if (exists) {
-
-			if (this.properties[this.updatedAt]) {
-				data[this.updatedAt] = now();
-			}
-
-			let params = this.convertDataTypes(data);
-
-			let required = this.checkRequiredProperties(params, "update");
-
-			if (required !== true) {
-				return {
-					error: {
-						missing: required,
-						data: data,
-						action: "update"
-
-					}
-				};
-			}
-
-			let invalid = this.validate(params);
-
-			//console.log(invalid);
-
-			if (invalid !== true) {
-				return {
-					error: {
-						invalid: invalid,
-						data: data,
-						action: "update"
-					}
-				};
-			}
-
-			//console.log(params);
-
-			let query = {};
-			this.addPrimaryKeyToQuery(id, query);
-
-			if (params[this.primaryKey]) {
-				delete params[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
-			}
-
-			let proceed = await this.beforeUpdate(id, params);
-			this.emit("beforeUpdate", params);
-
-			if (proceed) {
-
-				let command = this.queryBuilder.update(query, params);
-
-				let result = await this.execute(command);
-
-				if (result.error) {
-					return result;
-				}
-
-				let record = await this.read(id);
-
-				await this.afterUpdate(id, record);
-				this.emit("update", id, record);
-
-				if (fetch) {
-					return record;
-				}
-
-				return {
-					id: id,
-					action: "update",
-					success: true
-				}
-			} else {
-				return {
-					error: "Update blocked by BeforeUpdate",
-					[this.primaryKey]: id
-				}
-			}
-
-		} else {
+		if (!exists) {
 			return {
 				error: {
 					id: id,
@@ -430,6 +411,75 @@ class ModelBase extends EventEmitter {
 				}
 			};
 		}
+
+		if (this.properties[this.updatedAt]) {
+			data[this.updatedAt] = now();
+		}
+
+		let params = this.convertDataTypes(data);
+
+		let required = this.checkRequiredProperties(params, "update");
+
+		if (required !== true) {
+			return {
+				error: {
+					missing: required,
+					data: data,
+					action: "update"
+
+				}
+			};
+		}
+
+		let invalid = this.validate(params);
+
+		if (invalid !== true) {
+			return {
+				error: {
+					invalid: invalid,
+					data: data,
+					action: "update"
+				}
+			};
+		}
+
+		let query = {};
+		this.addPrimaryKeyToQuery(id, query);
+
+		if (params[this.primaryKey]) {
+			delete params[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
+		}
+
+		let proceed = await this.beforeUpdate(id, params);
+
+		if (proceed) {
+
+			let command = this.queryBuilder.update(query, params);
+
+			let result = await this.execute(command);
+
+			if (result.error) {
+				return result;
+			}
+
+			if (fetch) {
+				let record = await this.read(id);
+				await this.afterUpdate(id, record);
+				return record;
+			}
+
+			return {
+				[this.primaryKey]: id,
+				action: "update",
+				success: true
+			}
+		}
+
+		return {
+			error: "Update blocked by BeforeUpdate"
+		}
+
+
 	}
 
 	async updateWhere(query, data) {
@@ -461,13 +511,25 @@ class ModelBase extends EventEmitter {
 			};
 		}
 
-		let command = this.queryBuilder.update(query, params);
-		let result = await this.execute(command);
+		let proceed = await this.beforeUpdateWhere(params);
 
-		if (result.error) {
+		if (proceed !== false) {
+			let command = this.queryBuilder.update(query, params);
+			let result = await this.execute(command);
+
+			if (result.error) {
+				return result;
+			}
+
+			await this.afterUpdateWhere(result);
+
 			return result;
 		}
-		return result;
+
+		return {
+			error: "Update blocked by BeforeUpdateWhere"
+		}
+
 	}
 
 	/**
@@ -500,8 +562,6 @@ class ModelBase extends EventEmitter {
 			return result;
 		}
 
-		await this.afterFind(result);
-
 		if (query.join) {
 			result = await this.join(result, query);
 		}
@@ -512,7 +572,6 @@ class ModelBase extends EventEmitter {
 
 		return result;
 	}
-
 
 
 	/**
@@ -570,17 +629,29 @@ class ModelBase extends EventEmitter {
 				return results;
 			}
 		}
-		results = await this.query(query);
 
-		if (results.error) {
+		let proceed = await this.beforeFind(query);
+
+		if (proceed !== false) {
+			results = await this.query(query);
+
+			if (results.error) {
+				return results;
+			}
+
+			await this.afterFind(results);
+
+			if (cacheKey) {
+				await cacheManager.set(cacheKey, results);
+			}
+
 			return results;
 		}
 
-		if (cacheKey) {
-			await cacheManager.set(cacheKey, results);
+		return {
+			error : "find blocked by BeforeFind"
 		}
 
-		return results;
 	}
 
 	/**
@@ -602,21 +673,31 @@ class ModelBase extends EventEmitter {
 			}
 		}
 
-		result = await this.query(query);
+		let proceed =  await this.beforeFindOne(query);
 
-		if (result.error) {
-			return result;
-		}
+		if (proceed) {
+			result = await this.query(query);
 
-		if (result && result.length > 0) {
-			if (cacheKey) {
-				await cacheManager.set(cacheKey, result[0]);
+			if (result.error) {
+				return result;
 			}
 
-			return this.afterRead(result[0]);
+			await this.afterFindOne(result[0]);
+
+			if (result && result.length > 0) {
+				if (cacheKey) {
+					await cacheManager.set(cacheKey, result[0]);
+				}
+				return result[0];
+			}
+
+			return null;
 		}
 
-		return null;
+		return {
+			error : "findOne blocked by beforeFindOne"
+		}
+
 	}
 
 	/**
@@ -641,7 +722,6 @@ class ModelBase extends EventEmitter {
 				let result = await this.execute(command);
 
 				await this.afterDestroy(id, record);
-				this.emit("afterDestroy", id, record);
 
 				return result;
 			} else {
@@ -668,10 +748,28 @@ class ModelBase extends EventEmitter {
 	 * @returns {Promise<*>}
 	 */
 	async destroyWhere(query) {
-		let command = this.queryBuilder.delete(query);
-		this.emit("beforeDestroyWhere", query);
-		let result = await this.execute(command);
-		return result;
+
+		let proceed = await this.beforeDestroyWhere(query);
+
+		if (proceed !== false) {
+			let command = this.queryBuilder.delete(query);
+			let result = await this.execute(command);
+
+			if (result.error) {
+				return result;
+			}
+
+			this.afterDestroyWhere(result);
+
+			return result;
+		}
+
+		return {
+			error: "Blocked by beforeDestroyWhere",
+			tableName: this.tableName,
+			id: id
+		}
+
 	}
 
 	/**
@@ -708,8 +806,8 @@ class ModelBase extends EventEmitter {
 	async exists(id) {
 
 		let query = {
-			where : {},
-			limit : 1
+			where: {},
+			limit: 1
 		};
 		this.addPrimaryKeyToQuery(id, query);
 
@@ -740,8 +838,7 @@ class ModelBase extends EventEmitter {
 		}
 
 		let query = {
-			where: {
-			}
+			where: {}
 		};
 		this.addPrimaryKeyToQuery(id, query);
 
@@ -770,8 +867,7 @@ class ModelBase extends EventEmitter {
 	 */
 	async getKey(id, key) {
 		let query = {
-			where: {
-			}
+			where: {}
 		};
 		this.addPrimaryKeyToQuery(id, query);
 		let command = this.queryBuilder.select(
@@ -854,7 +950,7 @@ class ModelBase extends EventEmitter {
 	 * @returns {Promise<void>}
 	 */
 	async join(results, query) {
-
+		//TODO totally rewrite this
 		//console.log("join " + this.tableName);
 
 		if (!this.relations && !this.foreignKeys) {
@@ -915,17 +1011,17 @@ class ModelBase extends EventEmitter {
 		 * @param key
 		 * @param j
 		 */
-		let processWhere = (key, j)=> {
+		let processWhere = (key, j) => {
 			if (relations[key].where) {
 				j.where = j.where || {};
 				for (let p in relations[key].where) {
 					let expression = j.where[p] || relations[key].where[p];
 					if (_.isString(expression)) {
-						expression = {"=":expression}
+						expression = {"=": expression}
 					}
 					let compare = Object.keys(expression)[0];
 					if (expression[compare].indexOf("{{") === 0) {
-						let targetKey = expression[compare].replace("{{", "").replace("}}","");
+						let targetKey = expression[compare].replace("{{", "").replace("}}", "");
 						try {
 							if (results[0][targetKey]) {
 								expression[compare] = results[0][targetKey];
@@ -970,8 +1066,8 @@ class ModelBase extends EventEmitter {
 				originalSelect &&
 				originalSelect.length > 0) {
 				let keys = Object.keys(results[0][key]);
-				for(let i = 0; i < results.length; i++) {
-					keys.forEach((field)=> {
+				for (let i = 0; i < results.length; i++) {
+					keys.forEach((field) => {
 							if (originalSelect.indexOf(field) === -1) {
 								delete results[i][key][field];
 							}
@@ -1139,7 +1235,7 @@ class ModelBase extends EventEmitter {
 								function (row) {
 									let throughItems = [];
 									throughList.forEach(
-										function(item) {
+										function (item) {
 											if (_.isArray(item[joinThroughTo])) {
 												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
 													throughItems.push(item)
@@ -1150,7 +1246,7 @@ class ModelBase extends EventEmitter {
 										}
 									);
 									throughItems.forEach(
-										function(throughItem) {
+										function (throughItem) {
 											try {
 												let resultsIndex;
 												if (_.isArray(throughItem[joinThroughFrom])) {
@@ -1179,8 +1275,8 @@ class ModelBase extends EventEmitter {
 						} else {
 							for (let i = 0; i < list.length; i++) {
 								//TODO Arrays
-								let o = {[joinFrom]:list[i][joinTo]};
-								for(let k = 0; k < results.length; k++) {
+								let o = {[joinFrom]: list[i][joinTo]};
+								for (let k = 0; k < results.length; k++) {
 									let item = results[k];
 									if (_.isArray(item[joinFrom]) && item[joinFrom].indexOf(list[i][joinTo]) !== -1) {
 										results[k][key] = list[i];
@@ -1248,7 +1344,7 @@ class ModelBase extends EventEmitter {
 								function (row) {
 									let throughItems = [];
 									throughList.forEach(
-										function(item) {
+										function (item) {
 											if (_.isArray(item[joinThroughTo])) {
 												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
 													throughItems.push(item)
@@ -1259,7 +1355,7 @@ class ModelBase extends EventEmitter {
 										}
 									)
 									throughItems.forEach(
-										function(throughItem){
+										function (throughItem) {
 											let resultsIndex;
 											if (_.isArray(throughItem[joinThroughFrom])) {
 												for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
@@ -1274,7 +1370,7 @@ class ModelBase extends EventEmitter {
 											}
 
 											results[resultsIndex][key] = results[resultsIndex][key] || [];
-											let filter = {[item.join.to]:row[item.join.to]};
+											let filter = {[item.join.to]: row[item.join.to]};
 											if (!_.find(results[resultsIndex][key], filter)) {
 												if (removeJoinTo) {
 													delete row[joinTo];
@@ -1291,15 +1387,15 @@ class ModelBase extends EventEmitter {
 								try {
 									//If the joinFrom is an array, we need to recurse all results
 									//to find out if the array of each matches the joinTo
-									if(this.properties[joinFrom].type === "array") {
-										for(let k = 0; k < results.length; k++) {
+									if (this.properties[joinFrom].type === "array") {
+										for (let k = 0; k < results.length; k++) {
 											if (results[k][joinFrom].includes(list[i][joinTo])) {
 												results[k][key] = results[k][key] || [];
 												results[k][key].push(list[i]);
 											}
 										}
 									} else {
-										for(let k = 0; k < results.length; k++) {
+										for (let k = 0; k < results.length; k++) {
 											if (results[k][joinFrom] === list[i][joinTo]) {
 												results[k][key] = results[k][key] || [];
 												results[k][key].push(list[i]);
@@ -1487,6 +1583,7 @@ class ModelBase extends EventEmitter {
 
 			return true;
 		} else {
+			//On Update, Make sure not to set things to null that cannot be null
 			let missing = [];
 			for (let key in data) {
 				if (data[key] === null && _.indexOf(this.schema.required, key) !== -1) {
@@ -1502,7 +1599,7 @@ class ModelBase extends EventEmitter {
 	}
 
 	/**
-	 *
+	 * Verify that the parameters used in the create, update are valid for the schema format
 	 * @param data
 	 * @returns {*}
 	 */
@@ -1528,17 +1625,6 @@ class ModelBase extends EventEmitter {
 		}
 
 		return invalid.length > 0 ? invalid : true;
-	}
-
-	convertToColumnNames(data) {
-		let params = {};
-		for (let key in data) {
-			if (this.properties[key]) {
-				params[this.properties[key].columnName] = data[key];
-			}
-		}
-
-		return params;
 	}
 
 	/**
@@ -1633,23 +1719,6 @@ class ModelBase extends EventEmitter {
 		}
 	}
 
-
-	getSelect(fieldset) {
-		let rawfields = global.fieldCache[this.tableName][fieldset];
-
-		let select = [];
-
-		rawfields.forEach(
-			function (item) {
-				if (item.property && item.visible) {
-					select.push(item.property);
-				}
-			}
-		);
-
-		return select;
-	}
-
 	/**
 	 * Convert underscores back to camel case. Most of this would have happened in the creation of the SQL query,
 	 * however if you appended anything raw to the end, those might not yet have been converted
@@ -1700,6 +1769,17 @@ class ModelBase extends EventEmitter {
 		return result;
 	}
 
+	convertToColumnNames(data) {
+		let params = {};
+		for (let key in data) {
+			if (this.properties[key]) {
+				params[this.properties[key].columnName] = data[key];
+			}
+		}
+
+		return params;
+	}
+
 	/**
 	 * Takes database result and converts it back to schema properties
 	 * Use this when doing manual sql statements
@@ -1735,6 +1815,10 @@ class ModelBase extends EventEmitter {
 		return r[0];
 	}
 
+	async beforeRead(id, query) {
+		return true;
+	}
+
 	async afterQuery(results) {
 		if (!results || !_.isArray(results) || results.length === 0) {
 			return results;
@@ -1753,8 +1837,8 @@ class ModelBase extends EventEmitter {
 					if (context.properties[parts[0]]) {
 						hasElements = true;
 						hash[key] = hash[key] || {
-							field : parts[0],
-							subfield : parts[1] //TODO can we go deeper than one level???
+							field: parts[0],
+							subfield: parts[1] //TODO can we go deeper than one level???
 						}
 					}
 				}
@@ -1762,7 +1846,7 @@ class ModelBase extends EventEmitter {
 		);
 		if (hasElements) {
 			results.forEach(
-				function(row) {
+				function (row) {
 					keys.forEach(
 						(key) => {
 							if (hash[key]) {
@@ -1829,6 +1913,14 @@ class ModelBase extends EventEmitter {
 		return;
 	}
 
+	async beforeUpdateWhere(query, params) {
+		return true;
+	}
+
+	async afterUpdateWhere(data) {
+		return;
+	}
+
 	/**
 	 * Before a record is destroyed, you might want to check permissions or run some process that if
 	 * it fails, you wouldn't want to remove the record at this time.
@@ -1840,6 +1932,13 @@ class ModelBase extends EventEmitter {
 		return true;
 	}
 
+	/**
+	 * @param query
+	 * @returns {Promise<boolean>}
+	 */
+	async beforeDestroyWhere(query) {
+		return true;
+	}
 
 
 	/**
@@ -1852,7 +1951,25 @@ class ModelBase extends EventEmitter {
 		return;
 	}
 
+	async afterDestroyWhere(data) {
+		return;
+	}
+
+	async beforeFind(query) {
+		return true;
+	}
+
 	async afterFind(data) {
+		if (this.afterQuery) {
+			return await this.afterQuery(data)
+		}
+	}
+
+	async beforeFindOne(query) {
+		return true;
+	}
+
+	async afterFindOne(data) {
 		if (this.afterQuery) {
 			return await this.afterQuery(data)
 		}
@@ -1874,14 +1991,57 @@ class ModelBase extends EventEmitter {
 		return "createdAt";
 	}
 
+	/**
+	 * Get the Models that this Model relates to, current supporting HasOne and HasMany relationships
+	 * {
+	 *     bar : {
+	 *         relation: "HasOne|HasMany",
+	 *         modelClass : "BarModel",
+	 *         join : {
+	 *             from : "id",
+	 *             to : "fooId"
+	 *         }
+	 *     },
+	 *     relatedBars : {  //using a join / pivot table
+	 *         relation: "HasOne|HasMany",
+	 *         modelClass : "FooModel",
+	 *         throughModel : "FooBarModel"
+	 *         join : {
+	 *             from : "id",
+	 *             through : {
+	 *                 "fooId",
+	 *                 "barId"
+	 *             }
+	 *             to : "id"
+	 *         }
+	 *     }
+	 * }
+	 * @returns {{}}
+	 */
 	get relations() {
 		return {};
 	}
 
+	/**
+	 * Related references, kinda like a join but for singular items
+	 * {
+	 *     barId : {
+	 *         modelClass : "BarModel",
+	 *         to : "id"
+	 *     }
+	 * }
+	 * @returns {{}}
+	 */
 	get foreignKeys() {
 		return {};
 	}
 
+	/**
+	 * Used the dynamically load models when using joins. this allows foo to require bar and bar to require foo at
+	 * at runtime.
+	 * @param modelName
+	 * @returns {*}
+	 */
 	loadModel(modelName) {
 		if (typeof modelName !== "string") {
 			return modelName;

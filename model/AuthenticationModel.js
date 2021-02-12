@@ -109,7 +109,6 @@ class AuthenticationModel {
 	 * Check to make sure the request has a valid
 	 * application-key
 	 * application-secret
-	 * application-org
 	 * authorization bearer is present if !application-secret
 	 * @param req
 	 * @returns {Promise<*>}
@@ -285,8 +284,14 @@ class AuthenticationModel {
 			let um = new UserModel(req)
 			user = await um.findOne(
 				{
-					id : decodedToken.id,
-					status : 'active'
+					where : {
+						id : decodedToken.id,
+						status : 'active'
+					},
+					join : {
+						"userPermissions" : true,
+						"rolePermissions" : true
+					}
 				}
 			);
 			if (user) {

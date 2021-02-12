@@ -52,11 +52,6 @@ class SchemaModel extends ModelBase {
 		return SchemaModel.fields;
 	}
 
-	async index(query) {
-		query.sort = "title ASC";
-		return await super.index(query);
-	}
-
 	async create(data) {
 		return await super.create(data);
 	}
@@ -173,16 +168,15 @@ class SchemaModel extends ModelBase {
 				global.schemaCache[tableName] = result[0];
 				return result[0];
 			}
-			return null;
-		} else {
-			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
-			if (fs.existsSync(p)) {
-				let schema = require(p.split(".js").join(""));
-				global.schemaCache[schema.tableName] = schema;
-				return schema;
-			}
-			return null;
 		}
+
+		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
+		if (fs.existsSync(p)) {
+			let schema = require(p.split(".js").join(""));
+			global.schemaCache[schema.tableName] = schema;
+			return schema;
+		}
+		return null;
 
 
 	}

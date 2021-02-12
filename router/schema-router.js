@@ -1,4 +1,5 @@
 let router = require('express').Router();
+const fs = require("fs");
 let authentication = require('../middleware/authentication');
 const Controller = require('../controller/SchemaController');
 let c = new Controller()
@@ -8,7 +9,7 @@ router.use(authentication);
 router.use(async function(req, res, next){
 	console.log("adding roles for schema");
 	req.allowRole(['super-api','user','api-user','api-secret']);
-	//add other roles as needed, or call req.addRole('some-role') in individual endpoints 
+	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
 	return next();
 });
 
