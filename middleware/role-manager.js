@@ -1,13 +1,13 @@
 const _ = require("lodash");
+const inflector = require("../helper/inflector");
 
 module.exports = function (req, res, next) {
 	req.allowedRoles = ['super-admin','super-api'];
 	req.currentRoles = ['guest'];
 
-	req.tokenPermissions = [];
-	let permissionHash = {};
-	req.userRoles = [];
-	let userRolesHash = {};
+	req.rolePermissions = [];
+	let rolePermissionHash = {};
+
 
 	/**
 	 * Add a current requester role
@@ -16,11 +16,18 @@ module.exports = function (req, res, next) {
 	req.addRole = function(role) {
 		if (_.isArray(role)) {
 			role.forEach(
-				function(item) {
+				function (item) {
 					req.addRole(item);
 				}
 			)
-		} else if (_.indexOf(req.currentRoles, role) === -1) {
+		} else if (typeof role === "object") {
+			if (role.name) {
+				req.addRole(role.name);
+			}
+			if (role.permissions) {
+				req.addPermissions(role.permissions);
+			}
+		} else if (!req.currentRoles.includes(role)) {
 			req.currentRoles.push(role);
 		}
 	};
@@ -73,6 +80,8 @@ module.exports = function (req, res, next) {
 	req.checkRole = function () {
 		req.roleFailure = true;
 
+		console.log(req.currentRoles)
+
 		req.currentRoles.forEach(
 			function(role) {
 				if (_.indexOf(req.allowedRoles, role) !== -1) {
@@ -117,25 +126,9 @@ module.exports = function (req, res, next) {
 					req.addPermissions(item);
 				}
 			)
-		} else if (!permissionHash[permission.id]) {
-			req.tokenPermissions.push(permission);
-			permissionHash[permission.id] = true;
-		}
-	};
-
-	req.adduserRoles = (roles) => {
-		if (_.isArray(roles)) {
-			roles.forEach(
-				function(item) {
-					req.adduserRoles(item);
-				}
-			)
-		} else if (!userRolesHash[roles.id]) {
-			req.userRoles.push(roles);
-			userRolesHash[roles.id] = true;
-			if (roles.permissions) {
-				req.addPermissions(roles.permissions);
-			}
+		} else if (!rolePermissionHash[permission.id]) {
+			req.rolePermissions.push(permission);
+			rolePermissionHash[permission.id] = true;
 		}
 	};
 
@@ -166,13 +159,13 @@ module.exports = function (req, res, next) {
 		debug("checkRole className => " + className);
 		debug("checkRole tableName => " + tableName);
 		debug("checkRole method => " + req.method);
-		debug("checkRole routePath => " + routePath);
+
 		//debug(req.headers);
 		debug("current");
 		debug(req.currentRoles);
 		debug("allowed");
 		debug(req.allowedRoles);
-		debug(req.tokenPermissions);
+		debug(req.rolePermissions);
 
 		//Role level permissions
 		let matchingRoles = _.intersection(req.allowedRoles, req.currentRoles);
@@ -182,7 +175,7 @@ module.exports = function (req, res, next) {
 		}
 
 		//see if token has blanket permissions
-		let permissions = _.filter(req.tokenPermissions, {objectType:"*"});
+		let permissions = _.filter(req.rolePermissions, {objectType:"*"});
 		if (permissions.length > 0) {
 			debug("* permissions");
 			req.routePermissions = permissions;
@@ -192,7 +185,7 @@ module.exports = function (req, res, next) {
 		//Route Level Permissions
 		let filter = {route:currentRoute};
 		permissions = _.filter(
-			req.tokenPermissions,
+			req.rolePermissions,
 			(role) => {
 				if (!role.route) {
 					return false;
@@ -222,7 +215,7 @@ module.exports = function (req, res, next) {
 
 		//Table Level Permissions
 		permissions = _.filter(
-			req.tokenPermissions,
+			req.rolePermissions,
 			(role) => {
 				if (tableName === role.objectType) {
 					switch (req.method) {
@@ -249,7 +242,7 @@ module.exports = function (req, res, next) {
 		//Object Level Permissions
 		if (req.params.id) {
 			permissions = _.filter(
-				req.tokenPermissions,
+				req.rolePermissions,
 				(role) => {
 					if ([currentRoute,tableName,className].indexOf(role.objectType) !== -1) {
 						if (role.objectId === null || role.objectId !== req.params.id) {
@@ -278,7 +271,7 @@ module.exports = function (req, res, next) {
 
 		if (permissions.length === 0) {
 			debug(req.currentRoles.join(",") + " not allowed to route => " + [currentRoute,tableName,className].join(" or "));
-			debug(req.tokenPermissions);
+			debug(req.rolePermissions);
 		}
 
 		return false;

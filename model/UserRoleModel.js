@@ -1,7 +1,5 @@
-const ModelBase = require('../core/model/ModelBase');
+const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/user-roles-schema');
-const fields = require('../schema/fields/user-roles-fields');
 
 
 class UserRoleModel extends ModelBase {
@@ -39,7 +37,16 @@ class UserRoleModel extends ModelBase {
 	}
 
 	get relations() {
-		return {}
+		return {
+			permissions: {
+				relation: "HasMany",
+				modelClass: "RolePermissionModel",
+				join: {
+					from: "roleId",
+					to: "id"
+				}
+			}
+		}
 	}
 
 	get foreignKeys () {
@@ -48,8 +55,8 @@ class UserRoleModel extends ModelBase {
 				modelClass : "RoleModel",
 				to : "id",
 			},
-			tokenId : {
-				modelClass : "TokenModel",
+			userId : {
+				modelClass : "UserModel",
 				to : "id"
 			}
 		}

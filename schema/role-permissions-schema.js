@@ -16,6 +16,15 @@ module.exports = {
 			description: "",
 			columnName: "id"
 		},
+		roleId : {
+			type: "string",
+			format: "uuid",
+			maxLength: 36,
+			length: 36,
+			allowNull: false,
+			description: "",
+			columnName: "role_id"
+		},
 		route: {
 			type: "string",
 			maxLength: 255,

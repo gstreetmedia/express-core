@@ -1,6 +1,6 @@
-const ModelBase = require('../core/model/ModelBase');
+const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const cache = require("../core/helper/cache-in-memory-manager");
+const cacheManager = require("../helper/cache-manager");
 
 module.exports = class RoleModel extends ModelBase {
 
@@ -50,7 +50,7 @@ module.exports = class RoleModel extends ModelBase {
 			return null;
 		}
 		let key = "role_" + id;
-		let role = await cache.get(key);
+		let role = await this.cache.get(key);
 
 		if (role) {
 			return role;
@@ -66,7 +66,7 @@ module.exports = class RoleModel extends ModelBase {
 		role = await this.read(id, query);
 
 		if (!role.error) {
-			await cache.set(key, role)
+			await cacheManager.set(key, role)
 		}
 
 		return role;
@@ -105,7 +105,7 @@ module.exports = class RoleModel extends ModelBase {
 		role = await this.findOne(query, true);
 
 		if (role && !role.error) {
-			await cache.set(key, role)
+			await cacheManager.set(key, role)
 		} else {
 			console.log("Could not find role " + roleName);
 			//console.log(roleName);

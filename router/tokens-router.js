@@ -1,5 +1,6 @@
 let router = require('express').Router();
 const fs = require("fs");
+const path = require("path");
 let authentication = require('../middleware/authentication');
 let Controller;
 if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/TokenController.js"))) {
@@ -7,6 +8,7 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/TokenControlle
 } else {
 	Controller = require(global.appRoot + "/src/controller/TokenController");
 }
+let c = new Controller();
 
 router.use(authentication);
 

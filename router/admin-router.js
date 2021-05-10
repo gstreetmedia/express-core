@@ -106,8 +106,4 @@ router.get("/schema-list",
 		return await c.schemeList(req, res);
 	})
 
-
-
-
-
 module.exports = router;

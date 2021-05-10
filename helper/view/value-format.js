@@ -30,7 +30,7 @@ module.exports = function(model, key, value, name) {
 			value = beautify(value, null, 2, 80);
 			break;
 		case "boolean" :
-			return value===true ? '<i class="material-icons text-success">done</i>' :
+			return value===true || value===1 ? '<i class="material-icons text-success">done</i>' :
 				'<i class="material-icons text-danger">block</i>';
 			break;
 		case "array" :

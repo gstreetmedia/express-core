@@ -1,7 +1,7 @@
 module.exports = (ControllerName, EndPointName) => {
 	return `
 let router = require('express').Router();
-let authentication = require('../core/middleware/authentication');
+let authentication = require('../middleware/authentication');
 const Controller = require('../controller/${ControllerName}Controller');
 let c = new Controller()
 

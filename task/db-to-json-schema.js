@@ -168,7 +168,6 @@ async function convert(connectionString, options) {
 				if (k.length === 2) {
 					k = k.toLowerCase();
 				}
-				console.log(existingSchema);
 				if (existingSchema) { //Allow developer override of property names
 					Object.keys(existingSchema.properties).forEach(
 						function(propertyName) {
@@ -254,8 +253,10 @@ async function convert(connectionString, options) {
 
 			let tableName = item.tableName;
 			//TODO need to remove schemas that no longer exist
-			if (destination !== "file" && !options.saveSchema === false) {
+			if (destination === "db") {
 				let result = await schemaModel.set(item.tableName, item);
+			} else {
+				console.log("Only Saving Schema to File");
 			}
 
 			let fields = await fieldModel.get(tableName);
@@ -346,17 +347,25 @@ async function convert(connectionString, options) {
 					keysSorted = _.clone(keysSorted);
 
 					//add existing if they still exist
-					fields[origin].forEach(
-						function (item) {
-							//console.log("checking " + item.property)
-							let index = _.indexOf(keysSorted, item.property);
-							if (index !== -1) {
-								//console.log("Adding existing field key =>" + item.property);
-								fieldSchema[origin].push(item);
-								keysSorted.splice(index, 1);
+
+					console.log(item.tableName + " => " + origin);
+					if(_.isArray(fields[origin])) {
+						fields[origin].forEach(
+							function (item) {
+								//console.log("checking " + item.property)
+								let index = _.indexOf(keysSorted, item.property);
+								if (index !== -1) {
+									//console.log("Adding existing field key =>" + item.property);
+									fieldSchema[origin].push(item);
+									keysSorted.splice(index, 1);
+								}
 							}
-						}
-					);
+						);
+					} else {
+						console.log(fields[origin]);
+						console.log(fields[origin]);
+					}
+
 					keysSorted.forEach(
 						function (key) {
 							//console.log("Adding new field key =>" + key);

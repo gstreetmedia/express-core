@@ -206,7 +206,6 @@ class ControllerBase {
 		}
 
 		let m = new this.Model(req);
-		let count = await m.count(req.query, true);
 
 		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		if (isNaN(req.query.limit)) {
@@ -219,9 +218,18 @@ class ControllerBase {
 
 		req.limit = req.query.limit;
 		req.offset = req.query.offset || 0;
-		req.count = parseInt(count);
 
 		let result = await m.query(req.query);
+
+		if (!result.error) {
+			//Only do the count if the number of records matches the limit, otherwise we can probably assume there
+			//aren't that many.
+			if (result.length === req.query.limit) {
+				req.count = await m.count(req.query, true);
+			} else {
+				req.count = result.length;
+			}
+		}
 
 		//console.log(m.lastCommand.toString());
 

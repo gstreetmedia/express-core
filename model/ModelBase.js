@@ -9,67 +9,46 @@ const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 const getSchema = require("../helper/get-schema");
 const getFields = require("../helper/get-fields");
-
+const EventEmitter = require("events");
 const cacheManager = require("../helper/cache-manager");
 const trimObject = require("../helper/trim-object");
 
-class ModelBase {
+class ModelBase extends EventEmitter {
 
 	/**
+	 * @param schema - json schema for this model
+	 * @param primaryKey - optional primary key, defaults to id
 	 * @param req - the express request (or other object). looking for the request context really. req.role = "api-user"
 	 * or req.account.id etc.
 	 */
 	constructor(req) {
+		super();
 		this.req = req;
 		if (req && req.connectionString) {
 			this._connectionString = req.connectionString;
 		}
 	}
 
-	/**
-	 * Returns the Fields without the instantiation of an instance
-	 * @param tableName
-	 * @returns {*}
-	 */
 	static getFields(tableName) {
 		return getFields(tableName);
 	}
 
-	/**
-	 * Returns the Schema without the instantiation of an instance
-	 * @param tableName
-	 * @returns {*}
-	 */
 	static getSchema(tableName) {
 		return getSchema(tableName);
 	}
 
-	/**
-	 * Set the tablename, meh, not sure if this is really needed
-	 * @param value
-	 */
 	set tableName(value) {
 		this._tableName = value;
 	}
 
-	/**
-	 * Return the name of the DB table used by this model.
-	 * @returns {*}
-	 */
 	get tableName() {
 		if (this._tableName) {
 			return this._tableName;
 		}
+		//return this.schema.tableName;
+
 		let name = this.constructor.name.split("Model").join("");
-
-		if (process.env.CORE_DB_TABLE_PLURALIZE !== "false") {
-			this._tableName = inflector.pluralize(name)
-		}
-
-		if (process.env.CORE_DB_TABLE_SNAKE_CASE !== "false") {
-			this._tableName = inflector.underscore(this._tableName)
-		}
-
+		this._tableName = inflector.underscore(inflector.pluralize(name));
 		return this._tableName;
 	}
 
@@ -105,22 +84,12 @@ class ModelBase {
 		return this.schema.properties;
 	}
 
+	get keys() {
+		return Object.keys(this.schema.properties);
+	}
+
 	get primaryKey() {
 		return this.schema.primaryKey;
-	}
-
-	get dataSource() {
-		if (this._dataSource) {
-			return this._dataSource;
-		}
-		if (this.schema.dataSource) {
-			this._dataSource = this.schema.dataSource;
-			return this._dataSource;
-		}
-	}
-
-	set dataSource(value) {
-		this._dataSource = value;
 	}
 
 	get connectionString() {
@@ -129,12 +98,14 @@ class ModelBase {
 			return this._connectionString;
 		}
 
-		let dataSource = this.dataSource;
+		let dataSource = this.dataSource || this.schema.dataSource;
 
 		//Allow for generic naming like DEFAULT_DB
 		if (process.env[dataSource]) {
 			this._connectionString = process.env[dataSource];
 		}
+
+		//TODO Convert this to use a connection string parser
 
 		for (let key in process.env) {
 
@@ -161,8 +132,7 @@ class ModelBase {
 	}
 
 	/**
-	 * Returns the correct connection pool for this connection
-	 * Note: You need to manually install pg, mysql, mssql, elasticsearch, etc
+	 *
 	 * @returns {Pool}
 	 */
 	async getPool(action) {
@@ -177,7 +147,7 @@ class ModelBase {
 			return await require("../helper/mssql-pool")(this.connectionString);
 		}
 
-		//TODO Elastic, Mongo, Redis
+		//TODO Elastic, Redis
 	}
 
 	/**
@@ -208,18 +178,24 @@ class ModelBase {
 
 		this._builder = new builder(this);
 		return this._builder;
-		//TODO ElasticSearch, Mongo, Redis
+		//TODO MSSQL, ElasticSearch, Mongo, Redis
 	}
 
+	/**
+	 * Allow for composite primary keys, kind of experimental
+	 * @param id
+	 * @param query
+	 * @returns {{error: {message: string, statusCode: number}}}
+	 */
 	addPrimaryKeyToQuery(id, query) {
 		query.where = query.where || {};
 		if (_.isArray(this.primaryKey)) {
 			id = id.split("|");
 			if (id.length !== this.primaryKey.length) {
 				return {
-					error: {
-						message: "Missing parts for primary key. Got " + id.length + " expected " + this.primaryKey.length,
-						statusCode: 500
+					error : {
+						message : "Missing parts for primary key. Got " + id.length + " expected " + this.primaryKey.length,
+						statusCode : 500
 					}
 				}
 			}
@@ -235,77 +211,66 @@ class ModelBase {
 	}
 
 	/**
-	 *
-	 * @param id
-	 * @param query - used to pass in select & join
-	 * @param {boolean} cache - should the data come from cache?
+	 * @param {string | int} id - the primary key for the record
+	 * @param {object} query - used to pass in select & join
+	 * @param {boolean | string} cache - should the result be cached
 	 * @returns {Promise<*>}
 	 */
 	async read(id, query, cache) {
 
-		let proceed = await this.beforeRead(id, query);
-
-		if (proceed !== false) {
-
-			let cacheKey;
-			if (cache === true) {
-				cacheKey = this.tableName + "::read::" + id;
-				if (query) {
-					cacheKey += "::" + md5(JSON.stringify(query));
-				}
-				let record = await cacheManager.get(cacheKey);
-				if (record) {
-					return record;
-				}
+		let cacheKey;
+		if (cache) {
+			cacheKey = this.tableName + "_read_" + id;
+			if (query) {
+				cacheKey += "_" + md5(JSON.stringify(query));
 			}
-
-			let obj = {
-				where: {},
-				select: null
-			};
-
-			this.addPrimaryKeyToQuery(id, obj);
-
-			if (query && query.select) {
-				obj.select = query.select;
-				this.addJoinFromKeys(query, obj);
-			}
-
-			let command = this.queryBuilder.select(obj);
-
-			let result = await this.execute(command);
-
-			if (result.error) {
-				return result;
-			}
-
-			if (result.length === 1) {
-				result = result[0];
-				result = await this.afterRead(result);
-				if (query && query.join) {
-					result = await this.join(result, query);
-				}
-				if (cacheKey) {
-					await cacheManager.set(cacheKey, result);
-				}
-				return result;
-			} else if (result.length === 0) {
-				return null;
+			let record = await cacheManager.get(cacheKey);
+			if (record) {
+				return record;
 			}
 		}
-		return {
-			error: "Update blocked by BeforeRead"
+
+		let obj = {
+			where: {},
+			select : null
+		};
+
+		this.addPrimaryKeyToQuery(id, obj);
+
+		if (query && query.select) {
+			obj.select = query.select;
+			this.addJoinFromKeys(query, obj);
 		}
 
+		let command = this.queryBuilder.select(obj);
+
+		let result = await this.execute(command);
+
+		if (result.error) {
+			return result;
+		}
+
+		if (result.length === 1) {
+			result = result[0];
+			result = await this.afterRead(result);
+			if (query && query.join) {
+				result = await this.joinRelations(result, query);
+			}
+			if (cacheKey) {
+				await cacheManager.set(cacheKey, result, cache);
+			}
+			return result;
+		} else if (result.length === 0) {
+			return null;
+		}
 	}
 
 	/**
-	 * * create a new record
-	 * @param {object} data - the data to insert
-	 * @param {boolean} fetch - return the full valid record
-	 * @returns {Promise<{error: {data: *, invalid: *, action: string}}|{}|{error: {data: *, missing: Promise<*>, action: string}}|*|{error}|{error: string}>}
+	 * create a new record
+	 * @param {object} - data
+	 * @returns {Promise<*>}
 	 */
-	async create(data, fetch) {
+	async create(data) {
 
 		this.checkPrimaryKey(data);
 
@@ -314,9 +279,9 @@ class ModelBase {
 			data[this.createdAt] = now();
 		}
 
-		let params = this.convertDataTypes(data);
+		let {properties, relations} = this.convertDataTypes(data);
 
-		let invalid = this.validate(params);
+		let invalid = this.validate(properties);
 
 		if (invalid !== true) {
 			return {
@@ -328,7 +293,7 @@ class ModelBase {
 			};
 		}
 
-		let required = this.checkRequiredProperties(params, "create");
+		let required = this.checkRequiredProperties(properties, "create");
 
 		if (required !== true) {
 			return {
@@ -340,47 +305,38 @@ class ModelBase {
 			};
 		}
 
-		let proceed = await this.beforeCreate(params);
+		await this.beforeCreate(properties);
 
-		if (proceed !== false) {
-			let command = this.queryBuilder.insert(params);
+		let command = this.queryBuilder.insert(properties);
 
-			if (command.error) {
-				return command;
-			}
-
-			let result = await this.execute(command);
-
-			if (result.error) {
-				return result;
-			}
-
-
-			if (fetch) {
-				let record = await this.read(data[this.primaryKey]);
-
-				await this.afterCreate(data[this.primaryKey], record);
-
-				return record;
-			}
-
-			return {
-				[this.primaryKey] : data[this.primaryKey],
-				action : "create",
-				success : true
-			}
-
+		if (command.error) {
+			return command;
 		}
 
-		return {
-			error : "Create blocked by BeforeCreate"
+		let result = await this.execute(command);
+
+		if (result.error) {
+			return result;
 		}
+
+		let record = await this.read(data[this.primaryKey]);
+
+		if (relations) {
+			let result = await this.createRelations(record, relations);
+			if (result) {
+				_.extend(record, result);
+			}
+		}
+
+		await this.afterCreate(data[this.primaryKey], record);
+
+		return record;
 	}
 
 	/**
 	 * Shorthand method for determining if a create or an update is necessary
-	 * @param query
-	 * @param data
+	 * @param {object} query
+	 * @param {object} data
 	 * @returns {Promise<void|*>}
 	 */
 	async upsert(query, data) {
@@ -394,16 +350,97 @@ class ModelBase {
 
 	/**
 	 * Update one record
-	 * @param id
-	 * @param data
-	 * @param fetch
+	 * @param {string | int} id - the primary key for the record
+	 * @param {object} data - an object containg the properties to update
+	 * @param {boolean} fetch - return the full updated record
 	 * @returns {Promise<void>}
 	 */
 	async update(id, data, fetch) {
 
 		let exists = await this.exists(id);
 
-		if (!exists) {
+		if (exists) {
+
+			if (this.properties[this.updatedAt]) {
+				data[this.updatedAt] = now();
+			}
+
+			let {properties, relations} = this.convertDataTypes(data);
+			let required = this.checkRequiredProperties(properties, "update");
+
+			if (required !== true) {
+				return {
+					error: {
+						missing: required,
+						data: data,
+						action: "update"
+
+					}
+				};
+			}
+
+			let invalid = this.validate(properties);
+
+			//console.log(invalid);
+
+			if (invalid !== true) {
+				return {
+					error: {
+						invalid: invalid,
+						data: data,
+						action: "update"
+					}
+				};
+			}
+
+			//console.log(params);
+
+			let query = {};
+			this.addPrimaryKeyToQuery(id, query);
+
+			if (properties[this.primaryKey]) {
+				delete properties[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
+			}
+
+			let proceed = await this.beforeUpdate(id, properties);
+			this.emit("beforeUpdate", properties);
+
+			if (proceed) {
+
+				let command = this.queryBuilder.update(query, properties);
+
+				let result = await this.execute(command);
+
+				if (result.error) {
+					return result;
+				}
+
+				let record = await this.read(id);
+
+				await this.afterUpdate(id, record);
+
+				if (relations) {
+					_.extend(record, relations);
+					await this.updateRelations(record);
+				}
+
+				if (fetch) {
+					return record;
+				}
+
+				return {
+					id: id,
+					action: "update",
+					success: true
+				}
+			} else {
+				return {
+					error: "Update blocked by BeforeUpdate",
+					[this.primaryKey]: id
+				}
+			}
+
+		} else {
 			return {
 				error: {
 					id: id,
@@ -411,83 +448,20 @@ class ModelBase {
 				}
 			};
 		}
-
-		if (this.properties[this.updatedAt]) {
-			data[this.updatedAt] = now();
-		}
-
-		let params = this.convertDataTypes(data);
-
-		let required = this.checkRequiredProperties(params, "update");
-
-		if (required !== true) {
-			return {
-				error: {
-					missing: required,
-					data: data,
-					action: "update"
-
-				}
-			};
-		}
-
-		let invalid = this.validate(params);
-
-		if (invalid !== true) {
-			return {
-				error: {
-					invalid: invalid,
-					data: data,
-					action: "update"
-				}
-			};
-		}
-
-		let query = {};
-		this.addPrimaryKeyToQuery(id, query);
-
-		if (params[this.primaryKey]) {
-			delete params[this.primaryKey]; //you can't change primary Keys. Don't even try!!!
-		}
-
-		let proceed = await this.beforeUpdate(id, params);
-
-		if (proceed) {
-
-			let command = this.queryBuilder.update(query, params);
-
-			let result = await this.execute(command);
-
-			if (result.error) {
-				return result;
-			}
-
-			if (fetch) {
-				let record = await this.read(id);
-				await this.afterUpdate(id, record);
-				return record;
-			}
-
-			return {
-				[this.primaryKey]: id,
-				action: "update",
-				success: true
-			}
-		}
-
-		return {
-			error: "Update blocked by BeforeUpdate"
-		}
-
-
 	}
 
+	/**
+	 * Update records matching a certain criteria
+	 * @param query
+	 * @param data
+	 * @returns {Promise<{error: {data, missing: Promise<*>, action: string}}|{error}|*|{error: {data, invalid: *, action: string}}>}
+	 */
 	async updateWhere(query, data) {
 
 		data[this.updatedAt] = now();
 
-		let params = this.convertDataTypes(data);
-		let required = this.checkRequiredProperties(params, "update");
+		let {properties, relations} = this.convertDataTypes(data);
+		let required = this.checkRequiredProperties(properties, "update");
 
 		if (required !== true) {
 			return {
@@ -499,7 +473,7 @@ class ModelBase {
 			};
 		}
 
-		let invalid = this.validate(params);
+		let invalid = this.validate(properties);
 
 		if (invalid !== true) {
 			return {
@@ -511,36 +485,24 @@ class ModelBase {
 			};
 		}
 
-		let proceed = await this.beforeUpdateWhere(params);
+		let command = this.queryBuilder.update(query, properties);
+		let result = await this.execute(command);
 
-		if (proceed !== false) {
-			let command = this.queryBuilder.update(query, params);
-			let result = await this.execute(command);
-
-			if (result.error) {
-				return result;
-			}
-
-			await this.afterUpdateWhere(result);
-
+		if (result.error) {
 			return result;
 		}
-
-		return {
-			error: "Update blocked by BeforeUpdateWhere"
-		}
-
+		return result;
 	}
 
 	/**
-	 * search for one or more records
+	 * search for one or more records. typically just use find and findone methods
 	 * @param query
 	 * @returns {Promise<*>}
 	 */
 	async query(query, cache) {
 		let cacheKey;
 		if (cache === true) {
-			cacheKey = this.tableName + "::" + md5(JSON.stringify(query));
+			cacheKey = this.tableName + "_query_" + md5(JSON.stringify(query));
 			let record = await cacheManager.get(cacheKey);
 			if (record) {
 				return record;
@@ -556,14 +518,42 @@ class ModelBase {
 
 		let command = this.queryBuilder.select(obj);
 
+		if (_.isArray(query.sql)) {
+			query.sql.forEach(
+				(item) => {
+					let key = Object.keys(item)[0];
+					switch (key) {
+						case "join" :
+							command.joinRaw(item[key].query);
+							if (item[key].where) {
+								command.whereRaw(item[key].where);
+							}
+							this.debug = true;
+							break;
+						case "where" :
+							command.whereRaw(item[key].query);
+							break;
+						case "group" :
+							command.groupByRaw(item[key].query);
+							break;
+						case "having" :
+							command.havingRaw(item[key].query);
+							break;
+					}
+				}
+			)
+		}
+
 		let result = await this.execute(command, this.queryBuilder.postProcess);
 
 		if (result.error) {
 			return result;
 		}
 
+		await this.afterFind(result);
+
 		if (query.join) {
-			result = await this.join(result, query);
+			result = await this.joinRelations(result, query);
 		}
 
 		if (cacheKey) {
@@ -573,11 +563,11 @@ class ModelBase {
 		return result;
 	}
 
-
 	/**
-	 *
+	 * Get a count of records matching the criteria
 	 * @param query
-	 * @returns {Promise<*>}
+	 * @param cache
+	 * @returns {Promise<{error}|*|number>}
 	 */
 	async count(query, cache) {
 		let cacheKey;
@@ -591,6 +581,7 @@ class ModelBase {
 			}
 		}
 
+		//TODO need a fast count method for postgres
 		let command = this.queryBuilder.count(query);
 		result = await this.execute(command);
 
@@ -623,35 +614,23 @@ class ModelBase {
 		let cacheKey;
 		let results;
 		if (cache === true) {
-			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
+			cacheKey = this.tableName + "_find_" + md5(JSON.stringify(query));
 			results = await cacheManager.get(cacheKey);
 			if (results) {
 				return results;
 			}
 		}
+		results = await this.query(query);
 
-		let proceed = await this.beforeFind(query);
-
-		if (proceed !== false) {
-			results = await this.query(query);
-
-			if (results.error) {
-				return results;
-			}
-
-			await this.afterFind(results);
-
-			if (cacheKey) {
-				await cacheManager.set(cacheKey, results);
-			}
-
+		if (results.error) {
 			return results;
 		}
 
-		return {
-			error : "find blocked by BeforeFind"
+		if (cacheKey) {
+			await cacheManager.set(cacheKey, results);
 		}
 
+		return results;
 	}
 
 	/**
@@ -660,44 +639,33 @@ class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async findOne(query, cache) {
-		//console.log("findOne");
 		query.limit = 1;
 		let cacheKey;
 		let result;
 
 		if (cache === true) {
-			cacheKey = this.tableName + "-" + md5(JSON.stringify(query));
+			cacheKey = this.tableName + "_findone_" + md5(JSON.stringify(query));
 			result = await cacheManager.get(cacheKey);
 			if (result) {
 				return result;
 			}
 		}
 
-		let proceed =  await this.beforeFindOne(query);
+		result = await this.query(query);
 
-		if (proceed) {
-			result = await this.query(query);
-
-			if (result.error) {
-				return result;
-			}
-
-			await this.afterFindOne(result[0]);
-
-			if (result && result.length > 0) {
-				if (cacheKey) {
-					await cacheManager.set(cacheKey, result[0]);
-				}
-				return result[0];
-			}
-
-			return null;
+		if (result.error) {
+			return result;
 		}
 
-		return {
-			error : "findOne blocked by beforeFindOne"
+		if (result && result.length > 0) {
+			if (cacheKey) {
+				await cacheManager.set(cacheKey, result[0]);
+			}
+
+			return this.afterRead(result[0]);
 		}
 
+		return null;
 	}
 
 	/**
@@ -722,6 +690,7 @@ class ModelBase {
 				let result = await this.execute(command);
 
 				await this.afterDestroy(id, record);
+				this.emit("afterDestroy", id, record);
 
 				return result;
 			} else {
@@ -748,28 +717,10 @@ class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroyWhere(query) {
-
-		let proceed = await this.beforeDestroyWhere(query);
-
-		if (proceed !== false) {
-			let command = this.queryBuilder.delete(query);
-			let result = await this.execute(command);
-
-			if (result.error) {
-				return result;
-			}
-
-			this.afterDestroyWhere(result);
-
-			return result;
-		}
-
-		return {
-			error: "Blocked by beforeDestroyWhere",
-			tableName: this.tableName,
-			id: id
-		}
-
+		let command = this.queryBuilder.delete(query);
+		this.emit("beforeDestroyWhere", query);
+		let result = await this.execute(command);
+		return result;
 	}
 
 	/**
@@ -806,8 +757,8 @@ class ModelBase {
 	async exists(id) {
 
 		let query = {
-			where: {},
-			limit: 1
+			where : {},
+			limit : 1
 		};
 		this.addPrimaryKeyToQuery(id, query);
 
@@ -838,7 +789,8 @@ class ModelBase {
 		}
 
 		let query = {
-			where: {}
+			where: {
+			}
 		};
 		this.addPrimaryKeyToQuery(id, query);
 
@@ -867,7 +819,8 @@ class ModelBase {
 	 */
 	async getKey(id, key) {
 		let query = {
-			where: {}
+			where: {
+			}
 		};
 		this.addPrimaryKeyToQuery(id, query);
 		let command = this.queryBuilder.select(
@@ -892,18 +845,25 @@ class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	checkPrimaryKey(data) {
-		//console.log(this.properties[this.primaryKey]);
+		console.log(this.properties[this.primaryKey]);
 		if (!data[this.primaryKey]) {
 			switch (this.properties[this.primaryKey].type) {
 				case "string" :
 					switch (this.properties[this.primaryKey].format) {
-						case "uuid" :
+						//Allow custom? IE Parse Server Object Keys???
+						default :
 							data[this.primaryKey] = uuid.v4();
+							break;
 					}
+					break;
 				case "number" :
 					if (!this.properties[this.primaryKey].autoIncrement) {
 						//TODO shouldn't we get the next
 					}
+					break;
+				default :
+					data[this.primaryKey] = uuid.v4();
+					break;
 			}
 		}
 	}
@@ -949,584 +909,113 @@ class ModelBase {
 	 * @param query
 	 * @returns {Promise<void>}
 	 */
-	async join(results, query) {
-		//TODO totally rewrite this
-		//console.log("join " + this.tableName);
+	async joinRelations(results, query) {
+		let func = require("./model-base/join-relations");
+		return await func(this, results, query)
+	}
 
-		if (!this.relations && !this.foreignKeys) {
-			return results;
-		}
-
+	async updateRelations(data) {
 		let relations = this.relations || {};
-		let foreignKeys = this.foreignKeys || {};
-		let fromIndex = {};
-		let findOne = false;
+		let keys = Object.keys(data);
 
-		if (!_.isArray(results)) {
-			results = [results];
-			findOne = true;
-		}
-
-		let join = _.clone(query.join);
-		let fullJoin = false;
-
-		if (join === "*") {
-			fullJoin = true;
-			join = Object.keys(relations);
-			join = join.concat(Object.keys(foreignKeys));
-		}
-
-		if (_.isString(join)) {
-			let items = join.split(",");
-			join = {};
-			items.forEach(
-				function (item) {
-					join[item] = {
-						where: {}
-					};
-				}
-			)
-		} else if (_.isArray(join)) {
-			let temp = {};
-			join.forEach(
-				function (item) {
-					temp[item] = {
-						where: {}
-					}
-				}
-			);
-			join = temp;
-		} else if (_.isObject(join)) {
-			//console.log("JOIN IS AN OBJECT");
-			//not sure is there is anything to do here
-			//console.log("Condition 3");
-		}
-
-		//console.log("Before Loop");
-		//console.log(join);
-
-		let keys = Object.keys(join);
-
-		/**
-		 * @param key
-		 * @param j
-		 */
-		let processWhere = (key, j) => {
-			if (relations[key].where) {
-				j.where = j.where || {};
-				for (let p in relations[key].where) {
-					let expression = j.where[p] || relations[key].where[p];
-					if (_.isString(expression)) {
-						expression = {"=": expression}
-					}
-					let compare = Object.keys(expression)[0];
-					if (expression[compare].indexOf("{{") === 0) {
-						let targetKey = expression[compare].replace("{{", "").replace("}}", "");
-						try {
-							if (results[0][targetKey]) {
-								expression[compare] = results[0][targetKey];
-							}
-						} catch (e) {
-							console.log("processWhere issue join " + targetKey);
-							console.log(results);
-						}
-					}
-					j.where[p] = expression;
-				}
-			}
-		}
-
-		/**
-		 * Add any selects defined in the relation
-		 * @param key
-		 * @param j
-		 */
-		let processSelect = (key, j) => {
-			if (relations[key].select) {
-				j.select = j.select || [];
-				relations[key].select.forEach(
-					(field) => {
-						j.select.push(field)
-					}
-				);
-				j.select = _.uniq(j.select);
-			}
-		}
-
-		/**
-		 * If a select was present remove extra keys from join
-		 * @param results
-		 * @param key
-		 * @param originalSelect
-		 */
-		let processExtras = (results, key, originalSelect) => {
-			if (results &&
-				results.length > 0 &&
-				results[0][key] &&
-				originalSelect &&
-				originalSelect.length > 0) {
-				let keys = Object.keys(results[0][key]);
-				for (let i = 0; i < results.length; i++) {
-					keys.forEach((field) => {
-							if (originalSelect.indexOf(field) === -1) {
-								delete results[i][key][field];
-							}
-						}
-					);
-				}
-			}
-		};
-
-		while (keys.length > 0) {
+		while(keys.length > 0) {
 			let key = keys[0];
-			if (relations[key]) {
 
-				if (join[key] === true) {
-					join[key] = {}
-				} else if (join[key] === false) {
-					console.log("remove join " + key);
+			if (relations[key]) {
+				let relatedProperty = this.relations[key];
+
+				if ("throughClass" in relatedProperty) {
 					keys.shift();
 					continue;
 				}
 
-				let list;
-				let m;
-				let throughList;
-				let item = relations[key];
-				let originalSelect = item.join.select ? _.clone(item.join.select) : null;
-				let joinFrom = item.join.from;
-				let joinTo = item.join.to;
-				let joinThroughFrom = item.join.through ? item.join.through.from : null;
-				let joinThroughTo = item.join.through ? item.join.through.to : null;
-				let joinThroughWhere = item.join.through ? item.join.through.where : null;
-				let joinThroughSort = item.join.through ? item.join.through.sort : null;
-
-				let removeJoinTo = false; //keys not requested
-
-				let targetKeys = [];
-				let joinFromKeys = {};
-				let joinThroughFromKeys = {};
-				let joinThroughToKeys = {};
-				let joinToKeys = {};
-
-				//TODO we need a more flexible from, to, from to that supports arrays
-				/**
-				 * eg. from : ["key1","key2"] to: ["key3", "key4"]
-				 */
-				/*
-				if (_.isArray(joinFrom)) {
-					let i = 0;
-					joinFrom.forEach(
-						(joinFromItem) => {
-							let items = _.map(results, joinFromItem);
-							joinFromKeys[joinFromItem] = items;
-							joinToKeys[joinTo[i]] = items;
-							i++;
-						}
-					)
-					console.log(joinFromKeys);
-					return;
-				} else if (joinFrom.indexOf(".") !== -1) {
-
-				} else {
-					let items = _.map(results, joinFrom);
-					joinToKeys[joinTo] = items;
-					joinFromKeys[joinFrom] = items;
-				}
-
-				 */
-
-				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
-					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
-						//Allow for join on json value
-						let value = _.get(results[i], joinFrom, null);
-						targetKeys.push(value);
-						fromIndex[value] = i;
-					} else if (results[i] && results[i][joinFrom]) {
-						if (_.isArray(results[i][joinFrom])) {
-							targetKeys = targetKeys.concat(results[i][joinFrom]);
-						} else {
-							targetKeys.push(results[i][joinFrom]);
-						}
-						fromIndex[results[i][joinFrom]] = i;
-					}
-				}
-
-				targetKeys = _.uniq(targetKeys);
-
-				///console.log("!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
-				//console.log("joinFrom => " + joinFrom);
-				//console.log("joinThroughTo => " + joinThroughTo);
-				//console.log("joinThroughFrom => " + joinThroughFrom);
-				//console.log("joinTo => " + joinTo);
-
-				if (item.throughClass) { //build new targetKey based on the pivot table
-					const ThroughModel = this.loadModel(item.throughClass);
-					let throughModel = new ThroughModel(this.req);
-					let joinThrough = _.clone(join[key]);
-					joinThrough.where = joinThroughWhere || {};
-					joinThrough.where[joinThroughFrom] = {in: targetKeys};
-					joinThrough.select = [joinThroughFrom, joinThroughTo];
-					joinThrough.sort = joinThroughSort || null;
-					if (joinThrough.debug) {
-						throughModel.debug = true;
-					}
-					throughList = await throughModel.query(joinThrough);
-					if (throughList.length === 0) {
-						keys.shift();
-						continue;
-					}
-					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
-					targetKeys = _.flatten(targetKeys);
-					targetKeys = _.uniq(targetKeys);
-					//console.log("!!!!!!!!!!!!!!!!Target Table => " + throughModel.tableName);
-					//console.log(targetKeys);
-
-				}
-
-				let j = _.clone(join[key]);
-				//keep a copy so we can clean out non selected props
-
-
-				switch (item.relation) {
-
+				let Model = this.loadModel(relatedProperty.modelClass);
+				let model = new Model(this.req);
+				let primaryKey = model.primaryKey;
+				let itemData = _.clone(data[key]);
+				let result;
+				switch (relatedProperty.relation) {
 					case "HasOne":
-
-						//console.log("HasOne " + key);
-
-						let HasOneModel = this.loadModel(item.modelClass);
-						let hasOneModel = new HasOneModel(this.req);
-
-						if (j.debug) {
-							hasOneModel.debug = true;
+						if (itemData instanceof Array && itemData.length === 1) {
+							itemData = itemData[0];
 						}
-
-						if (relations[key].where) {
-							processWhere(key, j);
+						if (primaryKey in itemData) {
+							result = await this.update(itemData[primaryKey], itemData);
+							if (!result.error) {
+								data[key] = result;
+							}
 						}
-
-						j.where = j.where || {};
-						j.where[joinTo] = {in: targetKeys};
-						j.sort = j.sort || null;
-						j.limit = j.limit || relations[key].limit || targetKeys.length;
-
-						if (fullJoin) {
-							j.join = "*"
+					case "HasMany":
+						if (!itemData instanceof Array) {
+							itemData = [itemData];
 						}
-
-						if (!originalSelect || originalSelect.length === 0) {
-							processSelect(key, j);
-						}
-
-						if (j.select && _.indexOf(j.select, joinTo) === -1) {
-							j.select.push(joinTo);
-							removeJoinTo = true;
-						}
-
-						list = await hasOneModel.query(j);
-
-						if (list.error) {
-							keys.shift();
-							continue;
-						}
-
-						if (item.throughClass) {
-							list.forEach(
-								function (row) {
-									let throughItems = [];
-									throughList.forEach(
-										function (item) {
-											if (_.isArray(item[joinThroughTo])) {
-												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
-													throughItems.push(item)
-												}
-											} else if (item[joinThroughTo] === row[joinTo]) {
-												throughItems.push(item);
-											}
-										}
-									);
-									throughItems.forEach(
-										function (throughItem) {
-											try {
-												let resultsIndex;
-												if (_.isArray(throughItem[joinThroughFrom])) {
-													for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
-														let k = throughItem[joinThroughFrom][i];
-														if (k in fromIndex) {
-															resultsIndex = fromIndex[k];
-															break;
-														}
-													}
-												} else {
-													resultsIndex = fromIndex[throughItem[joinThroughFrom]];
-												}
-												if (removeJoinTo) {
-													delete row[joinTo];
-												}
-												results[resultsIndex][key] = row;
-
-											} catch (e) {
-												console.log("join through error " + item.throughClass);
-											}
-										}
-									)
-								}
-							)
-						} else {
-							for (let i = 0; i < list.length; i++) {
-								//TODO Arrays
-								let o = {[joinFrom]: list[i][joinTo]};
-								for (let k = 0; k < results.length; k++) {
-									let item = results[k];
-									if (_.isArray(item[joinFrom]) && item[joinFrom].indexOf(list[i][joinTo]) !== -1) {
-										results[k][key] = list[i];
-									} else if (item[joinFrom] === list[i][joinTo]) {
-										results[k][key] = list[i];
-									}
+						for(let i = 0; i < itemData.length; i++) {
+							if (primaryKey in itemData[i]) {
+								result = await this.update(itemData[i][primaryKey], itemData[i]);
+								if (!result.error) {
+									data[key][i] = result;
 								}
 							}
 						}
-
-						processExtras(results, key, originalSelect);
-
 						break;
-					case "HasMany" :
-
-						//console.log("HasMany " + key);
-
-						let HasManyModel = this.loadModel(item.modelClass);
-						let hasManyModel = new HasManyModel(this.req);
-
-						if (j.debug) {
-							hasManyModel.debug = true;
-						}
-
-						if (relations[key].where) {
-							processWhere(key, j);
-						}
-
-						j.where = j.where || {};
-						if (joinFromKeys) {
-
-						}
-						j.where[joinTo] = {in: targetKeys};
-						j.sort = relations[key].sort || null;
-						j.offset = relations[key].offset || 0;
-						j.limit = j.limit || relations[key].limit || null;
-
-						if (!originalSelect || originalSelect.length === 0) {
-							processSelect(key, j);
-						}
-
-						//must select the targetJoin key
-						if (j.select && _.indexOf(j.select, joinTo) === -1) {
-							removeJoinTo = true;
-							j.select.push(joinTo);
-						}
-
-						if (fullJoin) {
-							j.join = "*"
-						}
-
-						//console.log("condition 2 "  + this.tableName);
-						//console.log("hasManyModel.tableName " + hasManyModel.tableName);
-						//console.log(j);
-
-						list = await hasManyModel.query(j);
-
-						if (list.error) {
-							keys.shift();
-							continue;
-						}
-
-						if (item.throughClass) {
-							list.forEach(
-								function (row) {
-									let throughItems = [];
-									throughList.forEach(
-										function (item) {
-											if (_.isArray(item[joinThroughTo])) {
-												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
-													throughItems.push(item)
-												}
-											} else if (item[joinThroughTo] === row[joinTo]) {
-												throughItems.push(item);
-											}
-										}
-									)
-									throughItems.forEach(
-										function (throughItem) {
-											let resultsIndex;
-											if (_.isArray(throughItem[joinThroughFrom])) {
-												for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
-													let k = throughItem[joinThroughFrom][i];
-													if (k in fromIndex) {
-														resultsIndex = fromIndex[k];
-														break;
-													}
-												}
-											} else {
-												resultsIndex = fromIndex[throughItem[joinThroughFrom]];
-											}
-
-											results[resultsIndex][key] = results[resultsIndex][key] || [];
-											let filter = {[item.join.to]: row[item.join.to]};
-											if (!_.find(results[resultsIndex][key], filter)) {
-												if (removeJoinTo) {
-													delete row[joinTo];
-												}
-												results[resultsIndex][key].push(row);
-											}
-										}
-									);
-								}
-							)
-						} else {
-
-							for (let i = 0; i < list.length; i++) {
-								try {
-									//If the joinFrom is an array, we need to recurse all results
-									//to find out if the array of each matches the joinTo
-									if (this.properties[joinFrom].type === "array") {
-										for (let k = 0; k < results.length; k++) {
-											if (results[k][joinFrom].includes(list[i][joinTo])) {
-												results[k][key] = results[k][key] || [];
-												results[k][key].push(list[i]);
-											}
-										}
-									} else {
-										for (let k = 0; k < results.length; k++) {
-											if (results[k][joinFrom] === list[i][joinTo]) {
-												results[k][key] = results[k][key] || [];
-												results[k][key].push(list[i]);
-											}
-										}
-									}
-									/*
-
-
-									try {
-										if (!results[fromIndex[list[i][joinTo]]][key]) {
-											results[fromIndex[list[i][joinTo]]][key] = [];
-										}
-									} catch(e) {
-										console.log("something went wrong");
-										console.log("joinTo -> " + joinTo);
-										//console.log(list[i]);
-									}
-
-									let targetKey = list[i][joinTo];
-									let value = list[i];
-
-									if (removeJoinTo === true) {
-										value = _.omit(value, joinTo);
-									}
-
-									try {
-										results[fromIndex[targetKey]][key].push(value);
-									} catch (e) {
-										console.log(results);
-										console.log(targetKey);
-										console.log(fromIndex);
-										console.log(e);
-									}
-
-									 */
-
-								} catch (e) {
-									console.log("Could not join " + key + " for " + this.tableName);
-									console.log("joinTo => " + joinTo);
-									//console.log(fromIndex);
-									console.log(e);
-									//console.log(j.select);
-									//console.log(m.lastCommand.toString());
-								}
-							}
-						}
-
-						processExtras(results, key, originalSelect);
-
-						break;
-				}
-			} else if (foreignKeys[key]) {
-
-				//console.log("!!!!!!!!!!!!!!!!foreignKeys => " + key);
-
-				let j = _.clone(foreignKeys[key]);
-
-				let ForeignKeyModel = this.loadModel(foreignKeys[key].modelClass);
-				if (!ForeignKeyModel) {
-					console.warn("Foreign Key Join Error. " + key + " does not exist");
-				}
-				let foreignKeyModel = new ForeignKeyModel(this.req);
-				if (join[key].debug || foreignKeys[key].debug) {
-					foreignKeyModel.debug = true;
-				}
-
-				let idList = [];
-				results.forEach(
-					function (item) {
-						if (item[key] !== null) {
-							if (_.isArray(item[key])) {
-								idList.concat(item[key]);
-							} else {
-								idList.push(item[key]);
-							}
-						}
-					}
-				);
-
-				if (idList.length > 0) {
-					idList = _.uniq(idList);
-
-					let primaryKey = foreignKeys[key].to || foreignKeyModel.primaryKey;
-					let q = {
-						where: {
-							[primaryKey]: {"in": idList}
-						}
-					};
-
-					if (j.select) {
-						q.select = j.select;
-					}
-
-					if (j.join) {
-						q.join = _.clone(j.join);
-					}
-
-					let list = await foreignKeyModel.query(q);
-					let context = this;
-
-					if (!list.error) {
-						list.forEach(
-							function (item) {
-								//TODO support hookup when the property is an array
-								let matches = _.filter(results, {[key]: item[primaryKey]});
-								matches.forEach(
-									function (row) {
-										row.foreignKeys = row.foreignKeys || {};
-										row.foreignKeys[key] = item;
-									}
-								)
-
-							}
-						)
-					}
 				}
 			}
-
 			keys.shift();
 		}
-
-		//console.log("join complete " + this.tableName);
-
-		if (findOne) {
-			return results[0];
-		}
-
-		return results;
 	}
 
+	async createRelations(data) {
+
+		let relations = this.relations || {};
+		let keys = Object.keys(data);
+
+		while(keys.length > 0) {
+			let key = keys[0];
+
+			if (relations[key]) {
+				let relatedProperty = this.relations[key];
+
+				if ("throughClass" in relatedProperty) {
+					keys.shift();
+					continue;
+				}
+
+				let Model = this.loadModel(relatedProperty.modelClass);
+				let model = new Model(this.req);
+				let primaryKey = model.primaryKey;
+				let itemData = _.clone(data[key]);
+				let result;
+				switch (relatedProperty.relation) {
+					case "HasOne":
+						if (itemData instanceof Array && itemData.length === 1) {
+							itemData = itemData[0];
+						}
+						if (data[relatedProperty.join.from]) {
+							itemData[relatedProperty.join.to] = data[relatedProperty.join.from];
+							result = await this.create(itemData);
+							if (!result.error) {
+								data[key] = result;
+							}
+						}
+					case "HasMany":
+						if (!itemData instanceof Array) {
+							itemData = [itemData];
+						}
+						for(let i = 0; i < itemData.length; i++) {
+							if (data[relatedProperty.join.from]) {
+								itemData[i][relatedProperty.join.to] = data[relatedProperty.join.from];
+								result = await this.update(itemData[i][primaryKey], itemData[i]);
+								if (!result.error) {
+									data[key][i] = result;
+								}
+							}
+						}
+						break;
+				}
+			}
+			keys.shift();
+		}
+	}
 
 	/**
 	 * Converts any input types to the correct one (eg. string to int) and convert objects to JSON
@@ -1534,15 +1023,22 @@ class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	convertDataTypes(data) {
-		let params = {};
-		for (let key in data) {
-			if (this.properties[key]) {
-				params[key] = processType(data[key], this.properties[key]);
-			} else {
-				//console.log("unknown key " + key);
+		let properties = {};
+		let relations = {};
+		Object.keys(data).forEach(
+			(key) => {
+				if (this.relations && this.relations[key]) {
+					relations[key] = data[key];
+				} else if (this.properties[key]) {
+					properties[key] = processType(data[key], this.properties[key]);
+				}
 			}
-		}
-		return params;
+		)
+
+		return {
+			properties : Object.keys(properties).length > 0 ? properties : null,
+			relations : Object.keys(relations).length > 0 ? relations : null
+		};
 	}
 
 
@@ -1583,7 +1079,6 @@ class ModelBase {
 
 			return true;
 		} else {
-			//On Update, Make sure not to set things to null that cannot be null
 			let missing = [];
 			for (let key in data) {
 				if (data[key] === null && _.indexOf(this.schema.required, key) !== -1) {
@@ -1599,7 +1094,7 @@ class ModelBase {
 	}
 
 	/**
-	 * Verify that the parameters used in the create, update are valid for the schema format
+	 *
 	 * @param data
 	 * @returns {*}
 	 */
@@ -1627,6 +1122,17 @@ class ModelBase {
 		return invalid.length > 0 ? invalid : true;
 	}
 
+	convertToColumnNames(data) {
+		let params = {};
+		for (let key in data) {
+			if (this.properties[key]) {
+				params[this.properties[key].columnName] = data[key];
+			}
+		}
+
+		return params;
+	}
+
 	/**
 	 * Call the DB with query!!!
 	 * @param command
@@ -1638,6 +1144,7 @@ class ModelBase {
 		try {
 			sql = !_.isString(command) ? command.toString() : command;
 		} catch (e) {
+			console.log(e);
 			return {
 				error: e,
 				message: "Error converting command to string"
@@ -1664,7 +1171,9 @@ class ModelBase {
 					}
 				}
 
-				//console.log("command.postProcess => " + postProcess);
+				if (this.connectionString.indexOf("mysql") === 0) {
+					this.mysqlTextToObject(results.rows ? results.rows : results);
+				}
 
 				if (postProcess) {
 					if (results.rows) {
@@ -1719,6 +1228,23 @@ class ModelBase {
 		}
 	}
 
+
+	getSelect(fieldset) {
+		let rawfields = global.fieldCache[this.tableName][fieldset];
+
+		let select = [];
+
+		rawfields.forEach(
+			function (item) {
+				if (item.property && item.visible) {
+					select.push(item.property);
+				}
+			}
+		);
+
+		return select;
+	}
+
 	/**
 	 * Convert underscores back to camel case. Most of this would have happened in the creation of the SQL query,
 	 * however if you appended anything raw to the end, those might not yet have been converted
@@ -1769,17 +1295,6 @@ class ModelBase {
 		return result;
 	}
 
-	convertToColumnNames(data) {
-		let params = {};
-		for (let key in data) {
-			if (this.properties[key]) {
-				params[this.properties[key].columnName] = data[key];
-			}
-		}
-
-		return params;
-	}
-
 	/**
 	 * Takes database result and converts it back to schema properties
 	 * Use this when doing manual sql statements
@@ -1795,6 +1310,45 @@ class ModelBase {
 					}
 				}
 			}
+		}
+	}
+
+	mysqlTextToObject(results) {
+		console.log("mysqlTextToObject");
+		//Convert Objects
+		let modelKeys = this.keys;
+		let objectKeys = [];
+		let boolKeys = [];
+		let context = this;
+		modelKeys.forEach(
+			(key) => {
+				if (context.properties[key].type === "array" || context.properties[key].type === "object") {
+					objectKeys.push(key)
+				} else if (context.properties[key].type === "boolean") {
+					boolKeys.push(key);
+				}
+			}
+		)
+
+		if (objectKeys.length > 0 || boolKeys.length > 0) {
+			results.forEach(
+				function (row) {
+					objectKeys.forEach(
+						(key) => {
+							try {
+								row[key] = JSON.parse(row[key])
+							} catch (e) {
+
+							}
+						}
+					);
+					boolKeys.forEach(
+						(key) => {
+							row[key] = row[key] === 1
+						}
+					)
+				}
+			);
 		}
 	}
 
@@ -1815,10 +1369,6 @@ class ModelBase {
 		return r[0];
 	}
 
-	async beforeRead(id, query) {
-		return true;
-	}
-
 	async afterQuery(results) {
 		if (!results || !_.isArray(results) || results.length === 0) {
 			return results;
@@ -1837,8 +1387,8 @@ class ModelBase {
 					if (context.properties[parts[0]]) {
 						hasElements = true;
 						hash[key] = hash[key] || {
-							field: parts[0],
-							subfield: parts[1] //TODO can we go deeper than one level???
+							field : parts[0],
+							subfield : parts[1] //TODO can we go deeper than one level???
 						}
 					}
 				}
@@ -1846,7 +1396,7 @@ class ModelBase {
 		);
 		if (hasElements) {
 			results.forEach(
-				function (row) {
+				function(row) {
 					keys.forEach(
 						(key) => {
 							if (hash[key]) {
@@ -1913,14 +1463,6 @@ class ModelBase {
 		return;
 	}
 
-	async beforeUpdateWhere(query, params) {
-		return true;
-	}
-
-	async afterUpdateWhere(data) {
-		return;
-	}
-
 	/**
 	 * Before a record is destroyed, you might want to check permissions or run some process that if
 	 * it fails, you wouldn't want to remove the record at this time.
@@ -1932,13 +1474,6 @@ class ModelBase {
 		return true;
 	}
 
-	/**
-	 * @param query
-	 * @returns {Promise<boolean>}
-	 */
-	async beforeDestroyWhere(query) {
-		return true;
-	}
 
 
 	/**
@@ -1951,25 +1486,7 @@ class ModelBase {
 		return;
 	}
 
-	async afterDestroyWhere(data) {
-		return;
-	}
-
-	async beforeFind(query) {
-		return true;
-	}
-
 	async afterFind(data) {
-		if (this.afterQuery) {
-			return await this.afterQuery(data)
-		}
-	}
-
-	async beforeFindOne(query) {
-		return true;
-	}
-
-	async afterFindOne(data) {
 		if (this.afterQuery) {
 			return await this.afterQuery(data)
 		}
@@ -1991,57 +1508,14 @@ class ModelBase {
 		return "createdAt";
 	}
 
-	/**
-	 * Get the Models that this Model relates to, current supporting HasOne and HasMany relationships
-	 * {
-	 *     bar : {
-	 *         relation: "HasOne|HasMany",
-	 *         modelClass : "BarModel",
-	 *         join : {
-	 *             from : "id",
-	 *             to : "fooId"
-	 *         }
-	 *     },
-	 *     relatedBars : {  //using a join / pivot table
-	 *         relation: "HasOne|HasMany",
-	 *         modelClass : "FooModel",
-	 *         throughModel : "FooBarModel"
-	 *         join : {
-	 *             from : "id",
-	 *             through : {
-	 *                 "fooId",
-	 *                 "barId"
-	 *             }
-	 *             to : "id"
-	 *         }
-	 *     }
-	 * }
-	 * @returns {{}}
-	 */
 	get relations() {
 		return {};
 	}
 
-	/**
-	 * Related references, kinda like a join but for singular items
-	 * {
-	 *     barId : {
-	 *         modelClass : "BarModel",
-	 *         to : "id"
-	 *     }
-	 * }
-	 * @returns {{}}
-	 */
 	get foreignKeys() {
 		return {};
 	}
 
-	/**
-	 * Used the dynamically load models when using joins. this allows foo to require bar and bar to require foo at
-	 * at runtime.
-	 * @param modelName
-	 * @returns {*}
-	 */
 	loadModel(modelName) {
 		if (typeof modelName !== "string") {
 			return modelName;

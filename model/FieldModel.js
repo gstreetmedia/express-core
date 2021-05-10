@@ -154,8 +154,6 @@ class FieldModel extends ModelBase {
 				}
 			);
 			let exists = await this.execute(query.schema.hasTable("_fields"));
-			//console.log("Fields has table");
-			//console.log(exists);
 			this.tableExists = exists.length > 0;
 		}
 		return this.tableExists;
@@ -179,6 +177,7 @@ class FieldModel extends ModelBase {
 		let hasTable = await this.hasTable();
 
 		if (hasTable) {
+			console.log("Getting Remote Fields");
 			let result = await this.find(
 				{
 					where: {
@@ -193,7 +192,7 @@ class FieldModel extends ModelBase {
 			}
 			return null;
 		} else {
-			console.log("global.appRoot = " + global.appRoot);
+			console.log("Getting Local Fields");
 			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
 			if (fs.existsSync(p)) {
 				global.fieldCache[tableName] = require(p.split(".js").join(""));

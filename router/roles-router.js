@@ -1,12 +1,16 @@
-
 let router = require('express').Router();
-let authentication = require('../core/middleware/authentication');
+let authentication = require('../middleware/authentication');
+
+let fs = require("fs");
+let path = require("path");
+
 let Controller;
 if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/RoleController.js"))) {
 	Controller = require('../controller/RoleController');
 } else {
 	Controller = require(global.appRoot + "/src/controller/RoleController");
 }
+let c = new Controller();
 
 router.use(authentication);
 

@@ -1,5 +1,4 @@
 let router = require('express').Router();
-const fs = require("fs");
 let authentication = require('../middleware/authentication');
 const fs = require("fs");
 const path = require("path");
@@ -10,9 +9,9 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/UserController
 } else {
 	Controller = require(global.appRoot + "/src/controller/UserController");
 }
+let c = new Controller();
 
 const rateLimitRoute = require("../helper/rate-limit-route")();
-let c = new Controller()
 
 router.use(authentication);
 

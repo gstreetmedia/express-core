@@ -1,6 +1,6 @@
-const ModelBase = require('../core/model/ModelBase');
+const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const cache = require("../core/helper/cache-manager");
+const cacheManager = require("../helper/cache-manager");
 
 module.exports = class RolePermissionModel extends ModelBase {
 
@@ -15,10 +15,6 @@ module.exports = class RolePermissionModel extends ModelBase {
 	static get schema() { return ModelBase.getSchema(RolePermissionModel.tableName); }
 
 	static get fields() { return ModelBase.getFields(RolePermissionModel.tableName); }
-
-	async index(query){
-		return await super.index(query);
-	}
 
 	async create(data){
 		return await super.create(data);
@@ -42,8 +38,8 @@ module.exports = class RolePermissionModel extends ModelBase {
 
 	get foreignKeys () {
 		return {
-			roleId : {
-				modelClass : "RoleModel",
+			userId : {
+				modelClass : "UserModel",
 				to : "id"
 			}
 		}
@@ -59,8 +55,8 @@ module.exports = class RolePermissionModel extends ModelBase {
 		let RoleModel = require("./RoleModel");
 		let m = new RoleModel();
 		let role = await m.read(record.roleId);
-		await cache.del("role_" + role.id);
-		await cache.del("role_" + role.name);
+		await cacheManager.del("role_" + role.id);
+		await cacheManager.del("role_" + role.name);
 		return record;
 	}
 

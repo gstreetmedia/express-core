@@ -468,7 +468,7 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{error: string}|*>}
 	 */
 	async updateEmailComplete (token) {
-		let decoded
+		let decoded;
 		try {
 			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
@@ -517,8 +517,16 @@ class UserModel extends ModelBase {
 		}
 	}
 
-	relations() {
+	get relations() {
 		return {
+			permissions: {
+				relation: "HasMany",
+				modelClass: "UserPermissionModel",
+				join: {
+					from: "id",
+					to: "userId"
+				}
+			},
 			roles: {
 				relation: "HasMany",
 				modelClass: "RoleModel",
@@ -532,6 +540,14 @@ class UserModel extends ModelBase {
 					to: "id"
 				}
 			},
+			userRole: {
+				relation: "HasOne",
+				modelClass: "RoleModel",
+				join: {
+					from: "role",
+					to: "name"
+				}
+			}
 		}
 	}
 

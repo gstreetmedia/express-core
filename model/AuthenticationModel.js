@@ -6,9 +6,10 @@ const hashPassword = require('../helper/hash-password')
 const now = require('../helper/now')
 const _ = require('lodash')
 
-let TokenModel = require('../../model/TokenModel')
+let TokenModel = require('../../model/TokenModel');
+let RolePermissionModel = require('../../model/RolePermissionModel');
 let UserModel = require('../../model/UserModel')
-let SessionModel = require('../../model/SessionModel')
+let SessionModel = require('../model/SessionModel')
 
 class AuthenticationModel {
 
@@ -144,7 +145,15 @@ class AuthenticationModel {
 				where: {
 					key: req.headers['application-key']
 				},
-				join: '*'
+				join: {
+					config : true,
+					roles : {
+						join : {
+							permissions : true
+						}
+					},
+					permissions : true
+				}
 			}
 
 			if (secret) {
@@ -152,7 +161,6 @@ class AuthenticationModel {
 			}
 
 			let tm = new TokenModel(req);
-
 			let tokenRecord = await tm.findOne(query);
 
 			if (!tokenRecord) {
@@ -198,7 +206,7 @@ class AuthenticationModel {
 			} else if (secret && req.get('Referrer')) {
 				return {
 					error: {
-						message : 'Please do not include an Application Secret when making requests from a browser.',
+						message : 'Please do not include an application-secret when making requests from a browser.',
 						statusCode : 401
 					}
 				}
@@ -237,8 +245,11 @@ class AuthenticationModel {
 		_.extend(req.locals, obj)
 		_.extend(req, obj);
 
-		if (obj.token.role) {
-			req.addRole(obj.token.role)
+		if (obj.token.roles) {
+			req.addRole(obj.token.roles);
+		}
+		if (obj.token.permissions) {
+			req.addPermissions(obj.token.permissions);
 		}
 
 		return true
@@ -289,22 +300,47 @@ class AuthenticationModel {
 						status : 'active'
 					},
 					join : {
-						"userPermissions" : true,
-						"rolePermissions" : true
+						permissions : true,
+						userRole : {
+							join : {
+								permissions: true
+							}
+						},
+						roles : {
+							join : {
+								permissions: true
+							}
+						}
 					}
 				}
 			);
+
 			if (user) {
 				await cache.set(cacheKey, user);
 			}
 		}
 
+		console.log("USER!!!");
+		console.log(user);
+
 		if (user) {
-			req.addRole(user.role);
+			if (user.role) {
+				req.addRole(user.role);
+			}
+			if (user.userRole) {
+				req.addRole(user.userRole);
+			}
+			if (user.roles) {
+				req.addRole(user.roles);
+			}
+			if (user.permissions) {
+				req.addPermissions(user.permissions);
+			}
 			req.user = user;
+			req.locals = req.locals || {};
+			_.extend(req.locals, user)
 			req.jwt = this.getTokenFromRequest(req);
 		} else {
-
 			return {
 				error: {
 					message : 'Unknown on Inactive User',
@@ -313,7 +349,7 @@ class AuthenticationModel {
 			}
 		}
 
-		return true
+		return true;
 	}
 
 	hasValidCookie (req) {
@@ -329,10 +365,8 @@ class AuthenticationModel {
 			return false
 		}
 
-		if (hashPassword(req.cookies.token) === req.cookies['application-key']) {
-			return true
-		}
-		return false
+		return hashPassword(req.cookies.token) === req.cookies['application-key'];
+
 	}
 
 	/**
@@ -368,7 +402,10 @@ class AuthenticationModel {
 		}
 
 		if (req.headers['authorization']) {
-			let authResult = await this.bearerToken(req)
+			let authResult = await this.bearerToken(req);
+			if (authResult.error) {
+				console.log('authResult => ' + authResult.error);
+			}
 			return authResult;
 		}
 

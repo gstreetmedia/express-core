@@ -25,7 +25,12 @@ class SessionModel extends ModelBase {
 
 	static get fields() { return ModelBase.getFields(SessionModel.tableName); }
 
+	async index(query) {
+		return await super.index(query);
+	}
+
 	async create(data) {
+		console.log("SM::create");
 		return await super.create(data);
 	}
 

@@ -28,6 +28,17 @@ module.exports = class QueryToSql extends QueryBase{
 		return this.knexRaw('`' + this.tableName + '`.`' + this.properties[key].columnName + '` as `' + key + '`');
 	}
 
+	buildSort(propertyName) {
+		if (this.properties[propertyName]) {
+			return this.knexRaw('`' + this.tableName + '`.`' + this.properties[propertyName].columnName + '`');
+		}
+		return null;
+	}
+
+	column(column) {
+		return this.raw('`' + this.tableName + '`.`' + column + '`');
+	}
+
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
 	 * @param value

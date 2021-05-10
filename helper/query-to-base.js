@@ -48,6 +48,7 @@ module.exports = class QueryToSqlBase {
 	 * @returns {string}
 	 */
 	get client() {
+		throw new Error("Never Call this Directly. Should be in subclass");
 		return "pg";
 	}
 
@@ -56,7 +57,6 @@ module.exports = class QueryToSqlBase {
 	 * @returns {Knex.Client}
 	 */
 	get qb() {
-
 		if (this._queryBuilder) {
 			return this._queryBuilder(this.tableName);
 		}
@@ -292,11 +292,16 @@ module.exports = class QueryToSqlBase {
 			}
 		}
 
+		console.log(required);
+
 		//TODO should data have been validated before this? Seems like it
 		for (let key in data) {
+			console.log(key);
 			if (this.properties[key]) {
 				//does final json conversion as needed
 				translation[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
+			} else {
+				console.error("Invalid field " + key);
 			}
 			let index = _.indexOf(required, key);
 			if (index !== -1) {
@@ -305,7 +310,7 @@ module.exports = class QueryToSqlBase {
 		}
 
 		if (required.length > 0) {
-			//console.log(data);
+			console.log(data);
 			return {
 				error: required,
 				message: "Missing or Invalid Fields"
@@ -479,7 +484,7 @@ module.exports = class QueryToSqlBase {
 				} else if (_.isArray(value)) {
 					queryBuilder[c.whereIn](this.column(columnName), this.processArrayType(value, this.properties[key]));
 				} else {
-					queryBuilder[c.where](this.column(columnName), this.processType(value, this.properties[key]));
+					queryBuilder[c.where](this.column(columnName), "=", this.processType(value, this.properties[key]));
 				}
 
 				break;
@@ -549,7 +554,6 @@ module.exports = class QueryToSqlBase {
 
 
 	column(column) {
-
 		return this.raw('"' + this.tableName + '"."' + column + '"');
 	}
 

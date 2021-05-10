@@ -1,24 +1,71 @@
-let ModelBase = require('../core/model/TokenModel');
+const ModelBase = require('./ModelBase');
+const _ = require('lodash');
+const uuid = require("node-uuid");
+const hashPassword = require("../helper/hash-password");
 
 module.exports = class TokenModel extends ModelBase {
 
+	constructor(req) {
+		super(req);
+	}
+
+	get tableName() { return TokenModel.tableName; }
+
+	static get tableName() { return 'tokens'; }
+
+	static get schema() { return ModelBase.getSchema(TokenModel.tableName); }
+
+	static get fields() { return ModelBase.getFields(TokenModel.tableName); }
+
+	async create(data){
+		data.key = uuid.v4();
+		let secret = data.secret = uuid.v4();
+		if (process.env.CORE_TOKENS_HASH_SECRET === "true") {
+			data.secret = hashPassword(secret);
+		}
+		let result = await super.create(data);
+		if (!result.error) {
+			result.secret = data.secret;
+		}
+		return result;
+	}
+
+	async read(id, query){
+		return await super.read(id, query);
+	}
+
+	async update(id, data, fetch){
+		let secret = data.secret;
+		if (process.env.CORE_TOKENS_HASH_SECRET === "true" && data.secret) {
+			data.secret = hashPassword(data.secret);
+		}
+
+		let result = await super.update(id, data, true);
+		if (!result.error && secret) {
+			result.secret = secret;
+		}
+		return result;
+	}
+
+	async query(query){
+		return await super.query(query);
+	}
 
 	async destroy(id) {
 
-		let M = require("./TokenPermissionModel");
-		m = new M();
-		await m.destroyWhere(
+		const TP = require("./TokenPermissionModel");
+		let tp = new TP(this.req);
+		await tp.destroyWhere(
 			{
 				where : {
 					tokenId : id
 				}
 			}
 		)
-		await super.destroy(id);
 
-		M = require("./TokenRoleModel");
-		let m = new M();
-		await m.destroyWhere(
+		const TR = require("./TokenRoleModel");
+		let tr = new TR(this.req);
+		await tr.destroyWhere(
 			{
 				where : {
 					tokenId : id
@@ -26,7 +73,7 @@ module.exports = class TokenModel extends ModelBase {
 			}
 		);
 
-		return this.destroy(id);
+		return super.destroy(id);
 	}
 
 	get relations() {
@@ -65,6 +112,10 @@ module.exports = class TokenModel extends ModelBase {
 
 	get foreignKeys() {
 		return {
+			configId : {
+				modelClass : "ConfigModel",
+				to : "id"
+			}
 		}
 	}
 }

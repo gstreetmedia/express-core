@@ -184,8 +184,10 @@ class SchemaModel extends ModelBase {
 	async set(tableName, data) {
 		let table = await this.get(tableName, false);
 		if (table) {
+			console.log("Updating Schema " + tableName);
 			return await this.update(table.id, data);
 		} else {
+			console.log("Creating Schema " + tableName);
 			let hasTable = await this.hasTable();
 			if (hasTable) {
 				table = await this.create(data);

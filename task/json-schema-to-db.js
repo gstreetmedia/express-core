@@ -61,6 +61,9 @@ module.exports = async(schema, connection) => {
 										break;
 									case "uuid" :
 										columnBuilder = table.uuid(schema.properties[key].columnName);
+										if (c.client !== "mysql") {
+											columnBuilder.comment("uuid");
+										}
 										break;
 									default :
 										if (length > 255) {
@@ -84,6 +87,15 @@ module.exports = async(schema, connection) => {
 											columnBuilder = table.specificType(schema.properties[key].columnName, 'int[]');
 										} else {
 											columnBuilder = table.jsonb(schema.properties[key].columnName);
+											columnBuilder.comment("int[]");
+										}
+										break;
+									case "uuid" :
+										if (c.client !== "mysql") {
+											columnBuilder = table.specificType(schema.properties[key].columnName, 'uuid[]');
+										} else {
+											columnBuilder = table.jsonb(schema.properties[key].columnName);
+											columnBuilder.comment("uuid[]");
 										}
 										break;
 									default :
@@ -91,12 +103,22 @@ module.exports = async(schema, connection) => {
 											columnBuilder = table.specificType(schema.properties[key].columnName, 'char[]');
 										} else {
 											columnBuilder = table.jsonb(schema.properties[key].columnName);
+											columnBuilder.comment("char[]");
 										}
 								}
 								break;
 							case "object" :
 								columnBuilder = table.jsonb(schema.properties[key].columnName);
+								if (c.client === "mysql") {
+									columnBuilder.comment("object");
+								}
 								break;
+						}
+
+						if (!columnBuilder) {
+							console.log("Error getting column for " + key);
+							console.log(schema.properties[key]);
+							return;
 						}
 
 						if (schema.primaryKey === key) {
@@ -108,9 +130,12 @@ module.exports = async(schema, connection) => {
 						if (schema.properties[key].default === "now") {
 							columnBuilder.defaultTo(builder.fn.now());
 						}
+						if (schema.properties[key].description && schema.properties[key].description !== "") {
+							columnBuilder.comment(schema.properties[key].description);
+						}
 						if (schema.properties[key].allowNull === false) {
 							columnBuilder.notNullable();
-						} else {
+						} else if (schema.properties[key].type !== "boolean") {
 							columnBuilder.nullable();
 						}
 					}

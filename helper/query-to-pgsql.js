@@ -368,7 +368,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 		}
 	}
 
-
 	processContains(key, value) {
 		let columnName = this.properties[key].columnName;
 		let columnType = this.properties[key].type;

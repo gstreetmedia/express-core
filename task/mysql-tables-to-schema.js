@@ -95,9 +95,6 @@ module.exports = async function( options, pool )
 
 var convertColumnType = function( column )
 {
-
-	//console.log(column.extra);
-
 	var schemaProperty = {
 		type: 'null'
 	};
@@ -109,13 +106,40 @@ var convertColumnType = function( column )
 	switch( column.data_type )
 	{
 		case 'text':
-
 		case "character varying":
 		case "varchar" :
 		case "longtext" :
 		case "mediumtext" :
 		{
 			schemaProperty.type   = 'string';
+			switch (column.column_comment) {
+				case "object" :
+				case "json" :
+					schemaProperty.type = "object";
+					break;
+				case "array" :
+					schemaProperty.type = "array";
+					break;
+				case "int[]" :
+					schemaProperty.type = "array";
+					schemaProperty.format = "int"
+					break;
+				case "char[]" :
+					schemaProperty.type = "array";
+					schemaProperty.format = "string"
+					break;
+				case "varchar[]" :
+					schemaProperty.type = "array";
+					schemaProperty.format = "string"
+					break;
+				case "uuid" :
+					schemaProperty.format = 'uuid';
+					break;
+				case "uuid[]" :
+					schemaProperty.type = 'array';
+					schemaProperty.format = 'uuid';
+					break;
+			}
 		} break;
 
 		case 'char':
@@ -166,7 +190,10 @@ var convertColumnType = function( column )
 				case 'bigint':
 				case 'integer':
 					schemaProperty.format = 'integer';
-
+					break;
+				case 'tinyint':
+					schemaProperty.type = 'boolean';
+					break;
 			}
 		} break;
 

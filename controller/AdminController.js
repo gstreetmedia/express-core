@@ -34,7 +34,7 @@ class AdminController extends ViewControllerBase {
 		);
 	}
 
-	async async schemeList(req, res) {
+	async schemaList(req, res) {
 		return res.success(
 			AdminController.getSchemaList()
 		)
@@ -67,6 +67,7 @@ class AdminController extends ViewControllerBase {
 		}
 
 		req.query.select = req.query.select || [];
+		console.log(controller.Model);
 		let properties = controller.Model.schema.properties;
 
 		rawfields.forEach(

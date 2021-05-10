@@ -1,7 +1,5 @@
-const ModelBase = require('../core/model/ModelBase');
+const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const schema = require('../schema/token-permissions-schema');
-const fields = require('../schema/fields/token-permissions-fields');
 
 module.exports = class TokenPermissionModel extends ModelBase {
 
