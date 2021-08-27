@@ -1,77 +1,68 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const inflector = require("../helper/inflector");
-const schema = require('../schema/fields-schema');
-const fields = require('../schema/fields/fields-fields');
-const cache = require("../helper/cache-manager");
-const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 const fs = require("fs");
-const knex = require("knex");
 const path = require("path");
-
+const exists = require("util").promisify(fs.exists);
+const readFile = require("util").promisify(fs.readFile);
+global.fieldCache = global.fieldCache || {};
+let hasFieldTable = false;
 
 class FieldModel extends ModelBase {
 
-
 	constructor(req) {
 		super(req);
-		this.tableExists = null;
-	}
-
-	get connectionString() {
-		return process.env.DEFAULT_DB;
 	}
 
 	get tableName() {
-		return FieldModel.tableName;
-	}
-
-	static get tableName() {
 		return "_fields";
 	}
 
-	static get schema() {
-		if (global.schemaCache && global.schemaCache[FieldModel.tableName]) {
-			return global.schemaCache[FieldModel.tableName]
+	get dataSource() {
+		return "DEFAULT_DB";
+	}
+
+	async update(id, data) {
+		let result = await super.update(id, data, true);
+		if (!result.error) {
+			global.fieldCache[result.tableName] = result;
+			await this.saveFile(result.tableName, result);
 		}
-		return require('../schema/fields-schema');
-	}
-
-	static get fields() {
-		if (global.fieldCache && global.fieldCache[FieldModel.tableName]) {
-			return global.fieldCache[FieldModel.tableName];
-		}
-		return require('../schema/fields/fields-fields');
-	}
-
-	get schema() {
-		return FieldModel.schema;
-	}
-
-	get fields() {
-		return FieldModel.fields;
+		return result;
 	}
 
 	async create(data) {
-		return await super.create(data);
+		let result = await super.create(data, true);
+		if (!result.error) {
+			global.fieldCache[result.tableName] = result;
+			await this.saveFile(result.tableName, result);
+		}
+		return result;
 	}
 
-	async read(id, query) {
-		return await super.read(id, query);
-	}
+	async getFields() {
+		await this.getSchema();
+		if (this.fields) {
+			return this.fields;
+		}
+		if (global.fieldCache[this.tableName]) {
+			return global.fieldCache[this.tableName];
+		}
+		this._fields = await this.get(this.tableName); //Need a primer
+		let results = await this.findOne({
+			where : {
+				tableName : this.tableName
+			}
+		});
+		if (results && results.id) {
+			hasFieldTable = true;
+			this._fields = global.fieldCache[this.tableName] = results;
+		} else {
+			hasFieldTable = false;
+		}
 
-	async update(id, data, query) {
-		return await super.update(id, data, query);
-	}
-
-	async query(query) {
-		query.sort = "title ASC";
-		return await super.query(query);
-	}
-
-	async destroy(id) {
-		return await super.destroy(id);
+		return this.fields;
 	}
 
 	getSelect(tableName, fieldSet) {
@@ -90,82 +81,10 @@ class FieldModel extends ModelBase {
 		return select;
 	}
 
-	async loadFields(connectionStrings) {
-		connectionStrings = connectionStrings || [];
-		global.fieldCache = global.fieldCache || {};
-
-		if (!_.isArray(connectionStrings)) {
-			connectionStrings = [connectionStrings];
-		}
-
-		let dataSources = [];
-		let count = 0;
-
-		connectionStrings.forEach(
-			function (item) {
-				if (item.indexOf("://") === -1) {
-					dataSources.push(item);
-				} else {
-					let cs = connectionStringParser(item);
-					dataSources.push(cs.database);
-				}
-			}
-		);
-
-		if (connectionStrings.length === 0) {
-			this.tableExists = false;
-		}
-		let hasTable = await this.hasTable();
-
-		if (hasTable) {
-			let results = await this.find({where: {dataSource: {"in": dataSources}}});
-			results.forEach(
-				function (item) {
-					global.fieldCache[item.tableName] = item;
-				}
-			);
-		} else {
-			console.log("Loading Local Fields");
-			let keys = Object.keys(global.schemaCache).forEach(
-				(schemaKey) => {
-					let schema = global.schemaCache[schemaKey];
-					let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(schema.tableName));
-					if (fs.existsSync(p)) {
-						let fields = require(p.split(".js").join(""));
-						global.fieldCache[schema.tableName] = fields;
-					}
-
-
-				}
-			)
-		}
-		console.log("Loaded " + Object.keys(global.fieldCache).length + " fields");
-		return true;
-
-	}
-
-	async hasTable() {
-		//TODO can this be done with knex.
-		if (this.tableExists === null) {
-			let builder = this.queryBuilder;
-			let query = knex(
-				{
-					client: this.queryBuilder.client,
-				}
-			);
-			let exists = await this.execute(query.schema.hasTable("_fields"));
-			this.tableExists = exists.length > 0;
-		}
-		return this.tableExists;
-	}
-
 	async get(tableName, fromCache) {
 
-		global.fieldCache = global.fieldCache || {};
-		if (fromCache !== false) {
-			if (global.fieldCache[tableName]) {
-				return global.fieldCache[tableName];
-			}
+		if (fromCache !== false &&global.fieldCache[tableName]) {
+			return global.fieldCache[tableName];
 		}
 
 		//TODO need to support various tableName styles
@@ -174,11 +93,8 @@ class FieldModel extends ModelBase {
 		//3. tableName - camel case
 		//4. TableName - capital camel case
 
-		let hasTable = await this.hasTable();
-
-		if (hasTable) {
-			console.log("Getting Remote Fields");
-			let result = await this.find(
+		if (hasFieldTable) {
+			let result = await this.findOne(
 				{
 					where: {
 						tableName: tableName
@@ -186,53 +102,69 @@ class FieldModel extends ModelBase {
 				}
 			);
 
-			if (result.length === 1) {
-				global.fieldCache[tableName] = result[0];
+			if (result && result.id) {
+				global.fieldCache[tableName] = result;
 				return global.fieldCache[tableName]
 			}
-			return null;
-		} else {
-			console.log("Getting Local Fields");
-			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
-			if (fs.existsSync(p)) {
-				global.fieldCache[tableName] = require(p.split(".js").join(""));
-				return global.fieldCache[tableName];
-			} else {
-				console.log("missing table " + p);
-			}
-			//if (fs.existsSync(global.appRoot + "/src/schema/fields/" ))
 		}
+		return this.loadFile(tableName);
+	}
+
+	async loadFile(tableName) {
+		this.log("loadFile", tableName);
+		let schema;
+		let p = path.resolve(__dirname + "/../../schema/fields/" + this.getLocalFileName(tableName));
+		if (await exists(p)) {
+			this.log("loadFile", p);
+			schema = require(p.split(".js").join(""));
+			global.fieldCache[schema.tableName] = schema;
+		}
+		if (!schema) {
+			p = path.resolve(__dirname + "/../schema/fields/" + this.getLocalFileName(tableName));
+			if (await exists(p)) {
+				this.log("loadFile", p);
+				schema = require(p.split(".js").join(""));
+				global.fieldCache[schema.tableName] = schema;
+				return schema;
+			}
+			if (!schema) {
+				this.log("loadFile", "No fields @ " + p);
+			}
+		}
+		if (!schema) {
+			console.error("Could Not Load fields for " + tableName);
+		}
+		return schema;
+	}
+
+	saveFile(tableName, data) {
+		let p = path.resolve(__dirname + "/../../schema/fields/" + this.getLocalFileName(tableName));
+		let template = require("../task/templates/fields");
+		fs.writeFileSync(p, template(data));
 	}
 
 	async set(tableName, data) {
-		let table = await this.get(tableName, false);
-		let hasTable = await this.hasTable();
-		if (hasTable) {
+		await this.getSchema();
+		await this.getFields();
+
+		if (hasFieldTable) {
 			let result;
-			if (table) {
+			let table = await this.get(tableName, false);
+			if (table && table.id) {
 				result = await this.update(table.id, data, true);
 			} else {
 				result = await this.create(data, true);
 			}
-			if (!result.error) {
-				global.fieldCache = global.fieldCache || {};
-				global.fieldCache[tableName] = result;
-			} else {
-				console.log(result.error);
-			}
-		}
-		if (table) {
-			let p = path.resolve(global.appRoot + "/src/schema/fields/" + this.getLocalFileName(tableName));
-
-			if (fs.existsSync(p)) {
-				fs.writeFileSync(p, "module.exports = " + JSON.stringify(data));
-				global.fieldCache[tableName] = data;
-			}
+		} else {
+			this.saveFile(tableName, data);
 		}
 	}
 
 	getLocalFileName(tableName) {
 		let file = inflector.dasherize(tableName.toLowerCase()) + "-fields.js";
+		if (file.indexOf("-") === 0) {
+			file = "_" + file.substring(1, file.length)
+		}
 		return file;
 	}
 

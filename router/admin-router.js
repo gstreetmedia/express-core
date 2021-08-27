@@ -1,8 +1,15 @@
 let router = require('express').Router();
+const fs = require("fs");
+const path = require("path");
 let authentication = require('../middleware/authentication');
-const Controller = require('../controller/AdminController');
-const viewSelector = require("../helper/view/view-selector");
+let Controller;
+if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/AdminController.js"))) {
+	Controller = require('../controller/AdminController');
+} else {
+	Controller = require(global.appRoot + "/src/controller/AdminController");
+}
 let c = new Controller()
+const getView = require("../helper/view/get-view");
 
 router.use(authentication);
 
@@ -18,7 +25,8 @@ router.get('/login', async (req, res, next) => {
 	if (req.hasRole("super-admin")) {
 		return res.redirect("/admin");
 	}
-	return viewSelector(res, 'page-login', {});
+	let view = await getView('page-login', true);
+	return res.send(await view({req:req}))
 });
 
 router.get('/', async (req, res, next) => {
@@ -101,9 +109,7 @@ router.get("/search/:controller", async (req, res, next) => {
 	}
 );
 
-router.get("/schema-list",
-	async ()=> {
-		return await c.schemeList(req, res);
-	})
+
+
 
 module.exports = router;

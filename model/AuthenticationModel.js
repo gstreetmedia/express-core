@@ -6,10 +6,10 @@ const hashPassword = require('../helper/hash-password')
 const now = require('../helper/now')
 const _ = require('lodash')
 
-let TokenModel = require('../../model/TokenModel');
-let RolePermissionModel = require('../../model/RolePermissionModel');
-let UserModel = require('../../model/UserModel')
-let SessionModel = require('../model/SessionModel')
+let TokenModel = require('./TokenModel');
+let RolePermissionModel = require('./RolePermissionModel');
+let UserModel = require('./UserModel')
+let SessionModel = require('./SessionModel')
 
 class AuthenticationModel {
 

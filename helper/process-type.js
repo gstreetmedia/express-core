@@ -16,7 +16,6 @@ module.exports = (value, property) =>{
 		} else {
 			return '';
 		}
-
 	}
 
 	switch (property.type) {
@@ -75,8 +74,8 @@ module.exports = (value, property) =>{
 		case "string" :
 			if (value === '' && property.allowNull === false) {
 				return '';
-			} else if (value === '' || value === null && property.allowNull === true) {
-
+			} else if ((value === '' || value === null || value === undefined) && property.allowNull === true) {
+				return null;
 			}
 
 			if (value === undefined || value === "undefined") {

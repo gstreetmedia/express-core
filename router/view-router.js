@@ -1,14 +1,16 @@
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
 let UserController = require("../../controller/UserController");
-let viewSelector = require("../helper/view/view-selector");
+let getView = require("../helper/view/get-view");
+let renderView = require("../helper/view/render-view");
 
 router.get('/', async (req, res, next) => {
 	await authentication(req, res);
 	if (req.hasRole("super-admin")) {
 		return res.redirect("/admin");
 	}
-	return viewSelector(res, 'index', {});
+	let view = await getView('index');
+	return res.send(await renderView(view, {req:req}))
 });
 
 router.post("/login", async (req, res, next) => {

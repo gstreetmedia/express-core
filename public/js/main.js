@@ -74,8 +74,11 @@ $(document).ready(
 		$("#modelSearch").autocomplete(
 			{
 				autoSelectFirst: true,
-				serviceUrl: app.apiRoot + "/admin/search/" + app.slug,
+				serviceUrl: app.apiRoot + "/admin/search/" + app.route,
 				groupBy: "field",
+				minChars : 4,
+				noCache : true,
+				deferRequestBy : 3,
 				transformResult: function (response) {
 					var results = [];
 					response = JSON.parse(response);
@@ -97,8 +100,7 @@ $(document).ready(
 				},
 				onSelect: function (suggestion) {
 					console.log(suggestion);
-					window.location = "/admin/" + app.slug + '/?where={"' + suggestion.data.field + '":{"=":"' + suggestion.value + '"}}';
-
+					window.location = "/admin/" + app.route + '?query={"where":{"' + suggestion.data.field + '":{"=":"' + suggestion.value + '"}}}';
 				},
 				onSearchComplete: function () {
 
@@ -110,6 +112,9 @@ $(document).ready(
 			console.log("FORM!");
 			if (!target) {
 				target = $('form');
+			}
+			if (target.attr("id") === "fieldForm") {
+				makeFieldsSortable(false);
 			}
 			target.on("submit",
 				function (e) {
@@ -207,6 +212,10 @@ $(document).ready(
 						}
 					);
 
+					if (target.attr("id") === "fieldForm") {
+						data = saveFields(data, false);
+					}
+
 					$.ajax(
 						{
 							url: url,
@@ -250,12 +259,12 @@ $(document).ready(
 
 		};
 
-		var view = function (slug, id, modelTitle) {
+		var view = function (tableName, id, modelTitle) {
 			var modal = $("#view-modal");
 			var header = modal.find(".modal-header");
 			var body = modal.find(".modal-body");
 			var title = modal.find(".modal-title");
-			var url = "/admin/" + slug + "/" + id + "/view";
+			var url = "/admin/" + tableName + "/" + id + "/view";
 
 			title.html("View " + (modelTitle || app.modelTitle));
 			body.html(activityIndicator);
@@ -264,7 +273,7 @@ $(document).ready(
 			action.off("click").on("click",
 				function () {
 					modal.modal('hide');
-					edit(slug, id);
+					edit(tableName, id);
 				}
 			);
 
@@ -273,8 +282,10 @@ $(document).ready(
 			$.ajax(
 				{
 					url: url,
-					success: function (data) {
-						body.html(data);
+					dataType : "json",
+					success: function (response) {
+						body.html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
+						body.scrollTop(0);
 						onViewReady(body, modal);
 					},
 					error: function (xhr) {
@@ -327,9 +338,50 @@ $(document).ready(
 				}
 			);
 
-			body.find("a").on("click",
+			body.find("[data-bindid]").on("click",
 				function (e) {
-					//e.preventDefault();
+					var target = $(e.target);
+					var bindId = DataBind.getId(target);
+
+					e.preventDefault();
+					if (bindId) {
+
+						switch (bindId) {
+							case "view" :
+								var element = DataBind.getElement(target, "view");
+								var id = element.attr("data-id");
+								var tableName = element.attr("data-table-name");
+								var title = element.attr("data-title");
+
+								return view(tableName, id, title);
+								break;
+							case "tab" :
+								var tab = DataBind.getElement(target, "tab");
+								tab.parent().parent().find("button").removeClass("active")
+								tab.addClass("active");
+								let tabContent = $(tab.attr("data-target"));
+								tabContent.parent().find(".tab-pane").removeClass("active").removeClass("show");
+								tabContent.addClass("active show");
+								tabContent.find(".gridded-relation").each(
+									function () {
+										var target = $(this);
+										var w = 0;
+										target.find('.header .col-1').each(
+											function () {
+												//var col = $(this);
+												//col.width(col.width());
+												w += 150;
+											}
+										);
+										target.height("auto");
+										target.find(".inner").width(w);
+										target.height(target.find(".inner").height() + 17);
+										target.parent().height(target.height());
+										target.addClass("gridded-relation-active")
+									}
+								);
+						}
+					}
 				}
 			);
 
@@ -337,11 +389,11 @@ $(document).ready(
 
 		};
 
-		var edit = function (slug, id, modelTitle) {
+		var edit = function (tableName, id, modelTitle) {
 			var modal = $("#edit-modal");
 			var body = modal.find(".modal-body");
 			var title = modal.find(".modal-title");
-			var url = "/admin/" + slug + "/" + id + "/edit";
+			var url = "/admin/" + tableName + "/" + id + "/edit";
 
 			title.html("Edit " + (modelTitle || app.modelTitle));
 			body.html(activityIndicator);
@@ -350,8 +402,11 @@ $(document).ready(
 			$.ajax(
 				{
 					url: url,
-					success: function (data) {
-						body.html(data);
+					dataType : "json",
+					success: function (response) {
+
+						body.html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
+						body.scrollTop(0);
 						onEditReady(body, modal);
 					},
 					error: function (xhr) {
@@ -443,23 +498,24 @@ $(document).ready(
 			});
 		};
 
-		var create = function (slug, modelTitle) {
+		var create = function (tableName, modelTitle) {
 			var modal = $("#edit-modal");
 			var header = modal.find(".modal-header");
 			var body = modal.find(".modal-body");
 			var title = modal.find(".modal-title");
 			var action = modal.find(".modal-action");
 
-			title.html("Create " + (modelTitle || app.modelTitle));
+			title.html("Create " + (modelTitle));
 			body.html(activityIndicator);
-			action.attr("href", "/admin/" + slug + "/create");
 			modal.modal();
 
 			$.ajax(
 				{
-					url: "/admin/" + app.slug + "/create",
-					success: function (data) {
-						body.html(data);
+					url: "/admin/" + app.tableName + "/create",
+					dataType : "json",
+					success: function (response) {
+						body.html(response.results.html);
+						body.scrollTop(0);
 						onEditReady(body, modal);
 					},
 					error: function (xhr) {
@@ -504,16 +560,6 @@ $(document).ready(
 		let saveFieldInterval;
 
 		let fields = function () {
-			let containerSelector = '.property-group';
-			let containers = document.querySelectorAll(containerSelector);
-			const sortable = new Draggable.Sortable(containers, {
-				draggable: '.property-item',
-				mirror: {
-					appendTo: containerSelector,
-					constrainDimensions: true,
-				},
-			});
-
 			$("#fieldForm input").on("change",
 				function () {
 					clearInterval(saveFieldInterval);
@@ -526,24 +572,46 @@ $(document).ready(
 					saveFieldInterval = setInterval(saveFields, 100);
 				}
 			);
+			makeFieldsSortable();
 
-			sortable.on("sortable:stop",
-				function () {
-					clearInterval(saveFieldInterval);
-					saveFieldInterval = setInterval(saveFields, 100);
-				}
-			)
 		};
 
-		let saveFields = function () {
+		var makeFieldsSortable = function(saveResult) {
+			let containerSelector = '.property-group';
+			let containers = document.querySelectorAll(containerSelector);
+			const sortable = new Draggable.Sortable(containers, {
+				draggable: '.property-item',
+				mirror: {
+					appendTo: containerSelector,
+					constrainDimensions: true,
+				},
+			});
+
+			if (saveResult !== false) {
+				sortable.on("sortable:stop",
+					function () {
+						clearInterval(saveFieldInterval);
+						saveFieldInterval = setInterval(saveFields, 100);
+					}
+				)
+			}
+		}
+
+		var saveFields = function (data, saveResult) {
 			clearInterval(saveFieldInterval);
-			let data = {};
+			console.log(data);
+			data = data || {};
 			$("#fieldForm .property-group input").each(
 				function () {
 					let input = $(this);
 					let name = input.attr("name").split("[");
 					let group = name[0];
 					let property = name[1].split("]").join("");
+					//console.log(group);
+					//console.log(data[group]);
+					if (!_.isArray(data[group])) {
+						data[group] = [];
+					}
 					data[group] = data[group] || [];
 
 					if (input.prop("checked")) {
@@ -563,6 +631,10 @@ $(document).ready(
 					}
 				}
 			);
+
+			if (saveResult === false) {
+				return data;
+			}
 
 			$.ajax(
 				{
@@ -585,27 +657,31 @@ $(document).ready(
 				function (e) {
 					var target = $(e.target);
 					var bindId = DataBind.getId(target);
-					e.preventDefault();
-
-					console.log("row click " + app.slug + ' => ' + id);
 
 					switch (bindId) {
 						case "view" :
 							var element = DataBind.getElement(target, "view");
-							var id = element.attr("data-row-id");
-							return view(app.slug, id, app.modelTitle);
+							var table = element.attr("data-table");
+							var id = element.attr("data-id");
+							e.preventDefault();
+							return view(table, id, table);
 							break;
 						case "edit" :
 							var element = DataBind.getElement(target, "view");
-							var id = element.attr("data-row-id");
-							return edit(app.slug, id, app.modelTitle);
+							var id = element.attr("data-id");
+							var table = element.attr("data-table");
+							e.preventDefault();
+							return edit(table, id, table);
 							break;
 						case "delete" :
 							var element = DataBind.getElement(target, "view");
-							var id = element.attr("data-row-id");
-							return destroy(app.slug, id, app.modelTitle);
+							var id = element.attr("data-id");
+							var table = element.attr("data-table");
+							e.preventDefault();
+							return destroy(table, id, table);
 						case "route" :
 							var element = DataBind.getElement(target, bindId);
+							e.preventDefault();
 							window.location = element.attr("data-route");
 
 					}
@@ -620,9 +696,8 @@ $(document).ready(
 		$(".create-link").on("click",
 			function (e) {
 				var target = $(e.target);
-				var bindId = DataBind.getId(target);
 				e.preventDefault();
-				return create(app.slug);
+				return create(target.attr("data-table-name"), target.attr("data-name"));
 			}
 		);
 

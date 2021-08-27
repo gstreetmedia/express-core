@@ -1,67 +1,82 @@
 const ModelBase = require('./ModelBase');
+const JsonSchema = require("./objects/JsonSchema");
 const _ = require('lodash');
 const inflector = require("../helper/inflector");
-const schema = require('../schema/schemas-schema');
-const fields = require('../schema/fields/schemas-fields');
-const cache = require("../helper/cache-manager");
-const md5 = require("md5");
-const connectionStringParser = require("../helper/connection-string-parser");
-let schemaModel;
-let knex = require("knex");
 const fs = require("fs");
 const path = require("path");
+const exists = require("util").promisify(fs.exists);
+const readFile = require("util").promisify(fs.readFile);
+const inflectFromTable = require("../helper/inflect-from-table");
+global.schemaCache = {};
+global.relationCache = {};
+global.foreignKeyCache = {};
+let hasSchemaTable = false;
 
 class SchemaModel extends ModelBase {
 
 	constructor(req) {
 		super(req);
-		this.tableExists = null;
-	}
-
-	get connectionString() {
-		return process.env.DEFAULT_DB;
 	}
 
 	get tableName() {
-		return SchemaModel.tableName;
-	}
-
-	static get tableName() {
 		return "_schemas";
 	}
 
-	static get schema() {
-		if (global.schemaCache && global.schemaCache[SchemaModel.tableName]) {
-			return global.schemaCache[SchemaModel.tableName]
+	get dataSource() {
+		return "DEFAULT_DB";
+	}
+
+	async update(id, data) {
+		console.log("udpate " + id);
+		data.status = data.status || "active";
+		let result = await super.update(id, data, true);
+		if (!result.error) {
+			global.schemaCache[result.tableName] = new JsonSchema(result);
+			await this.saveFile(result.tableName, result);
+		} else {
+			console.log(result);
 		}
-		return require('../schema/schemas-schema');
-	}
-
-	static get fields() {
-		if (global.fieldCache && global.fieldCache[SchemaModel.tableName]) {
-			return global.fieldCache[SchemaModel.tableName];
-		}
-		return require('../schema/fields/schemas-fields');
-	}
-
-	get schema() {
-		return SchemaModel.schema;
-	}
-
-	get fields() {
-		return SchemaModel.fields;
+		return result;
 	}
 
 	async create(data) {
-		return await super.create(data);
+		console.log("create " + data.tableName);
+		data.status = data.status || "active";
+		let result = await super.create(data, true);
+		if (!result.error) {
+			global.schemaCache[result.tableName] = new JsonSchema(result);
+			await this.saveFile(result.tableName, result);
+		} else {
+			//console.log(result);
+			console.log(this.lastCommand.toString());
+		}
+		return result;
 	}
 
-	async read(id, query) {
-		return await super.read(id, query);
-	}
+	/**
+	 * @returns {JsonSchema}
+	 */
+	async getSchema() {
+		if (this.schema) {
+			return this.schema;
+		}
+		if (global.schemaCache[this.tableName]) {
+			return global.schemaCache[this.tableName];
+		}
+		this._schema = await this.get(this.tableName); //Need a primer
+		let schema = await this.findOne({
+			where : {
+				tableName : this.tableName
+			}
+		});
+		if (schema && schema.id) {
+			hasSchemaTable = true;
+			this._schema = global.schemaCache[this.tableName] = new JsonSchema(schema);
+		} else {
+			hasSchemaTable = false;
+		}
 
-	async update(id, data, query) {
-		return await super.update(id, data, query);
+		return this.schema;
 	}
 
 	async query(query) {
@@ -69,171 +84,167 @@ class SchemaModel extends ModelBase {
 		return await super.query(query);
 	}
 
-	async destroy(id) {
-		return await super.destroy(id);
-	}
-
 	async loadSchemas(connectionStrings) {
-		connectionStrings = connectionStrings || [];
 
-		global.schemaCache = global.schemaCache || {};
-
-		if (!_.isArray(connectionStrings)) {
-			connectionStrings = [connectionStrings];
-		}
-
-		let dataSources = [];
-		let localSources = [];
-		let count = 0;
-
-		connectionStrings.forEach(
-			function (item) {
-				if (item.indexOf("://") === -1) {
-					dataSources.push(item);
-				} else {
-					let cs = connectionStringParser(item);
-					dataSources.push(cs.database);
-				}
-			}
-		);
-
-		if (connectionStrings.length === 0) {
-			this.tableExists = false;
-		}
-		let hasTable = await this.hasTable();
-
-		if (hasTable) {
-			let results = await this.find({where: {dataSource: {"in": dataSources}}});
-			//TODO we really need to have a key that is datasource_tablename;
-
-			results.forEach(
-				function (item) {
-					global.schemaCache[item.tableName] = item;
-				}
-			);
-		} else {
-			console.log("Loading Local Schemas");
-			let files = fs.readdirSync(global.appRoot + '/src/schema');
-			files.forEach(
-				function(file) {
-					if (file.indexOf(".js") === -1) {
-						return;
-					}
-					let schema = require(global.appRoot + '/src/schema/' + file.split(".js").join(""));
-					global.schemaCache[schema.tableName] = schema;
-					count++;
-				}
-			);
-		}
-
-		console.log("Loaded " + Object.keys(global.schemaCache).length + " schemas");
 	}
 
-	async hasTable() {
-		//TODO can this be done with knex.
-		if (this.tableExists === null) {
-			let builder = this.queryBuilder;
-			let query = knex(
-				{
-					client: this.queryBuilder.client,
-				}
-			);
-			let exists = await this.execute(query.schema.hasTable("_schemas"));
-			//console.log("Schema has table");
-			//console.log(exists);
-			this.tableExists = exists.length > 0;
-		}
-		return this.tableExists;
-	}
-
+	/**
+	 * @returns {JsonSchema}
+	 */
 	async get(tableName, fromCache) {
-
-		global.schemaCache = global.schemaCache || {};
 		if (fromCache !== false) {
 			if (global.schemaCache[tableName]) {
 				return global.schemaCache[tableName];
 			}
 		}
-
-		if (await this.hasTable()) {
-			let result = await this.find(
+		if (hasSchemaTable) {
+			this.log("get [db]", tableName);
+			let schema = await this.findOne(
 				{
-					where: {
-						tableName: tableName
+					where : {
+						tableName : tableName
 					}
 				}
-			);
-
-			if (result.length === 1) {
-				global.schemaCache[tableName] = result[0];
-				return result[0];
+			)
+			if (schema && schema.id) {
+				schema = new JsonSchema(schema);
+				global.schemaCache[tableName] = schema;
+				if (schema.relations) {
+					global.relationCache[tableName] = schema.relations;
+				}
+				if (schema.foreignKeys) {
+					global.foreignKeyCache[tableName] = schema.foreignKeys;
+				}
+				return schema;
 			}
 		}
-
-		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
-		if (fs.existsSync(p)) {
-			let schema = require(p.split(".js").join(""));
-			global.schemaCache[schema.tableName] = schema;
-			return schema;
-		}
-		return null;
-
-
+		return await this.loadFile(tableName);
 	}
 
 	async set(tableName, data) {
-		let table = await this.get(tableName, false);
-		if (table) {
-			console.log("Updating Schema " + tableName);
-			return await this.update(table.id, data);
-		} else {
-			console.log("Creating Schema " + tableName);
-			let hasTable = await this.hasTable();
-			if (hasTable) {
-				table = await this.create(data);
-				if (table.error) {
-					console.log("schema set error " + table.error);
-				} else {
-					console.log(tableName + " created");
-					await cache.set("schema_" + tableName, table);
-				}
-				return table;
+		if (hasSchemaTable) {
+			let table = await this.get(tableName, false);
+			if (table && table.id) {
+				return await this.update(table.id, data, true);
+			} else {
+				return await this.create(data, true);
 			}
+		} else {
+			this.saveFile(tableName, data);
 		}
+
 	}
 
 	async createTable() {
 		//TODO need to do this for mssql and mysql as well
 		await this.execute(
 			`create table if not exists _schemas
-			(
-				id uuid not null
-					constraint schemas_pkey
-						primary key,
-				data_source varchar(64),
-				title varchar(255),
-				table_name varchar(64) not null,
-				primary_key varchar(64) default 'id'::character varying,
-				properties jsonb not null,
-				required varchar(64) [],
-				read_only varchar(64) [],
-				created_at timestamp with time zone default now(),
-				updated_at timestamp with time zone default now()
-			);
-			
-			create unique index if not exists schemas_id_uindex
-				on _schemas (id);
-			
-			create unique index if not exists schemas_table_name_uindex
-				on _schemas (table_name);
+             (
+                 id          uuid        not null
+                     constraint schemas_pkey
+                         primary key,
+                 data_source varchar(64),
+                 title       varchar(255),
+                 table_name  varchar(64) not null,
+                 primary_key varchar(64)              default 'id'::character varying,
+                 properties  jsonb       not null,
+                 required    varchar(64)[],
+                 read_only   varchar(64)[],
+                 created_at  timestamp with time zone default now(),
+                 updated_at  timestamp with time zone default now()
+             );
+
+            create unique index if not exists schemas_id_uindex
+                on _schemas (id);
+
+            create unique index if not exists schemas_table_name_uindex
+                on _schemas (table_name);
 			`
 		)
 	}
 
+	/**
+	 * @returns {JsonSchema}
+	 */
+	async loadFile(tableName) {
+		this.log("loadFile", tableName);
+		let schema;
+		let fileName = this.getLocalFileName(tableName);
+		let p = path.resolve(__dirname + "/../../schema/" + fileName);
+		if (await exists(p)) {
+			this.log("loadFile", p);
+			schema = require(p.split(".js").join(""));
+		} else {
+			this.log("No Schema @ " + p);
+		}
+		if (!schema) {
+			p = path.resolve(__dirname + "/../schema/" + fileName);
+			if (await exists(p)) {
+				this.log("loadFile", p);
+				schema = require(p.split(".js").join(""));
+			}
+			if (!schema) {
+				this.log("loadFile", "No schema @ " + p);
+			}
+		}
+		if (!schema) {
+			console.error("Could Not Load Schema for " + tableName);
+			return null;
+		}
+		schema = new JsonSchema(schema);
+		global.schemaCache[schema.tableName] = schema;
+		return schema;
+	}
+
+	/**
+	 * @returns {array[JsonSchema]}
+	 */
+	async loadAll() {
+		let schemas = [];
+		if (hasSchemaTable) {
+			schemas = await this.find({sort:"title ASC"});
+			schemas.forEach(
+				(schema) => {
+					schema = new JsonSchema(schema);
+					global.schemaCache[schema.tableName] = schema;
+				}
+			)
+		} else {
+			let files = fs.readdirSync(global.appRoot + '/src/schema');
+
+			files.forEach(
+				(file) => {
+					if (file.indexOf(".js") === -1) {
+						return;
+					}
+					let p = path.resolve(__dirname + "/../../schema/" + file);
+					let schema = require(p);
+					schema = new JsonSchema(schema);
+					schemas.push(schema);
+
+					global.schemaCache[schema.tableName] = schema;
+				}
+			)
+		}
+		return schemas;
+	}
+
 	getLocalFileName(tableName) {
-		let file = inflector.dasherize(tableName.toLowerCase()) + "-fields.js";
+		this.log("getLocalFileName", tableName)
+		let file = inflector.dasherize(tableName.toLowerCase()) + "-schema.js";
+		if (file.indexOf("-") === 0) {
+			file = "_" + file.substring(1, file.length)
+		}
 		return file;
 	}
+
+	saveFile(tableName, data) {
+		this.log("saveFile", tableName)
+		let p = path.resolve(__dirname + "/../../schema/" + this.getLocalFileName(tableName));
+		let template = require("../task/templates/schema");
+		fs.writeFileSync(p, template(data));
+	}
+
 
 }
 

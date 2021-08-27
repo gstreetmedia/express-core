@@ -1,12 +1,27 @@
-const ModelBase = require('../core/model/ModelBase');
+const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const moment = require("moment-timezone");
 
 class KeyStoreModel extends ModelBase {
 
+	constructor (req) {
+		super(req)
+	}
 
+	get tableName () {
+		return '_key_store'
+	}
+
+	/**
+	 *
+	 * @param key
+	 * @param value
+	 * @param ttl
+	 * @returns {Promise<void>}
+	 */
 	async set(key, value, ttl) {
 
+		let result;
 		let record = await this.findOne(
 			{
 				where : {
@@ -17,7 +32,7 @@ class KeyStoreModel extends ModelBase {
 
 		if (!record) {
 			if (typeof value === "object") {
-				let result = await this.create(
+				result = await this.create(
 					{
 						key : key,
 						object : value,
@@ -25,7 +40,7 @@ class KeyStoreModel extends ModelBase {
 					}
 				)
 			} else {
-				let result = await this.create(
+				result = await this.create(
 					{
 						key : key,
 						value : "" + value,
@@ -36,7 +51,7 @@ class KeyStoreModel extends ModelBase {
 		}
 		if (record) {
 			if (typeof value === "object") {
-				let result = await this.update(
+				result = await this.update(
 					record.id,
 					{
 						key : key,
@@ -45,19 +60,25 @@ class KeyStoreModel extends ModelBase {
 					}
 				)
 			} else {
-				let result = await this.create(
+				result = await this.update(
 					record.id,
 					{
 						key : key,
 						value : "" + value,
 						ttl : ttl ? ttl : record.ttl ? record.ttl : null
-
 					}
 				)
 			}
 		}
+
+		return result;
 	}
 
+	/**
+	 *
+	 * @param key
+	 * @returns {Promise<null|*>}
+	 */
 	async get(key) {
 		let result = await this.findOne(
 			{

@@ -1,5 +1,3 @@
-const ejs = require("ejs");
-const fs = require("fs");
 const moment = require("moment");
 const _ = require("lodash");
 const now = require("../now");
@@ -91,49 +89,49 @@ function findRefType(attribute, attr) {
 	}
 }
 
-function createElement(attr) {
+function createElement(attr, property) {
 	switch (attr.type) {
 		case "select" :
-			return elements.select(attr);
+			return elements.select(attr, property);
 		case "select-multi" :
 			return elements.select(attr, true);
 		case "switch" :
-			return elements.switch(attr);
+			return elements.switch(attr, property);
 		case "checkbox" :
 		case "radio" :
-			return elements.checkBoxOrRadio(attr);
+			return elements.checkBoxOrRadio(attr, property);
 		case "checkbox-multi" :
-			return elements.checkBoxOrRadio(attr);
+			return elements.checkBoxOrRadio(attr, property);
 		case "text-area" :
-			return elements.textArea(attr);
+			return elements.textArea(attr, property);
 		case "text-editor" :
-			return elements.textEditor(attr);
+			return elements.textEditor(attr, property);
 		case "json-editor" :
-			return elements.jsonEditor(attr);
+			return elements.jsonEditor(attr, property);
 		default :
-			return elements.input(attr);
+			return elements.input(attr, property);
 	}
 }
 
 module.exports = function (model, key, value, lookup) {
-	let attribute = model.properties[key];
+	let property = model.properties[key];
 
-	if (!attribute) {
+	if (!property) {
 		console.log("Cannot find attribute for key => " + key);
 		return null;
 	}
 
 	if (value === null || value === undefined) {
-		switch (attribute.default) {
+		switch (property.default) {
 			case "now" :
 				value = now();
 				break;
 			default :
-				if(attribute.default) {
-					if (typeof attribute.default === "string") {
-						value = attribute.default.split("{").join("{").split("}").join("");
+				if(property.default) {
+					if (typeof property.default === "string") {
+						value = property.default.split("{").join("{").split("}").join("");
 					} else {
-						value = attribute.default;
+						value = property.default;
 					}
 
 				}
@@ -146,13 +144,13 @@ module.exports = function (model, key, value, lookup) {
 		required: "",
 		value: value,
 		dataType: "",
-		maxlength: attribute.maxLength || null,
-		minlength: attribute.minLength || null,
-		max: attribute.maxLength || null,
-		min: attribute.minLength || null,
+		maxlength: property.maxLength || null,
+		minlength: property.minLength || null,
+		max: property.maxLength || null,
+		min: property.minLength || null,
 		name: key,
 		id: key + "Field",
-		options: attribute.enum || null,
+		options: property.enum || null,
 		multiple : false,
 		disabled: false,
 
@@ -164,9 +162,9 @@ module.exports = function (model, key, value, lookup) {
 		attr.required = false;
 	}
 
-	switch (attribute.type) {
+	switch (property.type) {
 		case "string" :
-			findStringType(attribute, attr);
+			findStringType(property, attr);
 			break;
 		case "number" :
 			attr.type = "number";
@@ -174,7 +172,7 @@ module.exports = function (model, key, value, lookup) {
 		case "array" :
 			attr.value = value ? value.join(",") : '';
 			attr.dataType = 'array';
-			if (attribute.enum) {
+			if (property.enum) {
 				attr.type = "checkbox";
 			} else {
 				attr.type = "text";
@@ -219,5 +217,5 @@ module.exports = function (model, key, value, lookup) {
 		attr.required = false;
 	}
 
-	return createElement(attr);
+	return createElement(attr, property);
 };

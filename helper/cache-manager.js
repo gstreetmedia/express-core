@@ -96,12 +96,6 @@ destroyFunction = (key) => {
   });
 };
 
-/**
- * @param {string} key - a unique key
- * @param {object} value - the value to be cached
- * @param {int} ttl - time in seconds
- * @returns {Promise<*>}
- */
 exports.set = async (key, value, ttl) => {
 	//console.log("cache-manager set " + key);
 	return await setFunction(
@@ -112,10 +106,6 @@ exports.set = async (key, value, ttl) => {
 	);
 } ;
 
-/**
- * @param {string} key
- * @returns {Promise<*>}
- */
 exports.get = async (key) => {
 	//console.log("cache-manager get " + key);
 	return await getFunction(
@@ -123,20 +113,11 @@ exports.get = async (key) => {
 	);
 };
 
-/**
- * Clear the entire cache
- * @returns {Promise<*>}
- */
 exports.reset = async() => {
 	//console.log("reset");
 	return await resetFunction();
 };
 
-/**
- * Delete a specific key
- * @param {string} key
- * @returns {Promise<*>}
- */
 exports.del = async(key) => {
 	console.log("cache-manager::del " + key)
 	await destroyFunction("memory_" + cachePrefix + "_" + key);

@@ -5,5 +5,4 @@ module.exports = {
 	moment : require("moment"),
 	form : require("./form"),
 	_ : require("lodash"),
-	pagination : require("../../views/template-parts/pagination")
 }

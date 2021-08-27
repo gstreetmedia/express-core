@@ -7,15 +7,12 @@ const _ = require("lodash");
 const connectionStringParser = require("../../core/helper/connection-string-parser");
 const SchemaModel = require("../model/SchemaModel");
 const FieldModel = require("../model/FieldModel");
-const jsonFix = require("json-beautify");
-
-//used to format output
-const stt = require('../helper/spaces-to-tab');
-const stringify = require("stringify-object");
+const ModelBase = require("../model/ModelBase");
 
 let sourceBase = path.resolve(__dirname + "/../../");
 let sourceBaseCore = path.resolve(__dirname + "/../../core/");
 let templatePath = path.resolve(__dirname + "/templates");
+let inflectFromTable = require("../helper/inflect-from-table");
 
 let schemaBase = sourceBase + "/schema";
 //console.log(schemaBase);
@@ -27,6 +24,12 @@ let fieldBase = schemaBase + "/fields";
 //console.log(fieldBase);
 if (!fs.existsSync(fieldBase)) {
 	fs.mkdirSync(fieldBase);
+}
+
+let schemaJsonBase = schemaBase + "/json";
+//console.log(schemaJsonBase);
+if (!fs.existsSync(schemaJsonBase)) {
+	fs.mkdirSync(schemaJsonBase);
 }
 
 let modelBase = sourceBase + "/model";
@@ -50,13 +53,38 @@ if (!fs.existsSync(routerBase)) {
 	fs.mkdirSync(routerBase);
 }
 
+/*
+CORE_PROPERTY_NAME_STYLE=snake_case
+CORE_PROPERTY_NAME_PLURAL_STYLE=singular
+CORE_TABLE_NAME_STYLE=snake_case
+CORE_TABLE_NAME_PLURAL_STYLE=plural
+ */
+let convertName = (key, style) => {
+	style = style || process.env.CORE_PROPERTY_NAME_STYLE || "camelCase";
 
+	switch (style.toLowerCase()) {
+		case "camelcase" :
+			return inflector.camelize(inflector.underscore(key), false);
+		case "pascalcase" :
+			return inflector.camelize(inflector.underscore(key), true);
+		case "snake_case" :
+			return inflector.underscore(key);
+		default :
+			return key;
+	}
+}
+
+const sleep = require('util').promisify(setTimeout);
 async function convert(connectionString, options) {
 
 	let schemaModel = new SchemaModel();
+	//schemaModel.debug = true;
+	await schemaModel.getSchema();
 	//schemaModel.createTable(); //TODO do this only once
 
 	let fieldModel = new FieldModel();
+	//fieldModel.debug = true;
+	await schemaModel.getSchema();
 	//FieldModel.createTable(); //TODO do this only once
 
 	let converter;
@@ -128,72 +156,30 @@ async function convert(connectionString, options) {
 
 			let destination = options[i].destination || "file";
 			let item = schemas[q];
-			let existingSchema = await schemaModel.get(item.tableName, false);
-			let name = item.tableName;
+			let dbSchemaToJsonSchema = require("./db-schema-to-json-schema");
+			item = await dbSchemaToJsonSchema(item, options[i]);
 
-			if (options[i].removePrefix) {
-				if (_.isString(options[i].removePrefix)) {
-					options[i].removePrefix = [options[i].removePrefix]
+			//TODO need to remove schemas that no longer exist
+			if (destination === "db") {
+				let result = await schemaModel.set(item.tableName, item);
+				if (result.error) {
+					console.log(result);
+					await schemaModel.saveFile(item.tableName, item);
+					process.exit();
 				}
-				options[i].removePrefix.forEach(
-					function(item) {
-						let tempName = name.split(item).join("");
-						if (!schemaHash[tempName]) {
-							name = tempName;
-						}
-					}
-				)
+			} else {
+				await schemaModel.saveFile(item.tableName, item);
 			}
 
-			if (schemaHash[name]) {
-				name += name + "-" + cs.database;
+			let baseName = item.baseName;
+			if (schemaHash[baseName]) {
+				baseName = item.tableName;
 			}
 
-			schemaHash[name] = item;
+			schemaHash[baseName] = item;
 
-			item.title = inflector.titleize(name);
+			let keys = _.uniq(Object.keys(item.properties));
 
-			let keys = [];
-			let properties = {};
-			let primaryKey = item.primaryKey || "id";
-			if (primaryKey === '') {
-				primaryKey = 'id';
-			}
-
-			//TODO we need to see if the column name exist already, but the developer may have changed the property name
-			//TODO in this case, we should leave the property name intact
-			for (let key in item.properties) {
-				//TODO allow developer to choose type, (snake_case, camelCase, PascalCase)
-				let k = inflector.camelize(inflector.underscore(key), false);
-				if (k.length === 2) {
-					k = k.toLowerCase();
-				}
-				if (existingSchema) { //Allow developer override of property names
-					Object.keys(existingSchema.properties).forEach(
-						function(propertyName) {
-							if (item.columnName === key) {
-								if (propertyName !== k) {
-									k = propertyName;
-								}
-							}
-						}
-					)
-				}
-				properties[k] = _.clone(item.properties[key]);
-				properties[k].columnName = key;
-				keys.push(k);
-			}
-
-			for (let i = 0; i < item.required.length; i++) {
-				let k = inflector.camelize(item.required[i], false);
-				if (k.length === 2) {
-					k = k.toLowerCase();
-				}
-				item.required[i] = k;
-			}
-
-			keys = _.uniq(keys);
-			//keys.sort();
 			let filtered = keys.filter(
 				(value, index, arr) => {
 					if (value === item.primaryKey ||
@@ -220,49 +206,36 @@ async function convert(connectionString, options) {
 			}
 
 			keys = filtered;
-			item.properties = properties;
 
-			if (name.indexOf("_") === 0) {
-				name = name.substring(1, name.length);
-			}
-
-			name = name.toLowerCase().replace(".", "_");
-
-			console.log("Name => " + name);
-
-			let className = inflector.classify(name);
+			let className = inflector.classify(baseName);
 
 			if (!isNaN(parseInt(className))) {
 				className = "_" + className;
 			}
 
-			let fileRoot = inflector.dasherize(name);
+			let fileRoot = inflector.dasherize(baseName);
 
 			if (!isNaN(parseInt(fileRoot))) {
 				fileRoot = "_" + fileRoot;
+				if (fileRoot.indexOf("-") === 0) {
+					fileRoot = "_" + fileRoot.substring(1, fileRoot.length)
+				}
 			}
 
 			let controllerPath = controllerBase + "/" + className + "Controller.js";
 			let controllerPathCore = controllerBaseCore + "/" + className + "Controller.js";
 			let modelPath = modelBase + "/" + className + "Model.js";
 			let modelPathCore = modelBaseCore + "/" + className + "Model.js";
-			let schemaName = schemaBase + "/" + fileRoot + "-schema";
-			let fieldPath = fieldBase + "/" + fileRoot + "-fields.js";
-			let routerPath = routerBase + "/" + fileRoot + "-router.js";
+			let schemaJsonPath = schemaJsonBase + "/" + fileRoot + "-schema";
+			let routerPath = routerBase + "/" + inflector.dasherize(item.tableName) + "-router.js";
 			let routerPathCore = routerBaseCore + "/" + fileRoot + "-router.js";
 
-			let tableName = item.tableName;
-			//TODO need to remove schemas that no longer exist
-			if (destination === "db") {
-				let result = await schemaModel.set(item.tableName, item);
-			} else {
-				console.log("Only Saving Schema to File");
-			}
 
-			let fields = await fieldModel.get(tableName);
+
+			let fields = await fieldModel.get(item.tableName);
 
 			let fieldSchema = {
-				title: inflector.titleize(item.tableName),
+				title: inflector.titleize(baseName),
 				tableName: item.tableName,
 				dataSource: item.dataSource,
 				adminIndex: [],
@@ -298,7 +271,7 @@ async function convert(connectionString, options) {
 						});
 
 						visible = true;
-						if (k === "id" || k === "createdAt" || k === "updatedAt" || k === primaryKey) {
+						if (k === "id" || k === "createdAt" || k === "updatedAt" || k === item.primaryKey) {
 							visible = false;
 						}
 
@@ -348,7 +321,7 @@ async function convert(connectionString, options) {
 
 					//add existing if they still exist
 
-					console.log(item.tableName + " => " + origin);
+					//console.log(item.tableName + " => " + origin);
 					if(_.isArray(fields[origin])) {
 						fields[origin].forEach(
 							function (item) {
@@ -362,8 +335,8 @@ async function convert(connectionString, options) {
 							}
 						);
 					} else {
-						console.log(fields[origin]);
-						console.log(fields[origin]);
+						//console.log(fields[origin]);
+						//console.log(fields[origin]);
 					}
 
 					keysSorted.forEach(
@@ -389,47 +362,37 @@ async function convert(connectionString, options) {
 				addKeys("publicUpdate", keysSorted);
 			}
 
-
-
 			if (destination === "db") {
-				await fieldModel.set(tableName, fieldSchema);
+				await fieldModel.set(item.tableName, fieldSchema);
+			} else {
+				await fieldModel.saveFile(item.tableName, fieldSchema);
 			}
 
-			//schemas are always written because the DB can change
-			fs.writeFileSync(schemaName + ".js", "module.exports=" +
-				stt(stringify(item, {
-					indent: '  ',
-					singleQuotes: false
-				}), 4) + ";");
-
-
-			if (options[i].overwrite || !fs.existsSync(fieldPath)) {
-				let template = require("./templates/fields");
-				let s=template(fieldSchema);
-				fs.writeFileSync(fieldPath, s);
-			}
+			fs.writeFileSync(schemaJsonPath + ".json",
+				JSON.stringify(item)
+			);
 
 			if (options[i].overwrite || !fs.existsSync(modelPath)) {
-				let modelName = inflector.classify(name);
+				let modelName = inflector.classify(baseName);
 				let template = require("./templates/model");
 				if (fs.existsSync(modelPathCore)) {
 					template = require("./templates/linked-model")
 				}
-				fs.writeFileSync(modelPath, template(modelName, tableName));
+				fs.writeFileSync(modelPath, template(modelName, item.tableName));
 			}
 
 			if (options[i].overwrite || !fs.existsSync(controllerPath)) {
-				let modelName = inflector.classify(name);
+				let modelName = inflector.classify(baseName);
 				let template = require("./templates/controller");
 				if (fs.existsSync(controllerPathCore)) {
 					template = require("./templates/linked-controller")
 				}
-				fs.writeFileSync(controllerPath, template(modelName));
+				fs.writeFileSync(controllerPath, template(modelName, item.tableName));
 			}
 
 			if (options[i].overwrite || !fs.existsSync(routerPath)) {
-				let modelName = inflector.classify(name);
-				let endpoint = inflector.dasherize(inflector.singularize(name), false)
+				let modelName = inflector.classify(baseName);
+				let endpoint = inflector.dasherize(inflector.singularize(baseName), false);
 				let template = require("./templates/route");
 				if (fs.existsSync(routerPathCore)) {
 					template = require("./templates/linked-route")
@@ -437,42 +400,16 @@ async function convert(connectionString, options) {
 				fs.writeFileSync(routerPath, template(modelName, endpoint));
 			}
 
-			routers.push(name);
+			routers.push({tableName : item.tableName, baseName:baseName});
 		}
 	}
 
 	routers.sort();
-
 	routers = _.uniq(routers);
 
-	let s = "let router = require('express').Router();\n";
-	routers.forEach(
-		function (item) {
-			item = item.replace(".", "_").toLowerCase();
-			let varName = inflector.camelize(item, false);
-			let fileRoot = inflector.dasherize(item, false).toLowerCase();
-			if (!isNaN(parseInt(fileRoot))) {
-				fileRoot = "_" + fileRoot;
-			}
-			s += "const " + varName + "Router = require('./" + fileRoot + "-router');\n"
-		}
-	);
+	let template = require("./templates/app-router");
+	fs.writeFileSync("./src/router/app-router.js", template(routers));
 
-	s += "\n";
-
-	routers.forEach(
-		function (item) {
-			item = item.replace(".", "_").toLowerCase();
-			let varName = inflector.camelize(item, false);
-			let ep = inflector.dasherize(inflector.singularize(item), false).toLowerCase();
-			ep = ep.split("metum").join("meta");
-			s += "router.use('/" + ep + "', " + varName + "Router);\n"
-		}
-	);
-
-	s += "\n\nmodule.exports = router;\n";
-
-	fs.writeFileSync("./src/router/app-router.js", s);
 
 	console.log("done");
 	process.exit();

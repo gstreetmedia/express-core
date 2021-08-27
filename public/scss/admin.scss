@@ -45,6 +45,13 @@ body {
 	color: #333;
 }
 
+.jsonview {
+	max-height: 500px;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+
 .sidebar .nav-link .feather {
 	margin-right: 4px;
 	color: #999;

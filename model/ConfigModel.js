@@ -8,16 +8,8 @@ class ConfigModel extends ModelBase {
 	}
 
 	get tableName() {
-		return ConfigModel.tableName;
+		return "_config";
 	}
-
-	static get tableName() {
-		return "config";
-	}
-
-	static get schema() { return ModelBase.getSchema(ConfigModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(ConfigModel.tableName); }
 
 	async create(data){
 		return await super.create(data);

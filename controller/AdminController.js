@@ -1,12 +1,10 @@
 const ViewControllerBase = require('./ViewControllerBase');
-const ControllerBase = require("./ControllerBase");
 const _ = require('lodash');
 const fs = require('fs');
 const inflector = require("../helper/inflector");
-let helpers = require("../helper/view/index");
 const FieldModel = require("../model/FieldModel");
-const pagination = require("../helper/view/pagination");
-let schemaList;
+const SchemaModel = require("../model/SchemaModel");
+const ViewObject = require("../model/objects/ViewObject")
 
 class AdminController extends ViewControllerBase {
 
@@ -15,10 +13,12 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async home(req, res) {
-		this.render(
+		let schemas = await this.getSchemaList();
+
+		await this.render(
 			'page-admin-home',
-			{
-				schemaList : AdminController.getSchemaList(),
+			new ViewObject({
+				schemas : schemas,
 				slug : "home",
 				action : "home",
 				model : {
@@ -26,18 +26,11 @@ class AdminController extends ViewControllerBase {
 						title : "Home"
 					}
 				},
-				_ : _,
-				inflector : inflector
-			},
+				req : req
+			}),
 			req,
 			res
 		);
-	}
-
-	async schemaList(req, res) {
-		return res.success(
-			AdminController.getSchemaList()
-		)
 	}
 
 	/**
@@ -48,59 +41,70 @@ class AdminController extends ViewControllerBase {
 	 */
 	async index(req, res) {
 
-		let controller = AdminController.getController(req);
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
 
-		if (!controller) {
+		if (!Controller || !Model) {
 			return res.status(404).send("Unknown Controller");
 		}
 
-		let model = new controller.Model();
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
 		const tableName = model.tableName;
 
-		let rawfields;
+		let properties = model.properties;
+		let rawFields = model.fields.adminIndex;
 
-		if (global.fieldCache && global.fieldCache[tableName]) {
-			rawfields = global.fieldCache[tableName].adminIndex;
+		if (req.query.query) {
+			try {
+				req.query = JSON.parse(req.query.query)
+			} catch (e) {
+				req.query = {};
+			}
 		} else {
-			//console.log("or here");
-			rawfields = controller.Model.fields.adminIndex;
+			req.query = {};
 		}
 
 		req.query.select = req.query.select || [];
-		console.log(controller.Model);
-		let properties = controller.Model.schema.properties;
 
-		rawfields.forEach(
+		rawFields.forEach(
 			function(item) {
-				if (item.property && item.visible && properties[item.property]) {
-					if (_.isString(req.query.select)) {
-						req.query.select = req.query.select.split(",");
-					}
-					if (req.query.select.indexOf(item.property) === -1) {
-						req.query.select.push(item.property);
+				if (item.property) {
+					let rootName = item.property.split(".")[0]; //allow for nesting into jsonb
+					if (item.property && item.visible && properties[rootName]) {
+						if (_.isString(req.query.select)) {
+							req.query.select = req.query.select.split(",");
+						}
+						if (req.query.select.indexOf(item.property) === -1) {
+							req.query.select.push(item.property);
+						}
 					}
 				}
 			}
 		);
 
-		if (controller.Model.schema.primaryKey && _.indexOf(req.query.select, controller.Model.schema.primaryKey) === -1) {
+		if (model.primaryKey && _.indexOf(req.query.select, model.schema.primaryKey) === -1) {
 			//console.log("adding Primary");
-			req.query.select.unshift(controller.Model.schema.primaryKey);
+			req.query.select.unshift(model.primaryKey);
 		}
 
 		req.query.limit = req.query.limit || 50;
 
 		if (!req.query.sort) {
-			if (controller.Model.schema.properties.name) {
+			if (model.schema.properties.name) {
 				req.query.sort = "name ASC";
-			} else if (controller.Model.schema.properties.createdAt) {
-				req.query.sort = "createdAt ASC";
+			} else if (model.schema.properties.createdAt) {
+				req.query.sort = "createdAt DESC";
 			}
 		}
 
 		let data;
 		if (controller.adminIndex) {
 			data = await controller.adminIndex(req);
+			if (data.error) {
+				console.log(data.error);
+			}
 			if (!data) {
 				return; //Assume Controller took care of everything
 			}
@@ -110,21 +114,16 @@ class AdminController extends ViewControllerBase {
 
 		let slug = inflector.dasherize(inflector.singularize(req.params.model));
 
-		return this.render(
-			'page-admin-list',
-			{
-				title : req.params.model,
-				name : inflector.singularize(inflector.titleize(inflector.dasherize(req.params.model))),
-				slug : slug,
+		return await this.render(
+			['page-admin-list-' + inflector.dasherize(model.tableName), 'page-admin-list'],
+			new ViewObject({
 				model : model,
 				data : data,
-				schemaList : AdminController.getSchemaList(),
+				schemas : await this.getSchemaList(),
 				action : "index",
 				query : req.query,
-				_ : _,
-				inflector : inflector,
-				pagination : pagination(req.query, data, slug, req)
-			},
+				req : req
+			}),
 			req,
 			res
 		)
@@ -137,7 +136,18 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async create(req, res) {
-		let controller = AdminController.getController(req);
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
+
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
+		}
+
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
 
 		let data;
 		if (controller.adminCreate) {
@@ -145,17 +155,15 @@ class AdminController extends ViewControllerBase {
 			data = await controller.adminCreate(req);
 		}
 
-		return this.render(
-			'page-admin-edit',
-			{
-				title : req.params.model,
-				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : new controller.Model(),
-				schemaList : AdminController.getSchemaList(),
+		return await this.render(
+			['page-admin-add-' + inflector.dasherize(model.tableName), 'page-admin-add'],
+			new ViewObject({
+				model : model,
+				schemas : await this.getSchemaList(),
 				action : "create",
-				data : data
-			},
+				data : data,
+				req : req
+			}),
 			req,
 			res
 		)
@@ -168,18 +176,41 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async view(req, res) {
-		let controller = AdminController.getController(req);
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
+
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
+		}
+
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
+
 		req.query.join = {};
 		req.query.joinFieldSet = "adminView";
 
-		let m = new controller.Model();
-		let relations = Object.keys(m.relations);
+		let relations = Object.keys(model.relations);
 		relations.forEach(
 			(key) => {
-				if (m.relations[key].where) {
-					req.query.join[key] = {where: m.relations[key].where}
+				if (model.relations[key].where) {
+					req.query.join[key] = {where: model.relations[key].where}
 				} else {
 					req.query.join[key] = true;
+				}
+			}
+		)
+		let foreignKeys = Object.keys(model.foreignKeys);
+		foreignKeys.forEach(
+			(key) => {
+				if (model.foreignKeys[key].where) {
+					req.query.join[key] = {where: model.foreignKeys[key].where}
+				} else {
+					req.query.join[key] = {
+						debug : true
+					};
 				}
 			}
 		)
@@ -196,18 +227,15 @@ class AdminController extends ViewControllerBase {
 			return res.notFound(req.params.id);
 		}
 
-		return this.render(
-			'page-admin-view',
-			{
-				title : req.params.model,
-				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : new controller.Model(req),
+		return await this.render(
+			['page-admin-view-' + inflector.dasherize(model.tableName), 'page-admin-view'],
+			new ViewObject({
+				model : model,
 				data : data,
-				schemaList : AdminController.getSchemaList(),
+				schemas : await this.getSchemaList(),
 				action : "view",
-				_ : _
-			},
+				req : req
+			}),
 			req,
 			res
 		)
@@ -220,7 +248,18 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async edit(req, res) {
-		let controller = AdminController.getController(req);
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
+
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
+		}
+
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
 
 		let data;
 		if (controller.adminUpdate) {
@@ -230,63 +269,75 @@ class AdminController extends ViewControllerBase {
 			data = await controller.read(req);
 		}
 
-		return this.render(
-			'page-admin-edit',
-			{
-				title : req.params.model,
-				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				slug : inflector.dasherize(inflector.singularize(req.params.model)),
-				model : new controller.Model(),
+		if (model.tableName === "_fields") {
+			let TargetModel = await AdminController.getModel({params:{model:data.tableName}});
+			return await this.render(
+				'page-admin-edit-fields',
+				new ViewObject({
+					model : model,
+					targetModel : new TargetModel(req),
+					data : data,
+					schemas : await this.getSchemaList(),
+					action : "edit",
+					req : req
+				}),
+				req,
+				res
+			)
+		}
+
+		return await this.render(
+			['page-admin-edit-' + inflector.dasherize(model.tableName), 'page-admin-edit'],
+			new ViewObject({
+				model : model,
 				data : data,
-				schemaList : AdminController.getSchemaList(),
+				schemas : await this.getSchemaList(),
 				action : "edit",
-				_ : _
-			},
+				req : req
+			}),
 			req,
 			res
 		)
 	}
 
 	async fields(req, res) {
-		let controller = AdminController.getController(req);
-		//let fm = new FieldModel(req);
-		//let tableName = inflector.underscore(req.params.model);
-		//let result = await fm.get(tableName, false);
-		//console.log(result);
-		let model = new controller.Model();
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
+
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
+		}
+
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
+
 		if (req.params.model) {
-			return this.render(
+			return await this.render(
 				'page-admin-field-editor',
-				{
-					schemaList : AdminController.getSchemaList(),
-					title : "Fields",
-					name : inflector.titleize(inflector.dasherize(req.params.model)),
-					slug : inflector.dasherize(inflector.singularize(req.params.model)),
+				new ViewObject({
+					schemas : await this.getSchemaList(),
 					model : model,
-					fields : model.fields,
 					query : req.query,
-					_ : _,
-					inflector : inflector,
-					action : "fields"
-				},
+					action : "fields",
+					req : req
+				}),
 				req,
 				res
 			)
 		} else {
-			return this.render(
+			return await this.render(
 				'page-admin-field-index',
-				{
-					schemaList : AdminController.getSchemaList(),
-					title : "Fields",
-					name : "fields",
-					slug : "fields",
-					model : fm,
+				new ViewObject({
+					schemas : await this.getSchemaList(),
+					model : model,
 					data : result,
 					query : req.query,
-					_ : _,
-					inflector : inflector,
-					action : req.params.model
-				},
+					action : req.params.model,
+					req : req
+				}),
 				req,
 				res
 			)
@@ -294,8 +345,18 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async fieldsUpdate(req, res) {
-		let controller = AdminController.getController(req);
-		let model = new controller.Model();
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
+
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
+		}
+
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
 
 		let fm = new FieldModel(req);
 		let result = await fm.set(model.tableName, req.body);
@@ -313,33 +374,49 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async query(req, res) {
-		let controller = AdminController.getController(req);
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
 
-		return res.render(
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
+		}
+
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
+
+		return await res.render(
 			'page-admin-search',
-			{
+			new ViewObject({
 				req : req,
 				name : inflector.titleize(inflector.dasherize(req.params.model)),
-				schemaList : AdminController.getSchemaList(),
-				model : new controller.Model(),
+				schemaList : await this.getSchemaList(),
+				model : model,
 				action : "query"
-			}
+			})
 		)
 	}
 
 	async search(req, res) {
-		let c = AdminController.getController(req);
+		let Controller = await AdminController.getController(req);
+		let Model = await AdminController.getModel(req);
 
-		let fields;
-		if (global.fieldCache && global.fieldCache[c.Model.tableName]) {
-			fields = global.fieldCache[c.Model.tableName].adminIndex;
-		} else {
-			//console.log("or here");
-			fields = c.Model.fields.adminIndex;
+		if (!Controller) {
+			return res.status(404).send("Unknown Controller");
 		}
 
+		let controller = new Controller();
+		let model = new Model(req);
+		await model.init();
+
+		const tableName = model.tableName;
+
+		let fields = model.fields.adminIndex;
+
 		req.query.properties = [];
-		console.log(fields);
+
 		fields.forEach(
 			function(item) {
 				if (item.visible) {
@@ -348,13 +425,7 @@ class AdminController extends ViewControllerBase {
 			}
 		);
 
-
-
-		if (c) {
-			return await c.search(req, res);
-		} else {
-			return res.status(404).send("Unknown Controller");
-		}
+		return await controller.search(req, res);
 
 	}
 
@@ -365,8 +436,8 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroy(req, res) {
-		let controller = this.getController(req);
-		return res.render(
+		let Controller = await AdminController.getController(req);
+		return await res.render(
 			'page-admin-delete',
 			{
 				req : req
@@ -374,74 +445,45 @@ class AdminController extends ViewControllerBase {
 		)
 	}
 
-	static getSchemaList() {
-		if (schemaList) {
-			return schemaList;
-		}
+	async getSchemaList() {
 		//TODO convert over to what's in memory
-
-		let list = [];
-
-		if (global.schemaCache) {
-			for(let tableName in global.schemaCache) {
-				list.push(
-					{
-						modelName : inflector.classify(tableName),
-						name : inflector.humanize(tableName),
-						slug : inflector.dasherize(tableName)
-					}
-				)
-			}
-			list = _.sortBy(list, ['modelName']);
-
-			return list;
+		if (!this.schemasLoaded) {
+			let m = new SchemaModel();
+			await m.init();
+			await m.loadAll();
+			this.schemasLoaded = true;
 		}
-
-		let files = fs.readdirSync(global.appRoot + '/src/schema');
-
-		files.forEach(
-			function(file) {
-				if (file.indexOf(".js") === -1) {
-					return;
-				}
-				file = file.split("-schema.js").join("");
-				list.push(
-					{
-						modelName : inflector.classify(file),
-						name : inflector.humanize(file),
-						slug : inflector.singularize(file)
-					}
-				)
-			}
-		);
-		schemaList = list;
-		return schemaList;
+		return global.schemaCache;
 	}
 
-	static getModel(req) {
-		const Model = require("../../model/" + inflector.classify(inflector.underscore(req.params.model)) + "Model");
-		return Model
-	}
-
-	static getController(req) {
-		let baseName = inflector.classify(inflector.underscore(req.params.model));
-		let altName = inflector.singularize(baseName);
-
-		let c = global.appRoot + "/src/controller/" + baseName + "Controller";
-
-		if (fs.existsSync(c + ".js")) {
-			const Controller = require(c);
-			return new Controller();
-		} else {
-
-			c = global.appRoot + "/src/controller/" + altName + "Controller";
+	static async getModel(req) {
+		let m = new SchemaModel();
+		await m.init();
+		let schema = await m.get(req.params.model);
+		if (schema) {
+			let c = global.appRoot + "/src/model/" + schema.className + "Model";
 			if (fs.existsSync(c + ".js")) {
-				const Controller = require(c);
-				return new Controller();
+				return require(c);
 			}
 		}
 
-		console.log("Could not find " + baseName + "Controller or " + altName + "Controller");
+		console.error("Could not find " + schema.className + "Model");
+
+		return null;
+	}
+
+	static async getController(req) {
+		let m = new SchemaModel();
+		await m.init();
+		let schema = await m.get(req.params.model);
+		if (schema) {
+			let c = global.appRoot + "/src/controller/" + schema.className + "Controller";
+			if (fs.existsSync(c + ".js")) {
+				return require(c);
+			}
+		}
+
+		console.error("Could not find " + schema.className + "Controller");
 
 		return null;
 	}

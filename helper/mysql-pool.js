@@ -13,22 +13,20 @@ let mysqlPool = async (connectionString) => {
 	let key = md5(connectionString);
 
 	if (pools[key]) {
-		if (pools[key]._connecting === false && pools[key]._connected === true) {
-			return pools[key];
-		}
+		return pools[key];
 	}
 
 	let cs = connectionStringParser(connectionString);
 
 	//console.log(cs);
 
-	let connection = new mysql.createConnection({
+	let connection = new mysql.createPool({
 		user: cs.username,
 		password: cs.password,
 		host: cs.host, // You can use 'localhost\\instance' to connect to named instance
 		database: cs.database,
 		port : cs.port,
-		connectionLimit : 10
+		connectionLimit : !isNaN(parseInt(process.env.CORE_POOL_MAX)) ? parseInt(process.env.CORE_POOL_MAX) : 10
 	});
 
 	connection.on('error', err => {
@@ -36,15 +34,22 @@ let mysqlPool = async (connectionString) => {
 		delete pools[key];
 	});
 
-	if (connection._connecting) {
-		await sleep(1000);
-	}
+	connection.on('acquire', function (connection) {
+		//console.log('Connection %d acquired', connection.threadId);
+	});
 
-	pools[key] = connection;
-
-	return {
-		query : util.promisify(connection.query).bind(connection)
+	pools[key] = {
+		query( sql, args ) {
+			return util.promisify( connection.query )
+				.call( connection, sql, args );
+		},
+		close() {
+			return util.promisify( connection.end ).call( connection );
+		},
+		connect : connection.connect
 	};
+
+	return pools[key];
 }
 
 module.exports = mysqlPool;

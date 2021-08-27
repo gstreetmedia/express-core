@@ -20,17 +20,17 @@ module.exports = function(model, key, value, name) {
 		return value;
 	}
 
-
-
 	switch (properties[key].type) {
 		case "number" :
-			value = numeral(value).format();
+			if (model.schema.primaryKey !== key) {
+				value = numeral(value).format();
+			}
 			break;
 		case "object" :
 			value = beautify(value, null, 2, 80);
 			break;
 		case "boolean" :
-			return value===true || value===1 ? '<i class="material-icons text-success">done</i>' :
+			return value===true ? '<i class="material-icons text-success">done</i>' :
 				'<i class="material-icons text-danger">block</i>';
 			break;
 		case "array" :

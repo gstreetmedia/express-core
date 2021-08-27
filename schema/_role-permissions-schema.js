@@ -1,0 +1,149 @@
+module.exports = {
+	$schema: "http://json-schema.org/draft-06/schema#",
+	$id: "role_permissions.json",
+	title: "Role Permissions",
+	dataSource: "default",
+	tableName: "role_permissions",
+	description: "Generated: Mon Feb 08 2021 16:50:04 GMT-0800 (Pacific Standard Time)",
+	primaryKey: "id",
+	baseName : "role_permission",
+	route : "role-permission",
+	properties: {
+		id: {
+			type: "string",
+			format: "uuid",
+			maxLength: 36,
+			length: 36,
+			allowNull: false,
+			description: "",
+			columnName: "id"
+		},
+		roleId : {
+			type: "string",
+			format: "uuid",
+			maxLength: 36,
+			length: 36,
+			allowNull: false,
+			description: "",
+			columnName: "role_id"
+		},
+		route: {
+			type: "string",
+			maxLength: 255,
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "route"
+		},
+		c: {
+			type: "boolean",
+			default: false,
+			allowNull: true,
+			description: "",
+			columnName: "c"
+		},
+		r: {
+			type: "boolean",
+			default: false,
+			allowNull: true,
+			description: "",
+			columnName: "r"
+		},
+		u: {
+			type: "boolean",
+			default: false,
+			allowNull: true,
+			description: "",
+			columnName: "u"
+		},
+		d: {
+			type: "boolean",
+			default: false,
+			allowNull: true,
+			description: "",
+			columnName: "d"
+		},
+		cFields: {
+			type: "array",
+			format : "string",
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "c_fields"
+		},
+		rFields: {
+			type: "array",
+			format : "string",
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "r_fields"
+		},
+		uFields: {
+			type: "array",
+			format : "string",
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "u_fields"
+		},
+		dFields: {
+			type: "array",
+			format : "string",
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "d_fields"
+		},
+		roleId: {
+			type: "string",
+			format : "uuid",
+			maxLength: 36,
+			length: 36,
+			allowNull: false,
+			description: "",
+			columnName: "role_id"
+		},
+		objectId: {
+			type: "string",
+			format : "uuid",
+			maxLength: 36,
+			length: 36,
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "object_id"
+		},
+		objectType: {
+			type: "string",
+			maxLength: 64,
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "object_type"
+		},
+		createdAt: {
+			type: "string",
+			format: "date-time",
+			default: "now",
+			allowNull: true,
+			description: "",
+			columnName: "created_at"
+		},
+		updatedAt: {
+			type: "string",
+			format: "date-time",
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "updated_at"
+		}
+	},
+	required: [
+		"id",
+		"roleId"
+	],
+	readOnly: [],
+	type: "object",
+	additionalProperties: false
+};

@@ -1,10 +1,10 @@
 let router = require('express').Router();
-const configRouter = require('./config-router');
+const configRouter = require('./_config-router');
 const fieldsRouter = require('./field-router');
 const schemasRouter = require('./schema-router');
 const sessionsRouter = require('./sessions-router');
 const tokensRouter = require('./tokens-router');
-const usersRouter = require('./users-router');
+const usersRouter = require('./user-router');
 
 router.use('/field', fieldsRouter);
 router.use('/schema', schemasRouter);

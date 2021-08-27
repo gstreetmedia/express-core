@@ -7,13 +7,7 @@ module.exports = class TokenRoleModel extends ModelBase {
 		super(req);
 	}
 
-	get tableName() { return TokenRoleModel.tableName; }
-
-	static get tableName() { return 'token_roles'; }
-
-	static get schema() { return ModelBase.getSchema(TokenRoleModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(TokenRoleModel.tableName); }
+	get tableName() { return '_token_roles'; }
 
 	async create(data){
 		return await super.create(data);

@@ -8,13 +8,7 @@ module.exports = class RolePermissionModel extends ModelBase {
 		super(req);
 	}
 
-	get tableName() { return RolePermissionModel.tableName; }
-
-	static get tableName() { return 'role_permissions'; }
-
-	static get schema() { return ModelBase.getSchema(RolePermissionModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(RolePermissionModel.tableName); }
+	get tableName() { return '_role_permissions'; }
 
 	async create(data){
 		return await super.create(data);

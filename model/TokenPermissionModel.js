@@ -7,13 +7,7 @@ module.exports = class TokenPermissionModel extends ModelBase {
 		super(req);
 	}
 
-	get tableName() { return TokenPermissionModel.tableName; }
-
-	static get tableName() { return 'token_permissions'; }
-
-	static get schema() { return ModelBase.getSchema(TokenPermissionModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(TokenPermissionModel.tableName); }
+	get tableName() { return '_token_permissions'; }
 
 	async create(data){
 		return await super.create(data);

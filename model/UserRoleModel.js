@@ -8,13 +8,7 @@ class UserRoleModel extends ModelBase {
 		super(req);
 	}
 
-	get tableName() { return UserRoleModel.tableName; }
-
-	static get tableName() { return 'user_roles'; }
-
-	static get schema() { return ModelBase.getSchema(UserRoleModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(UserRoleModel.tableName); }
+	get tableName() { return '_user_roles'; }
 
 	async create(data){
 		return await super.create(data);

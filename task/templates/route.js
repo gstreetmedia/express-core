@@ -2,16 +2,18 @@ module.exports = (ControllerName, EndPointName) => {
 	return `
 let router = require('express').Router();
 let authentication = require('../middleware/authentication');
-const Controller = require('../controller/${ControllerName}Controller');
-let c = new Controller()
+let c;
 
 router.use(authentication);
 
 router.use(async function (req, res, next) {
 	req.allowRole('api-user');
+	if (!c) {
+		const Controller = require('../controller/${ControllerName}Controller');
+		c = new Controller();
+	}
 	return next();
 });
-
 
 router.get('/', async (req, res, next) => {
 	if (req.checkRole()) {
@@ -20,7 +22,6 @@ router.get('/', async (req, res, next) => {
 	return next();
 });
 
-
 router.get('/:id', async (req, res, next) => {
 	if (req.checkRole()) {
 		return await c.read(req, res);
@@ -28,14 +29,12 @@ router.get('/:id', async (req, res, next) => {
 	return next();
 });
 
-
 router.post('/', async (req, res, next) => {
 	if (req.checkRole()) {
 		return await c.create(req, res);
 	}
 	return next();
 });
-
 
 router.put('/:id', async (req, res, next) => {
 	if (req.checkRole()) {

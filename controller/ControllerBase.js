@@ -1,4 +1,3 @@
-let jsonlint = require("jsonlint");
 let validateAgainstSchema = require("../helper/validate-against-schema");
 let _ = require("lodash");
 let cache = require("../helper/cache-manager");
@@ -66,10 +65,20 @@ class ControllerBase {
 	async create(req, res) {
 
 		try {
-			let result = await new this.Model(req).create(req.body);
+			let m = new this.Model(req);
+			let result = await m.create(req.body);
 			if (res) {
-				if (result.error) {
+				if (result && result.error) {
 					return res.invalid(result);
+				} else if (!result) {
+					console.log(m.lastCommand);
+					return res.error(
+						{
+							message : "Error on create",
+							data : req.body,
+							statusCode : 500
+						}
+					)
 				}
 				return res.created(result);
 			} else {
@@ -132,13 +141,23 @@ class ControllerBase {
 		try {
 			let result;
 			if (req.query && req.query.where) {
-				let result = await new this.Model(req).updateWhere(req.body, req.query);
+				//console.log("CB::update -> updateWhere");
+				//console.log(JSON.stringify(req.query));
+				result = await new this.Model(req).updateWhere(req.body, req.query);
 			} else {
+				//console.log("CB::update -> update");
 				result = await new this.Model(req).update(req.params.id, req.body);
 			}
-			if (result) {
-				if (result.error) {
-					return res.invalid(result);
+			if (res) {
+				if (result && result.error) {
+					return res.invalid(result.error);
+				} else if (!result) {
+					return res.error(
+						{
+							message : "Missing Result in Update",
+							input: req.body
+						}
+					);
 				}
 				return res.success(result);
 			} else {
@@ -195,7 +214,6 @@ class ControllerBase {
 	 */
 	async query(req, res) {
 
-		//console.log("ControllerBase::query");
 		let queryTest = this.testQuery(req, res);
 		if (queryTest.error) {
 			if (res) {
@@ -206,32 +224,27 @@ class ControllerBase {
 		}
 
 		let m = new this.Model(req);
+		m.debug = req.query.debug === true;
+		let count = await m.count(req.query, true);
 
-		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
+			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		}
+
 		if (isNaN(req.query.limit)) {
 			req.query.limit = 500;
 		}
+
 		req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
 		if (isNaN(req.query.offset)) {
 			req.query.offset = 0;
 		}
 
 		req.limit = req.query.limit;
-		req.offset = req.query.offset || 0;
+		req.offset = req.query.offset;
+		req.count = parseInt(count);
 
 		let result = await m.query(req.query);
-
-		if (!result.error) {
-			//Only do the count if the number of records matches the limit, otherwise we can probably assume there
-			//aren't that many.
-			if (result.length === req.query.limit) {
-				req.count = await m.count(req.query, true);
-			} else {
-				req.count = result.length;
-			}
-		}
-
-		//console.log(m.lastCommand.toString());
 
 		if (res) {
 			if (result.error) {
@@ -262,9 +275,19 @@ class ControllerBase {
 			select : []
 		};
 
-
 		let search = req.query.query.toString().toLowerCase();
 		let queryNumber = parseFloat(search);
+
+		if (search.length < 4) {
+			return res.success(
+				{
+					data : [],
+					hash : {},
+					query : query,
+					sql : ""
+				}
+			)
+		}
 
 		let properties = req.query.properties || Object.keys(m.properties);
 
@@ -273,60 +296,55 @@ class ControllerBase {
 		}
 
 		properties.forEach(function(key){
+
 			let properties = m.schema.properties;
-			if (!properties[key]) {
+			let rootKey = key.split(".")[0];
+
+			if (!properties[key] && !properties[rootKey]) {
+				delete properties[key];
 				return;
 			}
-			if (properties[key].type === "string") {
-				let validate = true;
 
-				if (properties[key].enum) {
-					validate = false;
-				}
+			let type = properties[rootKey].type;
 
-				switch (properties[key].format) {
-					case "date" :
-					case "date-time" :
-						return;
-					case "uuid" :
-						//continue;
-						//break;
-					//it's okay, we
-					default :
-				}
-
-
-				query.where.or.push(
-					{
-						[key]: {"contains": search}
+			switch (type) {
+				case "string" :
+				case "object" :
+					switch (properties[rootKey].format) {
+						case "date" :
+						case "date-time" :
+							return;
+						default :
 					}
-
-				);
-				query.select.push(key);
-
-				if (!validate || validateAgainstSchema(key, {[key]:search}, m.schema)) {
-
-				}
-			} else if (properties[key].type === "number" && !isNaN(queryNumber)) {
-				query.where.or.push(
-					{
-						[key]: {"startsWith": queryNumber}
+					query.where.or.push(
+						{
+							[key]: {"contains": search}
+						}
+					);
+					query.select.push(key);
+					break;
+				case "number" :
+					if (!isNaN(queryNumber)) {
+						query.where.or.push(
+							{
+								[key]: {"startsWith": queryNumber}
+							}
+						);
 					}
-				);
-				query.select.push(key);
+					query.select.push(key);
+					break;
+				case "array" :
+					break;
 			}
 		});
-
-		//console.log(query);
-
 
 		if (_.indexOf(query.select, m.primaryKey) === -1) {
 			query.select.push(m.primaryKey);
 		}
 
-		let results = await m.query(query);
+		let select = query.select = _.uniq(query.select);
 
-		//console.log(m.lastCommand.toString());
+		let results = await m.query(query);
 
 		if (results.error) {
 			results.q = query;
@@ -337,18 +355,22 @@ class ControllerBase {
 
 		results.forEach(
 			function(item) {
-				for(let field in item) {
-					if (item[field]) {
-						if (!item[field]) {
-							return;
-						}
-						let testValue = ("" + item[field]).toLowerCase();
+				select.forEach((key)=> {
+					let value;
+					if (key.indexOf(".") !== -1 ) {
+						value = _.get(item, key);
+					} else {
+						value = item[key];
+					}
+
+					if (value !== null) {
+						let testValue = ("" + value).toLowerCase();
 						if (testValue.indexOf(search) !== -1) {
-							hash[field] = hash[field] || [];
-							hash[field].push(item[field])
+							hash[key] = hash[key] || [];
+							hash[key].push(value)
 						}
 					}
-				}
+				})
 			}
 		);
 
@@ -360,7 +382,7 @@ class ControllerBase {
 				function(item) {
 					list.push(
 						{
-							value : item,
+							value : "" + item,
 							field : field
 						}
 					)
@@ -374,7 +396,8 @@ class ControllerBase {
 				data : list,
 				hash : hash,
 				query : query,
-				sql : m.lastCommand.toString()
+				sql : m.lastCommand.toString(),
+				results : results
 			}
 		);
 
@@ -388,7 +411,6 @@ class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroy(req, res) {
-		console.log("ControllerBase::destroy");
 		try {
 			let result = await new this.Model(req).destroy(req.params.id);
 			if (res) {
@@ -408,7 +430,9 @@ class ControllerBase {
 
 	async adminIndex(req) {
 		let m = new this.Model(req);
-		let keys = Object.keys(m.foreignKeys);
+		await m.init();
+		let foreignKeys = m.foreignKeys || {};
+		let keys = Object.keys(foreignKeys);
 		req.query.join = req.query.join || {};
 
 		let fields = m.fields.adminIndex;
@@ -422,7 +446,9 @@ class ControllerBase {
 
 		let count = await m.count(req.query);
 
-		req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
+			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+		}
 		if (isNaN(req.query.limit)) {
 			req.query.limit = 500;
 		}
@@ -444,6 +470,7 @@ class ControllerBase {
 
 	async adminCreate(req) {
 		let m = new this.Model(req);
+		await m.init();
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
 		let data = {
@@ -452,14 +479,40 @@ class ControllerBase {
 		};
 
 		while (keys.length > 0) {
-			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
-			let M = require(path);
-			let m = new M(req);
-			let count = await m.count();
+			let foreignKey = foreignKeys[keys[0]];
+			let model = foreignKey.modelClass || foreignKey.model;
+			let to = foreignKey.to;
+			let FKM = m.loadModel(model);
+			let fkm = new FKM(req);
+			let count = await fkm.count();
 			if (count < 25) {
-				data.lookup[keys[0]] = await m.find({select:['id','name'],sort:"name ASC", limit:25});
+				let items = await fkm.find(
+					{
+						select: [fkm.name || 'name', to, fkm.primaryKey],
+						sort: fkm.name + " ASC",
+						limit: 25
+					}
+				)
+				console.log(items);
+				let options = [];
+				items.forEach(
+					(item) => {
+						console.log(item);
+						if (item[to] && item[to] !== '') {
+							console.log(item[fkm.name]);
+							options.push(
+								{
+									model : fkm,
+									value: item[to],
+									name: item[fkm.name]
+								}
+							)
+						}
+					}
+				)
+				data.lookup[keys[0]] = options;
 			} else {
-				data.search[keys[0]] = m.tableName;
+				data.search[keys[0]] = fkm.tableName;
 			}
 			keys.shift();
 		}
@@ -469,22 +522,47 @@ class ControllerBase {
 
 	async adminUpdate(req) {
 		let m = new this.Model(req);
+		await m.init();
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
 		let data = await m.read(req.params.id);
-
 		data.lookup = {};
 		data.search = {};
 
 		while (keys.length > 0) {
-			let path = global.appRoot + "/src/model/" + foreignKeys[keys[0]].modelClass;
-			let M = require(path);
-			let m = new M(req);
-			let count = await m.count();
+			let foreignKey = foreignKeys[keys[0]];
+			let model = foreignKey.modelClass || foreignKey.model;
+			let to = foreignKey.to;
+			let FKM = m.loadModel(model);
+			let fkm = new FKM(req);
+			let count = await fkm.count();
 			if (count < 25) {
-				data.lookup[keys[0]] = await m.find({select:['id','name'],sort:"name ASC", limit:25});
+				let items = await fkm.find(
+					{
+						select: [fkm.name || 'name', to, fkm.primaryKey],
+						sort: fkm.name + " ASC",
+						limit: 25
+					}
+				)
+
+				let options = [];
+				items.forEach(
+					(item) => {
+						if (item[to] && item[to] !== '') {
+							options.push(
+								{
+									model : fkm,
+									value: item[to],
+									name: item[fkm.name],
+									[fkm.primaryKey] : item[fkm.primaryKey]
+								}
+							)
+						}
+					}
+				)
+				data.lookup[keys[0]] = options;
 			} else {
-				data.search[keys[0]] = m.tableName;
+				data.search[keys[0]] = fkm.tableName;
 			}
 			keys.shift();
 		}
@@ -494,7 +572,7 @@ class ControllerBase {
 
 	async adminView(req) {
 		let m = new this.Model(req);
-		return await m.read(req.params.id, req.query);
+		return m.read(req.params.id, req.query);
 	}
 
 	async adminDestroy(req) {
@@ -523,6 +601,9 @@ class ControllerBase {
 			}
 			if (req.body.sort) {
 				req.query.sort = req.body.sort;
+			}
+			if (req.body.debug) {
+				req.query.debug = req.body.debug;
 			}
 		}
 

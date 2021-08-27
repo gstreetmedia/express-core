@@ -301,4 +301,10 @@ label {
   display: inline-block;
   margin-bottom: 0; }
 
+.jsonview {
+  max-height: 500px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /*# sourceMappingURL=main.css.map */

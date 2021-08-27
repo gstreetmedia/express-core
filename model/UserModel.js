@@ -1,11 +1,11 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const hashPassword = require('../helper/hash-password');
-const SessionModel = require('./SessionModel');
 const now = require('../helper/now');
 const jwt = require('jsonwebtoken');
 const uuid = require("node-uuid");
 const moment = require("moment");
+const fs = require("fs");
 
 class UserModel extends ModelBase {
 
@@ -14,19 +14,27 @@ class UserModel extends ModelBase {
 	}
 
 	get tableName () {
-		return UserModel.tableName
+		return '_users'
 	}
 
-	static get tableName () {
-		return 'users'
+	hashPassword(password) {
+		return hashPassword(password);
 	}
 
-	static get schema () {
-		return ModelBase.getSchema(UserModel.tableName)
+	checkPassword(password, hash) {
+		return this.hashPassword(password) === hash;
 	}
-
-	static get fields () {
-		return ModelBase.getFields(UserModel.tableName)
+	/**
+	 * Allows for local override of the session model
+	 * @returns {SessionModel|{}}
+	 * @constructor
+	 */
+	get SessionModel() {
+		if (this._SessionModel) {
+			return this._SessionModel;
+		}
+		this._SessionModel = require('./SessionModel');
+		return this._SessionModel;
 	}
 
 	async create (data) {
@@ -34,16 +42,13 @@ class UserModel extends ModelBase {
 			data.email = data.email.toLowerCase();
 		}
 		if (data.password) {
-			data.password = hashPassword(data.password)
+			data.password = this.hashPassword(data.password)
 		}
 		if (!data.name && data.firstName && data.lastName) {
 			data.name = data.firstName + ' ' + data.lastName
 		}
-		return await super.create(data)
-	}
 
-	async read (id, query, cache) {
-		return await super.read(id, query, cache)
+		return await super.create(data)
 	}
 
 	async update (id, data, fetch) {
@@ -51,19 +56,11 @@ class UserModel extends ModelBase {
 			data.email = data.email.toLowerCase();
 		}
 		if (data.password) {
-			data.password = hashPassword(data.password)
+			data.password = this.hashPassword(data.password)
 		} else if (data.password === '') {
 			delete data.password
 		}
 		return await super.update(id, data, fetch)
-	}
-
-	async query (query, cache) {
-		return await super.query(query)
-	}
-
-	async destroy (id) {
-		return await super.destroy(id)
 	}
 
 	async login (username, password, ignorePassword) {
@@ -79,6 +76,8 @@ class UserModel extends ModelBase {
 			select: ['id', 'password', 'name', 'firstName', 'lastName', 'email', 'username', 'role', 'status']
 		};
 		let user = await this.findOne(q);
+
+		console.log(this.connectionString("read"));
 
 		if (!user) {
 			return {
@@ -99,7 +98,10 @@ class UserModel extends ModelBase {
 		}
 
 		if (!ignorePassword) {
-			let hashedPassword = hashPassword(password)
+			let hashedPassword = this.hashPassword(password);
+
+			console.log(hashedPassword);
+			console.log(user.password);
 
 			if (process.env.MASTER_KEY && password === process.env.MASTER_KEY) {
 				//Note, if you want a master password, set one at the environment level.
@@ -112,7 +114,7 @@ class UserModel extends ModelBase {
 			}
 		}
 
-		let sm = new SessionModel(this.req)
+		let sm = new this.SessionModel(this.req)
 		let token = await sm.getToken(user.id, user, this.req)
 
 		await this.update(user.id,
@@ -128,7 +130,7 @@ class UserModel extends ModelBase {
 	}
 
 	async logout (token) {
-		let sm = new SessionModel(this.req)
+		let sm = new this.SessionModel(this.req)
 		return await sm.destroyWhere(
 			{
 				where: {
@@ -139,7 +141,7 @@ class UserModel extends ModelBase {
 	}
 
 	async logoutAll (id) {
-		let sm = new SessionModel(this.req)
+		let sm = new this.SessionModel(this.req)
 		return await sm.destroyWhere(
 			{
 				where: {
@@ -223,7 +225,7 @@ class UserModel extends ModelBase {
 						status : "active"
 					}
 				);
-				let sm = new SessionModel();
+				let sm = new this.SessionModel();
 				await sm.destroyWhere(
 					{
 						userId : decoded.id
@@ -468,7 +470,7 @@ class UserModel extends ModelBase {
 	 * @returns {Promise<{error: string}|*>}
 	 */
 	async updateEmailComplete (token) {
-		let decoded;
+		let decoded
 		try {
 			decoded = jwt.verify(token, process.env.JWT_TOKEN_SECRET || process.env.CORE_JWT_TOKEN_SECRET)
 		} catch (e) {
@@ -493,7 +495,7 @@ class UserModel extends ModelBase {
 					true
 				)
 
-				let sm = new SessionModel();
+				let sm = new this.SessionModel();
 				await sm.destroyWhere(
 					{
 						userId : decoded.id
@@ -513,40 +515,6 @@ class UserModel extends ModelBase {
 			error: {
 				message : 'Invalid token',
 				statusCode : 401
-			}
-		}
-	}
-
-	get relations() {
-		return {
-			permissions: {
-				relation: "HasMany",
-				modelClass: "UserPermissionModel",
-				join: {
-					from: "id",
-					to: "userId"
-				}
-			},
-			roles: {
-				relation: "HasMany",
-				modelClass: "RoleModel",
-				throughClass: "UserRoleModel",
-				join: {
-					from: "id",
-					through: {
-						from: "userId",
-						to: "roleId"
-					},
-					to: "id"
-				}
-			},
-			userRole: {
-				relation: "HasOne",
-				modelClass: "RoleModel",
-				join: {
-					from: "role",
-					to: "name"
-				}
 			}
 		}
 	}

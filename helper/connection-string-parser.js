@@ -8,8 +8,6 @@ module.exports = function (value) {
 		let parts = value.split("://");
 		let protocol = parts[0];
 
-
-
 		if (parts[1].lastIndexOf("@") === -1) {
 			if (parts[1].indexOf(":") !== -1) {
 				parts = parts[1].split(":");
@@ -52,14 +50,6 @@ module.exports = function (value) {
 			port: port,
 			database: dbName,
 		};
-
-		if (value.indexOf("postgresql://") === 0) {
-			obj.client = "pg";
-		} else if (value.indexOf("mysql://") === 0) {
-			obj.client = "mysql"
-		} else if (value.indexOf("mssql://") === 0) {
-			obj.client = "mssql"
-		}
 
 		if (tail.length > 1) {
 			let values = tail[1].split("&");

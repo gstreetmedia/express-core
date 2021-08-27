@@ -3,12 +3,20 @@ const moment = require("moment-timezone");
 const uuid = require("node-uuid");
 const inflector = require("../helper/inflector");
 const knex = require("knex");
+const sqlString = require("sqlstring");
 
-module.exports = class QueryToSqlBase {
+class QueryToSqlBase {
 
+	/**
+	 * @param {ModelBase} model
+	 */
 	constructor(model) {
 		this.model = model;
-		//console.log("New Builder for " + this.tableName);
+		//console.log("New Builder for " + this.model.schema.tableName);
+		if (!this.model.properties) {
+			console.log(model);
+			throw new Error("Please pass in properties to builder -> " + this.model.schema.tableName);
+		}
 	}
 
 	get properties() {
@@ -48,7 +56,6 @@ module.exports = class QueryToSqlBase {
 	 * @returns {string}
 	 */
 	get client() {
-		throw new Error("Never Call this Directly. Should be in subclass");
 		return "pg";
 	}
 
@@ -60,6 +67,7 @@ module.exports = class QueryToSqlBase {
 		if (this._queryBuilder) {
 			return this._queryBuilder(this.tableName);
 		}
+
 		this._queryBuilder = knex(
 			{
 				client: this.client,
@@ -75,6 +83,7 @@ module.exports = class QueryToSqlBase {
 						//console.log(value + " => " + inflector.underscore(value));
 						if (value !== this.tableName) {
 							if (!process.env.IGNORE_CASE) {
+								//TODO check env to see what kind of inflection to use
 								value = inflector.underscore(value);
 							}
 						}
@@ -83,7 +92,8 @@ module.exports = class QueryToSqlBase {
 				}
 			}
 		);
-		return this._queryBuilder(this.tableName);
+		let q = this._queryBuilder(this.tableName);
+		return q;
 	}
 
 	knexRaw(value) {
@@ -106,21 +116,19 @@ module.exports = class QueryToSqlBase {
 	 */
 	select(query) {
 
-		query = _.clone(query);
+		let q = _.clone(query);
 
-		let queryBuilder = this.parseQuery(query);
+		let queryBuilder = this.qb;
 		let selects = [];
 		let context = this;
 
-		if (query.select) {
-			query.select = typeof query.select === "string" ? query.select.split(',') : query.select;
+		if (q.select) {
+			q.select = typeof q.select === "string" ? q.select.split(',') : q.select;
 
-			for (let i = 0; i < query.select.length; i++) {
-				let key = query.select[i];
+			for (let i = 0; i < q.select.length; i++) {
+				let key = q.select[i];
 				if (this.properties[key]) {
 					selects.push(this.buildSelect(key));
-				} else if (key.indexOf(' as ') !== -1) {
-					selects.push(key);
 				} else if (key.indexOf(".") !== -1) {
 					key = key.split(".");
 					let column = key[0];
@@ -132,17 +140,16 @@ module.exports = class QueryToSqlBase {
 			}
 		}
 
-		if (selects.length === 0 || !query.select) {
+		if (selects.length === 0 || !q.select) {
 			for (let key in this.properties) {
 				selects.push(this.buildSelect(key));
 			}
 		}
 
-		delete query.select;
+		delete q.select;
 
 		selects.forEach(
 			function (item) {
-				//allow bypass of column names and assume the developer knows what they are doing
 				queryBuilder.select(context.raw(item));
 			}
 		);
@@ -150,28 +157,28 @@ module.exports = class QueryToSqlBase {
 		let hasSkip = false;
 		let hasSort = false;
 
-		for (let key in query) {
+		for (let key in q) {
 
-			if (query[key] === "") {
+			if (q[key] === "") {
 				continue;
 			}
 
-			query[key] = this.decodeQuery(query[key]);
+			q[key] = this.decodeQuery(q[key]);
 
 			switch (key) {
 				case "skip" :
 				case "offset" :
-					queryBuilder.offset(parseInt(query[key]));
+					queryBuilder.offset(parseInt(q[key]));
 					hasSkip = true;
 					break;
 				case "limit" :
-					if (!isNaN(parseInt(query[key]))) {
-						queryBuilder.limit(parseInt(query[key]));
+					if (!isNaN(parseInt(q[key]))) {
+						queryBuilder.limit(parseInt(q[key]));
 					}
 					break;
 				case "sort" :
 					//TODO support array sort
-					let terms = _.isArray(query.sort) ? query.sort : query[key].split(",");
+					let terms = _.isArray(q.sort) ? q.sort : q[key].split(",");
 					let context = this;
 					terms.forEach(
 						function (term) {
@@ -205,6 +212,8 @@ module.exports = class QueryToSqlBase {
 			}
 		}
 
+		this.parseQuery(query, queryBuilder);
+
 		return queryBuilder;
 	}
 
@@ -231,8 +240,7 @@ module.exports = class QueryToSqlBase {
 		//return queryBuilder.count("*");
 		//TODO support count by composite key
 		let columnName = this.properties[this.getPrimaryKey()].columnName;
-		columnName = this.raw(`"${this.tableName}"."${columnName}"`);
-		return queryBuilder.count(columnName);
+		return queryBuilder.count(this.column(columnName));
 	}
 
 	/**
@@ -292,16 +300,11 @@ module.exports = class QueryToSqlBase {
 			}
 		}
 
-		console.log(required);
-
 		//TODO should data have been validated before this? Seems like it
 		for (let key in data) {
-			console.log(key);
 			if (this.properties[key]) {
 				//does final json conversion as needed
 				translation[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
-			} else {
-				console.error("Invalid field " + key);
 			}
 			let index = _.indexOf(required, key);
 			if (index !== -1) {
@@ -310,7 +313,7 @@ module.exports = class QueryToSqlBase {
 		}
 
 		if (required.length > 0) {
-			console.log(data);
+			//console.log(data);
 			return {
 				error: required,
 				message: "Missing or Invalid Fields"
@@ -327,18 +330,17 @@ module.exports = class QueryToSqlBase {
 	 * @param {Object} query
 	 * @returns {*}
 	 */
-	parseQuery(query) {
+	parseQuery(query, queryBuilder) {
 		//TODO support complex or conditions
-
-		let queryBuilder;
-
-		queryBuilder = this.qb;
+		queryBuilder = queryBuilder || this.qb;
 
 		if (!query) {
 			return queryBuilder;
 		}
 
 		let queryParams;
+
+		//console.log(JSON.stringify(query));
 
 		if (query.where) {
 			queryParams = _.isString(query.where) ? JSON.parse(query.where) : query.where;
@@ -369,7 +371,6 @@ module.exports = class QueryToSqlBase {
 					} else {
 						compare = "=="; //formed as {param : value} which is an implied ==
 					}
-
 				}
 			}
 
@@ -484,7 +485,7 @@ module.exports = class QueryToSqlBase {
 				} else if (_.isArray(value)) {
 					queryBuilder[c.whereIn](this.column(columnName), this.processArrayType(value, this.properties[key]));
 				} else {
-					queryBuilder[c.where](this.column(columnName), "=", this.processType(value, this.properties[key]));
+					queryBuilder[c.where](this.column(columnName), this.processType(value, this.properties[key]));
 				}
 
 				break;
@@ -552,7 +553,11 @@ module.exports = class QueryToSqlBase {
 	processObjectColumn(key, compare, value, queryBuilder, isOr) {
 	}
 
-
+	/**
+	 * Append tableName to column to stop ambiguity
+	 * @param column
+	 * @returns {*|Knex.Raw<any>}
+	 */
 	column(column) {
 		return this.raw('"' + this.tableName + '"."' + column + '"');
 	}
@@ -621,10 +626,13 @@ module.exports = class QueryToSqlBase {
 	/**
 	 * Incoming values are pretty much all going to be strings, so let's parse that out to be come correct types
 	 * @param value
-	 * @param {Object} property - a single json schema property
+	 * @param {Object} key - a single json schema property
 	 * @returns {*}
 	 */
-	processType(value, property) {
+	processType(value, key) {
+		if (this.properties[key] && this.properties[key].type === "string") {
+
+		}
 		return value;
 	}
 
@@ -651,4 +659,36 @@ module.exports = class QueryToSqlBase {
 
 		return valueList;
 	}
+
+	sqlFormatArray(values, type) {
+		let output = [];
+		switch (type) {
+			case "string" :
+				values.forEach(
+					(value) => {
+						output.push(sqlString.escape(value))
+					}
+				)
+				break;
+			case "int" :
+			case "integer" :
+				values.forEach(
+					(value) => {
+						output.push(parseInt(value))
+					}
+				);
+				break;
+			case "decimal" :
+			case "number" :
+				values.forEach(
+					(value) => {
+						output.push(parseFloat(value))
+					}
+				)
+				break;
+		}
+		return output.join(",")
+	}
 }
+
+module.exports = QueryToSqlBase;

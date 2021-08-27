@@ -1,44 +1,13 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
 const hashPassword = require("../helper/hash-password");
-const SessionModel = require("../model/SessionModel");
-const now = require("../helper/now");
 const moment = require("moment-timezone");
-const Model = require("../../model/UserModel");
-
-
+const fs = require("fs");
+const Model = require('../model/UserModel');
 class UserController extends ControllerBase {
 
-	constructor(model) {
-		if (model) {
-			super(model);
-		} else {
-			super(Model);
-		}
-	}
-
-	async index(req, res){
-		return await super.index(req, res);
-	}
-
-	async create(req, res){
-		return super.create(req, res);
-	}
-
-	async read(req, res){
-		return super.read(req, res);
-	}
-
-	async update(req, res){
-		return super.update(req, res);
-	}
-
-	async query(req, res){
-		return super.query(req, res);
-	}
-
-	async destroy(req, res){
-		return super.destroy(req, res);
+	constructor(Model) {
+		super(Model);
 	}
 
 	async login(req, res) {
@@ -76,7 +45,7 @@ class UserController extends ControllerBase {
 			res.cookie('token', result.token, args);
 			res.cookie('application-key', hashPassword(result.token), args);
 		}
-		
+
 		res.success(result);
 	}
 
@@ -145,9 +114,9 @@ class UserController extends ControllerBase {
 
 		return res.success(result);
 	}
-	
+
 	async updatePassword(req, res) {
-		let m = new Model();
+		let m = new this.Model();
 		let record = await m.read(req.user.id);
 		if (!req.body.currentPassword) {
 			return res.error(

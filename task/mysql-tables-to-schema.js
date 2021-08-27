@@ -8,6 +8,7 @@ var emptySchema = {
 	$schema:     'http://json-schema.org/draft-06/schema#',
 	id:          '',
 	description: '',
+	route : '',
 	properties:  {},
 	required:    [],
 	type:        'object'
@@ -15,12 +16,9 @@ var emptySchema = {
 
 module.exports = async function( options, pool )
 {
-
 	let data =  await pool.query("SELECT * FROM information_schema.columns WHERE table_schema = '"+options.dbName +"'");
-
-
-
 	let rows = [];
+
 	data.forEach(
 		function(row) {
 
@@ -78,6 +76,10 @@ module.exports = async function( options, pool )
 
 			if ( column.is_nullable === "NO" && column.column_default === null ) {
 				schema[tableName].required.push( columnName );
+			}
+			if (schema[tableName].properties[columnName].readOnly === true) {
+				schema[tableName].readOnly.push( columnName );
+				delete schema[tableName].properties[columnName].readOnly;
 			}
 		}
 	);
@@ -145,6 +147,9 @@ var convertColumnType = function( column )
 		case 'char':
 			schemaProperty.type   = 'string';
 			schemaProperty.length = column.character_maximum_length;
+			if (schemaProperty.length === 36) {
+				schemaProperty.format = "uuid";
+			}
 			break;
 		case 'uuid': {
 			schemaProperty.type = 'string';
@@ -177,6 +182,7 @@ var convertColumnType = function( column )
 		case 'float8':
 		case 'int':
 		case 'smallint':
+		case 'decimal':
 		case 'bigint':
 		case 'integer':
 		case 'double precision':
@@ -193,6 +199,9 @@ var convertColumnType = function( column )
 					break;
 				case 'tinyint':
 					schemaProperty.type = 'boolean';
+					break;
+				case 'decimal':
+					schemaProperty.format = 'decimal';
 					break;
 			}
 		} break;
@@ -240,19 +249,21 @@ var convertColumnType = function( column )
 		} break;
 	}
 
-	if ("column_default" in column) {
+	if (_.isString(column.column_default)) {
 		switch (column.column_default) {
 			case "CURRENT_TIMESTAMP" :
 			case "current_timestamp()" :
 				schemaProperty.default = "now";
 				break;
 			default :
+				column.column_default = column.column_default.split("'").join("");
 				schemaProperty.default = column.column_default === "NULL" ? null : column.column_default;
 		}
 	}
 
 	if (column.extra === "auto_increment") {
 		schemaProperty.autoIncrement = true;
+		schemaProperty.readOnly = true
 	}
 
 	if (column.is_nullable === "YES") {

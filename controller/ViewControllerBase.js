@@ -1,28 +1,13 @@
 const inflector = require("inflected");
 const _ = require("lodash");
 const moment = require("moment-timezone");
-const helpers = require("../helper/view/index");
 const fs = require("fs");
+const getView = require("../helper/view/get-view");
+const renderView = require("../helper/view/render-view");
 
 class ViewControllerBase {
 	constructor() {
 
-	}
-
-	/**
-	 * Get a list of a model, typically of id's
-	 * @param req
-	 * @param res
-	 * @returns {Promise<*>}
-	 */
-	async index(req, res) {
-		//console.log("ControllerBase::index");
-		return this.render(
-			'page-list',
-			{
-				req : req
-			}
-		)
 	}
 
 	/**
@@ -101,20 +86,28 @@ class ViewControllerBase {
 		)
 	}
 
-	render(page, obj, req, res) {
-		let o = {
-			helpers : helpers,
-			req : req
-		};
-		_.extend(o, obj);
-		if (fs.existsSync(global.appRoot + "/src/views/" + page + ".ejs")) {
-			//console.log("view override");
-			res.render(page, o);
-		} else {
-			//console.log("view core");
-			res.render("../core/views/" + page, o);
+	/**
+	 *
+	 * @param {string|array} viewName
+	 * @param {ViewObject} obj
+	 * @param {Request} req
+	 * @param {Response} res
+	 * @returns {Promise<void>}
+	 */
+	async render(viewName, o, req, res) {
+		let view = await getView(viewName);
+		if (!o.req) {
+			o.req = req;
 		}
-
+		if (o.req.xhr) {
+			return res.success(
+				{
+					data : {message:"Hi!"},
+					html : await renderView(view, o),
+				}
+			);
+		}
+		return res.send(await renderView(view, o));
 	}
 
 

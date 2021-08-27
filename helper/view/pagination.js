@@ -1,17 +1,13 @@
 let _ = require("lodash");
 
 module.exports = (query, data, slug, req) => {
-	console.log("pagination");
-	let q = _.clone(query);
-	let where;
-	if (query.where) {
-		where = "?where=" + JSON.stringify(q.where).replace('"','&quot;') + "";
-	} else {
-		where = "?";
-	}
-	if (req.count && req.limit && req.offset === 0) {
-		//return ``;
-	}
+
+	query = _.clone(query);
+	delete query.select;
+	delete query.join;
+	console.log(query);
+
+
 	let totalPages = Math.ceil(req.count / req.limit);
 	let currentPage = Math.ceil(req.offset / req.limit);
 	let maxPages = 20;
@@ -28,11 +24,12 @@ module.exports = (query, data, slug, req) => {
 		let content = '';
 		let i;
 		for(i = start; i < end; i++) {
+			let q = _.clone(query);
+			q.offset = i * query.limit;
 			content += `<li class="page-item ${i * req.limit === req.offset ? "active" : ""}"
-                data-bindid="pagination" data-offset="${(i) * req.limit}"
-            >
+                data-bindid="pagination"            >
                 <a class="page-link"
-                   href="/admin/${slug}${where}&offset=${(i) * req.limit}&limit=${req.limit}&sort=${q.sort}"
+                   href="/admin/${slug}?query=${ JSON.stringify(q).split('"').join('&quot;')}"
                    aria-label="Switch to page ${i + 1}">
                     ${i + 1}
                 </a>
@@ -41,6 +38,14 @@ module.exports = (query, data, slug, req) => {
 
 		return content;
 	}
+
+	let q = _.clone(query);
+	q.offset = 0;
+	let beginningQuery = JSON.stringify(q).split('"').join('&quot;');
+	q.offset = previousPage * req.limit;
+	let previousPageQuery = JSON.stringify(q).split('"').join('&quot;')
+	q.offset = nextPage * req.limit;
+	let nextPageQuery = JSON.stringify(q).split('"').join('&quot;')
 
 	return `
 	<div class="pagination-container fixed-bottom border-top">
@@ -58,8 +63,8 @@ module.exports = (query, data, slug, req) => {
     >
         <ul class="pagination bg-light justify-content-center">
             ${start >= 0 ?
-                `<li class="page-item" data-bindid="pagination-beginning" data-offset="0">
-                    <a class="page-link" href='/admin/${ slug }${ where }&limit=${ req.limit }&sort=${ q.sort }'
+                `<li class="page-item" data-bindid="pagination-beginning">
+                    <a class="page-link" href='/admin/${slug}?query=${beginningQuery}'
                        aria-label="Previous">
                         <i class="material-icons">first_page</i>
                         <span class="sr-only">First Page</span>
@@ -69,7 +74,7 @@ module.exports = (query, data, slug, req) => {
             ${previousPage > 0 ?
                 `<li class="page-item" data-bindid="pagination-previous" data-offset="${ previousPage * req.limit }">
                     <a class="page-link"
-                       href="/admin/${ slug }${ where }&offset=${ previousPage * req.limit }&limit=${ req.limit }&sort=${ q.sort }"
+                       href="/admin/${ slug }?query=${previousPageQuery}"
                        aria-label="Previous 50 results">
                         <i class="material-icons">chevron_left</i>
                         <span class="sr-only">Previous Page</span>
@@ -80,10 +85,9 @@ module.exports = (query, data, slug, req) => {
             ${loop()}
             
             ${nextPage !== totalPages ?
-                `<li class="pagination-item" data-bindid="pagination-next"
-                    data-offset="${ nextPage * req.limit }&sort=${ q.sort }">
+                `<li class="pagination-item" data-bindid="pagination-next">
                     <a class="page-link"
-                       href="/admin/${ slug }${ where }&offset=${ nextPage * req.limit }&limit=${ req.limit }&sort=${ q.sort }"
+                       href="/admin/${ slug }?query=${nextPageQuery}"
                        aria-label="Next">
                         <i class="material-icons">chevron_right</i>
                         <span class="sr-only">Next Page</span>

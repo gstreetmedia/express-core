@@ -2,6 +2,7 @@ const QueryBase = require("./query-to-base");
 const _ = require("lodash");
 const moment = require("moment-timezone");
 const knex = require("knex");
+const sqlString = require("sqlstring");
 
 module.exports = class QueryToPgSql extends QueryBase{
 
@@ -34,9 +35,10 @@ module.exports = class QueryToPgSql extends QueryBase{
 		//console.log("processObjectColumn");
 
 		let columnName;
+		let columnFullName;
 		let fieldQuery = "";
-		let fieldName;
 		let as = "";
+		let exists = "";
 
 		let c = {
 			where : "where",
@@ -68,17 +70,19 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (this.properties[key] && this.properties[key].columnName) {
 					columnName = this.properties[key].columnName;
 					as = columnName;
+					columnFullName = `"${this.tableName}"."${columnName}"`;
+					exists = `${columnFullName}::jsonb`;
 					parts.shift();
 					for (let i = 0; i < parts.length; i++) {
 						if (i + 1 === parts.length) {
-							fieldQuery += " ->> '" + parts[i] + "'";
+							fieldQuery += "->>'" + parts[i] + "'";
+							exists += ` \\? '${parts[i]}'`;
 						} else {
-							fieldQuery += " -> '" + parts[i] + "'";
+							fieldQuery += "->'" + parts[i] + "'";
+							exists += ` -> '${parts[i]}'`;
 						}
 						as += "." + parts[i];
 					}
-					//fieldName = parts[parts.length-1];
-					//sqlBuilder.select(this.raw(this.tableName + "." + columnName + " as \"" + as + "\""));
 				} else {
 					console.log("no object column named " + key);
 					return;
@@ -88,7 +92,30 @@ module.exports = class QueryToPgSql extends QueryBase{
 			}
 		}
 
-		console.log("compare " + isOr);
+		let cast = "";
+		let safeValue = value;
+		if (typeof value === "string") {
+			cast = "::text";
+			safeValue = sqlString.escape(value);
+		} else if (typeof value === "boolean") {
+			cast = "::bool";
+		} else if (typeof value === "number") {
+			cast = "::numeric"
+		} else if (value instanceof Array) {
+			if (value.length > 0) {
+				switch (typeof value[0]) {
+					case "string" :
+						cast = "::text";
+						break;
+					case "boolean" :
+						cast = "::boolean";
+						break;
+					case "number" :
+						cast = "::numeric";
+						break;
+				}
+			}
+		}
 
 		switch (compare) {
 			case "inside" :
@@ -105,39 +132,38 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "<=" :
 				queryBuilder[c.where](
 					this.raw(
-						"(EXISTS(" +
-						"SELECT " +
-						"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-						"WHERE (" + columnName +  "1" + fieldQuery + ") " + compare + " '" + value + "' " +
-						") OR " +
-						this.tableName + "." + columnName + fieldQuery + " " + compare + " '" + value + "')"
+						`(${exists} AND
+						(${columnFullName}${fieldQuery})${cast} ${compare} ${safeValue})`
 					)
 				);
 				break;
 			case "in" :
-				queryBuilder[c.whereIn](this.column( columnName + "." + fieldQuery), this.processArrayType(value, this.properties[key]));
+				queryBuilder[c.whereIn](this.raw(`(${columnFullName}${fieldQuery})${cast}`),
+					this.processArrayType(value, this.properties[key]));
 				break;
 			case "nin" :
-				queryBuilder[c.whereNotIn](this.column( columnName + "." + fieldQuery), this.processArrayType(value, this.properties[key]));
+			case "notIn" :
+				queryBuilder[c.whereNotIn](this.raw(`(${columnFullName}${fieldQuery})${cast}`),
+					this.processArrayType(value, this.properties[key]));
 				break;
 			case "endsWith" :
-				queryBuilder[c.where](
-					this.raw(
-						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "'"
-					)
-				);
-				break;
 			case "startsWith" :
-				queryBuilder[c.where](
-					this.raw(
-						this.tableName + "." + columnName + fieldQuery + " ilike '" + value + "%'"
-					)
-				);
-				break;
 			case "contains" :
+				switch (compare) {
+					case "endsWith" :
+						safeValue = sqlString.escape("%" + value);
+						break;
+					case "startsWith" :
+						safeValue = sqlString.escape(value + "%");
+						break;
+					case "contains" :
+						safeValue = sqlString.escape("%" + value + "%");
+						break;
+				}
 				queryBuilder[c.where](
 					this.raw(
-						this.tableName + "." + columnName + fieldQuery + " ilike '%" + value + "%'"
+						`(${exists} AND
+						${columnFullName}${fieldQuery} ilike ${safeValue})`
 					)
 				);
 				break;
@@ -147,23 +173,17 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (value === null) {
 					queryBuilder[c.where](
 						this.raw(
-							"(EXISTS(" +
-							"SELECT " +
-							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-							"WHERE (" + columnName +  "1" + fieldQuery + ") NOT NULL " +
-							") OR " +
-							this.tableName + "." + columnName + fieldQuery + " NOT NULL)"
+							`(${exists} AND
+							(${columnFullName}${fieldQuery})${cast} NOT NULL)`
 						)
 					);
 				} else {
 					queryBuilder[c.where](
 						this.raw(
-							"(EXISTS(" +
-							"SELECT " +
-							"FROM jsonb_array_elements("+this.tableName+"." + columnName + ") " + columnName +  "1 " +
-							"WHERE (" + columnName +  "1" + fieldQuery + ") != '" + value + "' " +
-							") OR " +
-							this.tableName + "." + columnName + fieldQuery + " != '" + value + "')"
+							`(
+								${exists} AND 
+								(${columnFullName}${fieldQuery})${cast} != ${safeValue}
+							)`
 						)
 					);
 				}
@@ -171,7 +191,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "or" :
 			case "and" :
 
-				isOr = compare === "or" ? true : false;
+				isOr = compare === "or";
 
 				queryBuilder.where(
 					(builder) => {
@@ -198,18 +218,18 @@ module.exports = class QueryToPgSql extends QueryBase{
 				break;
 			case "=" :
 			case "==" :
-			default :
+			default : // {key : value}
 
 				if (value === null) {
 					queryBuilder[c.where](
 						this.raw(
-							this.tableName + "." + columnName + fieldQuery + " ISNULL"
+							`(${exists} AND ${columnFullName}${fieldQuery} ISNULL)`
 						)
 					);
 				} else {
 					queryBuilder[c.where](
 						this.raw(
-							this.tableName + "." + columnName + fieldQuery + " = '" + value + "'"
+							`(${exists} AND ${columnFullName}${fieldQuery} = ${safeValue})`
 						)
 					);
 				}
@@ -299,7 +319,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 			case "leftInRight" :
 				queryBuilder[c.where](this.raw(columnName + " <@ " + processedValue));
 				break;
-
 			case "leftNinRight" :
 				queryBuilder[c.whereNot](this.raw(columnName + " <@ " + processedValue));
 				break;
@@ -372,22 +391,21 @@ module.exports = class QueryToPgSql extends QueryBase{
 		let columnName = this.properties[key].columnName;
 		let columnType = this.properties[key].type;
 		let columnFormat = this.properties[key].format;
-
-		return this.raw(this.tableName + "." + columnName + "::text ilike '%" + value + "%'")
+		return this.raw(`${this.tableName}.${columnName}::text ilike ${sqlString.escape("%" + value + "%")}`)
 	}
 
 	processStartsWith(key, value) {
 		let columnName = this.properties[key].columnName;
 		let columnType = this.properties[key].type;
 		let columnFormat = this.properties[key].format;
-		return this.raw(this.tableName + "." + columnName + "::text ilike '" + value + "%'")
+		return this.raw(`${this.tableName}.${columnName}::text ilike ${sqlString.escape(value + "%")}`)
 	}
 
 	processEndsWith(key, value) {
 		let columnName = this.properties[key].columnName;
 		let columnType = this.properties[key].type;
 		let columnFormat = this.properties[key].format;
-		return this.raw(this.tableName + "." + columnName + "::text ilike '%" + value + "'")
+		return this.raw(`${this.tableName}.${columnName}::text ilike ${sqlString.escape("%" + value)}`)
 	}
 
 	buildSelect (key, subKey) {
@@ -409,22 +427,28 @@ module.exports = class QueryToPgSql extends QueryBase{
 		return this.knexRaw(`"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`);
 	}
 
+	/**
+	 * For PG we want to allow sorting by the attributes in the JSONB column.
+	 * @param propertyName
+	 * @param direction
+	 * @returns {null|*}
+	 */
 	buildSort(propertyName, direction) {
-		let columnName;
+		let columnFullName;
 		if (propertyName.indexOf(".") !== -1) {
 			//TODO this is postgres, move to postgres
 			let parts = propertyName.split(".");
 			if (this.properties[parts[0]]) {
-				columnName = '"' + this.properties[parts[0]].columnName + '"';
+				columnFullName = `"${this.tableName}"."${this.properties[parts[0]].columnName}"`;
 				for (let i = 1; i < parts.length; i++) {
-					columnName += "->>'" + parts[i] + "'";
+					columnFullName += `->>'${parts[i]}'`;
 				}
 			}
 		} else if (this.properties[propertyName]) {
-			columnName = '"' + this.properties[propertyName].columnName + '"';
+			columnFullName = `"${this.tableName}"."${this.properties[propertyName].columnName}"`;
 		}
-		if (columnName) {
-			return this.knexRaw('"' + this.tableName + '".' + columnName);
+		if (columnFullName) {
+			return this.raw(columnFullName);
 		}
 		return null;
 	}
@@ -438,12 +462,10 @@ module.exports = class QueryToPgSql extends QueryBase{
 	 */
 	processType(value, property, isInsertOrUpdate) {
 		let context  = this;
-
 		switch (property.type) {
 			case "object" :
 				switch (property.format) {
 					case "geometry" :
-						//console.log("GEOMETRY!!!!!!!!! => " + value);
 						if (value) {
 							return this.raw(value); //need to just do this by hand
 						} else {
@@ -457,7 +479,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 							return null;
 						}
 				}
-
 				break;
 			case "array" :
 				//TODO figure out a way to check in the types of each array item
@@ -473,13 +494,15 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (isInsertOrUpdate) {
 					switch (property.format) {
 						case "string" :
-							return this.raw("ARRAY['" + value.join("','") + "']");
+							return this.raw("ARRAY[" + this.sqlFormatArray(value, "string") + "]");
 							break;
 						case "uuid" :
-							return this.raw("ARRAY['" + value.join("','") + "']::uuid[]");
+							return this.raw("ARRAY[" + this.sqlFormatArray(value, "string") + "]::uuid[]");
 							break;
-						default :
-							return this.raw("ARRAY[" + value.join(",") + "]");
+						case "integer" :
+							return this.raw("ARRAY[" + this.sqlFormatArray(value, "integer") + "]");
+						case "number" :
+							return this.raw("ARRAY[" + this.sqlFormatArray(value, "number") + "]");
 
 					}
 				}
@@ -489,16 +512,16 @@ module.exports = class QueryToPgSql extends QueryBase{
 				switch (property.format) {
 					case "uuid" :
 					case "string" :
-						return this.raw("ARRAY['" + value.join("','") + "']::text[]");
+						return this.raw("ARRAY[" + this.sqlFormatArray(value, "string") + "]::text[]");
 						break;
 					case "integer" :
-						return this.raw("ARRAY['" + value.join("','") + "']::int[]");
+						return this.raw("ARRAY[" + this.sqlFormatArray(value, "integer") + "]::int[]");
 						break;
 					case "number" :
-						return this.raw("ARRAY['" + value.join("','") + "']::decimal[]");
+						return this.raw("ARRAY[" + this.sqlFormatArray(value, "number") + "]::decimal[]");
 						break;
 					default :
-						return this.raw("ARRAY[" + value.join(",") + "]::text[]");
+						return this.raw("ARRAY[" + this.sqlFormatArray(value, "string") + "]::text[]");
 
 				}
 			case "number" :
@@ -522,7 +545,7 @@ module.exports = class QueryToPgSql extends QueryBase{
 				if (typeof value === "string") {
 					return value === "1" || value === "true";
 				} else {
-					return value;
+					return value === true;
 				}
 				break;
 			case "string" :
@@ -550,7 +573,6 @@ module.exports = class QueryToPgSql extends QueryBase{
 							}
 							return value;
 						default :
-							//return this.decodeQuery(value).trim();
 							return value.trim();
 					}
 				} else {
@@ -560,6 +582,8 @@ module.exports = class QueryToPgSql extends QueryBase{
 		}
 		return value;
 	}
+
+
 
 	/**
 	 * Where in, nin conditions are present, the options need to be parsed to the correct data-type

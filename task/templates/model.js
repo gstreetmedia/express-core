@@ -3,42 +3,18 @@ return `
 const ModelBase = require('../core/model/ModelBase');
 const _ = require('lodash');
 
-module.exports = class ${ModelName}Model extends ModelBase {
+class ${ModelName}Model extends ModelBase {
 
 	constructor(req) {
 		super(req);
 	}
 
 	/**
-	 * The name of the table used by this model instance
-	 * @returns {string}
-	 */
-	get tableName() {
-		return ${ModelName}Model.tableName;
-	}
-	
-	/**
 	 * The name of the table used by this Model Class
 	 * @returns {string}
 	 */
-	static get tableName() {
+	get tableName() {
 		return '${TableName}';
-	}
-
-	/**
-	 * Get the schema used by this Model Class
-	 * @returns {{}}
-	 */
-	static get schema() {
-		return ModelBase.getSchema(${ModelName}Model.tableName);
-	}
-
-	/**
-	 * Get the available Fields for this Model Class
-	 * @returns {{}}
-	 */
-	static get fields() {
-		return ModelBase.getFields(${ModelName}Model.tableName);
 	}
 
 	/**
@@ -82,21 +58,8 @@ module.exports = class ${ModelName}Model extends ModelBase {
 	async destroy(id) {
 		return await super.destroy(id);
 	}
+};
 
-	/**
-	 *
-	 * @returns {{}}
-	 */
-	get relations() {
-		return {};
-	}
-
-	/**
-	 *
-	 * @returns {{}}
-	 */
-	get foreignKeys() {
-		return {};
-	}
-};`
+module.exports = ${ModelName}Model;
+`
 }

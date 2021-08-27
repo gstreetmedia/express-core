@@ -9,13 +9,7 @@ module.exports = class TokenModel extends ModelBase {
 		super(req);
 	}
 
-	get tableName() { return TokenModel.tableName; }
-
-	static get tableName() { return 'tokens'; }
-
-	static get schema() { return ModelBase.getSchema(TokenModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(TokenModel.tableName); }
+	get tableName() { return '_tokens'; }
 
 	async create(data){
 		data.key = uuid.v4();

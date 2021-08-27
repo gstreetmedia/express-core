@@ -14,23 +14,10 @@ class SessionModel extends ModelBase {
 	}
 
 	get tableName() {
-		return SessionModel.tableName;
-	}
-
-	static get tableName() {
-		return "sessions";
-	}
-
-	static get schema() { return ModelBase.getSchema(SessionModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(SessionModel.tableName); }
-
-	async index(query) {
-		return await super.index(query);
+		return "_sessions";
 	}
 
 	async create(data) {
-		console.log("SM::create");
 		return await super.create(data);
 	}
 

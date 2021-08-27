@@ -438,4 +438,10 @@ body {
   flex-basis: 0;
   order: 1; }
 
+.jsonview {
+  max-height: 500px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /*# sourceMappingURL=admin.css.map */

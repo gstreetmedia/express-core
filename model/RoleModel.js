@@ -8,13 +8,7 @@ module.exports = class RoleModel extends ModelBase {
 		super(req);
 	}
 
-	get tableName() { return RoleModel.tableName; }
-
-	static get tableName() { return 'roles'; }
-
-	static get schema() { return ModelBase.getSchema(RoleModel.tableName); }
-
-	static get fields() { return ModelBase.getFields(RoleModel.tableName); }
+	get tableName() { return '_roles'; }
 
 	async index(query){
 		return await super.index(query);
