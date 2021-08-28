@@ -94,6 +94,9 @@ module.exports = {
 											type : "string"
 										}
 									}
+								},
+								to : {
+									type : "string"
 								}
 							}
 						},
@@ -102,6 +105,9 @@ module.exports = {
 						},
 						limit : {
 							type : "number"
+						},
+						"sort" : {
+							type : "string"
 						}
 					}
 				}
@@ -128,7 +134,7 @@ module.exports = {
 				}
 			},
 			description: "",
-			columnName: "relations"
+			columnName: "foreign_keys"
 		},
 		updatedAt: {
 			type: "string",
@@ -147,6 +153,12 @@ module.exports = {
 		route : {
 			type : "string",
 			columnName : "route"
+		},
+		status : {
+			type: "string",
+			maxLength: 32,
+			description: "",
+			columnName: "status"
 		}
 	},
 	required: [

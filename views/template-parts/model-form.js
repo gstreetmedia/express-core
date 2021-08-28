@@ -15,7 +15,7 @@ module.exports = (o) => {
 		properties = _.filter(model.fields.adminCreate, {visible: true});
 	}
 	properties = _.map(properties, "property");
-	let formHelper = require("../../helper/view/form");
+	let formHelper = require("../elements/form");
 	let inflector = require("../../helper/inflector");
 
 	return `

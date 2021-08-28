@@ -262,6 +262,8 @@ class QueryToSqlBase {
 		for (var key in data) {
 			if (this.properties[key]) {
 				transform[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
+			} else {
+				console.log("Not adding " + key);
 			}
 		}
 

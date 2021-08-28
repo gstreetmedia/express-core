@@ -19,6 +19,10 @@ class SchemaModel extends ModelBase {
 	}
 
 	get tableName() {
+		return SchemaModel.tableName;
+	}
+
+	static get tableName() {
 		return "_schemas";
 	}
 
@@ -27,28 +31,33 @@ class SchemaModel extends ModelBase {
 	}
 
 	async update(id, data) {
-		console.log("udpate " + id);
-		data.status = data.status || "active";
 		let result = await super.update(id, data, true);
 		if (!result.error) {
-			global.schemaCache[result.tableName] = new JsonSchema(result);
+			let schema = new JsonSchema(result);
+			global.schemaCache[result.tableName] = schema;
+			if (schema.relations) {
+				global.relationCache[result.tableName] = result.relations;
+			}
+			if (schema.foreignKeys) {
+				global.foreignKeyCache[result.tableName] = result.foreignKeys;
+			}
 			await this.saveFile(result.tableName, result);
-		} else {
-			console.log(result);
 		}
 		return result;
 	}
 
 	async create(data) {
-		console.log("create " + data.tableName);
-		data.status = data.status || "active";
 		let result = await super.create(data, true);
 		if (!result.error) {
-			global.schemaCache[result.tableName] = new JsonSchema(result);
-			await this.saveFile(result.tableName, result);
-		} else {
-			//console.log(result);
-			console.log(this.lastCommand.toString());
+			let schema = new JsonSchema(result);
+			global.schemaCache[data.tableName] = schema;
+			if (schema.relations) {
+				global.relationCache[data.tableName] = data.relations;
+			}
+			if (schema.foreignKeys) {
+				global.foreignKeyCache[data.tableName] = data.foreignKeys;
+			}
+			await this.saveFile(data.tableName, result);
 		}
 		return result;
 	}
@@ -60,18 +69,18 @@ class SchemaModel extends ModelBase {
 		if (this.schema) {
 			return this.schema;
 		}
-		if (global.schemaCache[this.tableName]) {
-			return global.schemaCache[this.tableName];
+		if (global.schemaCache[SchemaModel.tableName]) {
+			return global.schemaCache[SchemaModel.tableName];
 		}
-		this._schema = await this.get(this.tableName); //Need a primer
+		this._schema = await this.get(SchemaModel.tableName); //Need a primer
 		let schema = await this.findOne({
 			where : {
-				tableName : this.tableName
+				tableName : SchemaModel.tableName
 			}
 		});
-		if (schema && schema.id) {
+		if (!schema.error) {
 			hasSchemaTable = true;
-			this._schema = global.schemaCache[this.tableName] = new JsonSchema(schema);
+			this._schema = global.schemaCache[SchemaModel.tableName] = new JsonSchema(schema);
 		} else {
 			hasSchemaTable = false;
 		}
@@ -92,10 +101,8 @@ class SchemaModel extends ModelBase {
 	 * @returns {JsonSchema}
 	 */
 	async get(tableName, fromCache) {
-		if (fromCache !== false) {
-			if (global.schemaCache[tableName]) {
-				return global.schemaCache[tableName];
-			}
+		if (global.schemaCache[tableName]) {
+			return global.schemaCache[tableName];
 		}
 		if (hasSchemaTable) {
 			this.log("get [db]", tableName);
@@ -106,7 +113,7 @@ class SchemaModel extends ModelBase {
 					}
 				}
 			)
-			if (schema && schema.id) {
+			if (schema && !schema.error) {
 				schema = new JsonSchema(schema);
 				global.schemaCache[tableName] = schema;
 				if (schema.relations) {
@@ -124,15 +131,14 @@ class SchemaModel extends ModelBase {
 	async set(tableName, data) {
 		if (hasSchemaTable) {
 			let table = await this.get(tableName, false);
-			if (table && table.id) {
-				return await this.update(table.id, data, true);
+			if (table) {
+				await this.update(data, true);
 			} else {
-				return await this.create(data, true);
+				await this.create(table.id, data, true);
 			}
 		} else {
 			this.saveFile(tableName, data);
 		}
-
 	}
 
 	async createTable() {
@@ -169,16 +175,13 @@ class SchemaModel extends ModelBase {
 	async loadFile(tableName) {
 		this.log("loadFile", tableName);
 		let schema;
-		let fileName = this.getLocalFileName(tableName);
-		let p = path.resolve(__dirname + "/../../schema/" + fileName);
+		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
 		if (await exists(p)) {
 			this.log("loadFile", p);
 			schema = require(p.split(".js").join(""));
-		} else {
-			this.log("No Schema @ " + p);
 		}
 		if (!schema) {
-			p = path.resolve(__dirname + "/../schema/" + fileName);
+			p = path.resolve(__dirname + "/../schema/" + this.getLocalFileName(tableName));
 			if (await exists(p)) {
 				this.log("loadFile", p);
 				schema = require(p.split(".js").join(""));
@@ -187,9 +190,9 @@ class SchemaModel extends ModelBase {
 				this.log("loadFile", "No schema @ " + p);
 			}
 		}
+
 		if (!schema) {
 			console.error("Could Not Load Schema for " + tableName);
-			return null;
 		}
 		schema = new JsonSchema(schema);
 		global.schemaCache[schema.tableName] = schema;
@@ -207,6 +210,12 @@ class SchemaModel extends ModelBase {
 				(schema) => {
 					schema = new JsonSchema(schema);
 					global.schemaCache[schema.tableName] = schema;
+					if (schema.relations) {
+						global.relationCache[schema.tableName] = schema.relations;
+					}
+					if (schema.foreignKeys) {
+						global.foreignKeyCache[schema.tableName] = schema.foreignKeys;
+					}
 				}
 			)
 		} else {
@@ -217,21 +226,28 @@ class SchemaModel extends ModelBase {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let p = path.resolve(__dirname + "/../../schema/" + file);
+					let p = path.resolve(__dirname + "/../schema/" + file);
 					let schema = require(p);
 					schema = new JsonSchema(schema);
+					global.schemaCache[schema.tableName] = schema;
+					if (schema.relations) {
+						global.relationCache[schema.tableName] = schema.relations;
+					}
+					if (schema.foreignKeys) {
+						global.foreignKeyCache[schema.tableName] = schema.foreignKeys;
+					}
 					schemas.push(schema);
 
-					global.schemaCache[schema.tableName] = schema;
+
 				}
 			)
 		}
 		return schemas;
 	}
 
-	getLocalFileName(tableName) {
-		this.log("getLocalFileName", tableName)
-		let file = inflector.dasherize(tableName.toLowerCase()) + "-schema.js";
+	getLocalFileName(tableName, type) {
+		type = type || "schema"
+		let file = inflector.dasherize(tableName.toLowerCase()) + `-${type}.js`;
 		if (file.indexOf("-") === 0) {
 			file = "_" + file.substring(1, file.length)
 		}
@@ -239,10 +255,16 @@ class SchemaModel extends ModelBase {
 	}
 
 	saveFile(tableName, data) {
-		this.log("saveFile", tableName)
-		let p = path.resolve(__dirname + "/../../schema/" + this.getLocalFileName(tableName));
-		let template = require("../task/templates/schema");
-		fs.writeFileSync(p, template(data));
+		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
+		if (fs.existsSync(p)) {
+			let template = require("../task/templates/schema");
+			fs.writeFileSync(p, template(data));
+			if (data.relations || data.foreignKeys) {
+				let template = require("../task/templates/relations");
+				let p = path.resolve(global.appRoot + "/src/schema/relations/" + this.getLocalFileName(tableName, "relations"));
+				fs.writeFileSync(p, template(data));
+			}
+		}
 	}
 
 

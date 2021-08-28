@@ -102,8 +102,9 @@ class ViewControllerBase {
 		if (o.req.xhr) {
 			return res.success(
 				{
-					data : {message:"Hi!"},
+					data : o.data,
 					html : await renderView(view, o),
+					model : o.model.schema.object
 				}
 			);
 		}

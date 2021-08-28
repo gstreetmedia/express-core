@@ -615,6 +615,8 @@ class ModelBase {
 
 		let proceed = await this.beforeUpdate(id, params);
 
+		console.log(params);
+
 		if (proceed) {
 			let command = this.queryBuilder.update(query, params);
 

@@ -1,5 +1,5 @@
 const inflector = require("../../helper/inflector");
-const valueFormat = require("../../helper/view/value-format");
+const valueFormat = require("../views/elements/form/value-format");
 const _ = require("lodash");
 const ViewObject = require("../../model/objects/ViewObject");
 

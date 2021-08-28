@@ -1,7 +1,14 @@
 
 module.exports = {
 	adminIndex : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"title",
 			visible: true
@@ -70,7 +77,14 @@ module.exports = {
 		}
 	],
 	publicIndex : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"id",
 			visible: true
@@ -139,7 +153,14 @@ module.exports = {
 		}
 	],
 	adminCreate : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"title",
 			visible: true
@@ -208,7 +229,14 @@ module.exports = {
 		}
 	],
 	publicCreate : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"id",
 			visible: true
@@ -267,7 +295,14 @@ module.exports = {
 		}
 	],
 	adminUpdate : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"title",
 			visible: true
@@ -326,7 +361,14 @@ module.exports = {
 		}
 	],
 	publicUpdate : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"id",
 			visible: true
@@ -385,7 +427,14 @@ module.exports = {
 		}
 	],
 	adminRead : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"id",
 			visible: true
@@ -444,7 +493,14 @@ module.exports = {
 		}
 	],
 	publicRead : [
-
+		{
+			property:"baseName",
+			visible: true
+		},
+		{
+			property:"route",
+			visible: true
+		},
 		{
 			property:"id",
 			visible: true

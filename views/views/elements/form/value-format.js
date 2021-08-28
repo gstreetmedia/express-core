@@ -22,8 +22,8 @@ module.exports = function(model, key, value, name) {
 
 	switch (properties[key].type) {
 		case "number" :
-			if (model.schema.primaryKey !== key) {
-				value = numeral(value).format();
+			if (model.schema.primaryKey !== key && properties[key].format !== "integer") {
+				value = value > 0 ? numeral(value).format() : value;
 			}
 			break;
 		case "object" :

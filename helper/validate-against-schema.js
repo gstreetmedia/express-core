@@ -15,7 +15,12 @@ let validate = (key, value, schema, action) => {
 	let property = schema.properties[key]; //ToDO key a.b.c
 
 	if (!property) {
-		return false;
+		return {
+			warning : {
+				message : "Value Not in Schema",
+				key : key
+			}
+		};
 	}
 
 	let type = schema.properties[key].type;
@@ -313,8 +318,10 @@ let validateObject = (data, schema, action) => {
 	for (const key in data) {
 		if (schema.properties.hasOwnProperty(key)) {
 			let result = validate(key, data[key], schema, action);
-			if (result !== true) {
-				errors.push(result);
+			if (result.warning) {
+				warnings.push(result)
+			} else if (result.errors) {
+				errors.push(result)
 			}
 		} else {
 			warnings.push(

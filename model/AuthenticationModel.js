@@ -320,9 +320,6 @@ class AuthenticationModel {
 			}
 		}
 
-		console.log("USER!!!");
-		console.log(user);
-
 		if (user) {
 			if (user.role) {
 				req.addRole(user.role);

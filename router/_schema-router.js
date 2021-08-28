@@ -4,9 +4,9 @@ const path = require("path");
 let authentication = require('../middleware/authentication');
 let Controller;
 if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/SchemaController.js"))) {
-	Controller = require('../controller/SchemaController');
-} else {
 	Controller = require(global.appRoot + "/src/controller/SchemaController");
+} else {
+	Controller = require("../controller/SchemaController");
 }
 let c;
 

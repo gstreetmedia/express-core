@@ -20,8 +20,10 @@ return `
 		  href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.css">
 	<link type="text/css" rel="stylesheet" href="/css/styles.css">
 	<link type="text/css" rel="stylesheet" href="/css/admin.css">
+	<!--<link type="text/css" rel="stylesheet"
+		  href="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/5.26.0/jsoneditor.min.css"> -->
 	<link type="text/css" rel="stylesheet"
-		  href="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/5.26.0/jsoneditor.min.css">
+		  href="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.5.4/jsoneditor.css">
 	<link type="text/css" rel="stylesheet"
 		  href="//cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.css">
 

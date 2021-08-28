@@ -40,7 +40,6 @@ module.exports = class QueryToSql extends QueryBase{
 		switch (property.type) {
 			case "object" :
 				switch (property.format) {
-
 					default :
 						try {
 							return _.isObject(value) ? JSON.stringify(value) : value;
@@ -48,7 +47,6 @@ module.exports = class QueryToSql extends QueryBase{
 							return null;
 						}
 				}
-
 				break;
 			case "array" :
 				if (_.isArray(value)) {

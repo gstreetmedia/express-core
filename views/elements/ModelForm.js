@@ -3,7 +3,7 @@ const RecordItemView = require("../elements/RecordItemView");
 const _ = require("lodash");
 const inflector = require("../../helper/inflector");
 const getView = require("../../helper/view/get-view");
-const formHelper = require("../../helper/view/form");
+const formHelper = require("./form/form");
 
 
 class ModelForm {

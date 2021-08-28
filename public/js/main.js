@@ -76,9 +76,9 @@ $(document).ready(
 				autoSelectFirst: true,
 				serviceUrl: app.apiRoot + "/admin/search/" + app.route,
 				groupBy: "field",
-				minChars : 4,
-				noCache : true,
-				deferRequestBy : 3,
+				minChars: 4,
+				noCache: true,
+				deferRequestBy: 3,
 				transformResult: function (response) {
 					var results = [];
 					response = JSON.parse(response);
@@ -142,7 +142,7 @@ $(document).ready(
 					let data = $(this).serializeJSON();
 
 					Object.keys(data).forEach(
-						function(key) {
+						function (key) {
 							if (data[key] === "null") {
 								data[key] = null;
 							}
@@ -150,15 +150,16 @@ $(document).ready(
 					);
 
 					let field = target.find("[name]");
+					let errors = [];
 					field.each(
-						function() {
+						function () {
 							var element = $(this);
 							//var e = document.getElementsByClassName('form-check-input')
 							var inputType = this.tagName === "INPUT" ? this.type : this.tagName;
 							var dataType = element.attr("data-type");
 							var name = element.attr("name");
 							var value = $(this).val();
-							if (value === "null") {
+							if (value.toLowerCase() === "null") {
 								value = null;
 							}
 							console.log(dataType + " => " + name + " " + inputType);
@@ -185,12 +186,21 @@ $(document).ready(
 									}
 									break;
 								case "object" :
-									try {
-										let o = JSON.parse(data[name]);
-										data[name] = o;
-									} catch (e) {
-										//Not JSON
+									if (value === null) {
+										data[name] = null;
+									} else	if (value.indexOf("{") === 0 || value.indexOf("[") === 0) {
+										var o;
+										try {
+											o = JSON.parse(value);
+											data[name] = o;
+										} catch (e) {
+											errors.push(name + " does not appear to be a valid object " );
+											errors.push(e.message);
+										}
+									} else {
+										errors.push(name + " should start with { or [");
 									}
+
 									break;
 								case "boolean" :
 									console.log("fix bool " + name + " => " + value);
@@ -211,6 +221,9 @@ $(document).ready(
 							}
 						}
 					);
+					if (errors.length > 0) {
+						return swal("Oops!", errors.join("\n"), "error")
+					}
 
 					if (target.attr("id") === "fieldForm") {
 						data = saveFields(data, false);
@@ -282,7 +295,7 @@ $(document).ready(
 			$.ajax(
 				{
 					url: url,
-					dataType : "json",
+					dataType: "json",
 					success: function (response) {
 						body.html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
 						body.scrollTop(0);
@@ -325,7 +338,7 @@ $(document).ready(
 							let keys = Object.keys(obj);
 							keys = keys.sort();
 							keys.forEach(
-								function(key) {
+								function (key) {
 									sorted[key] = obj[key];
 								}
 							)
@@ -402,7 +415,7 @@ $(document).ready(
 			$.ajax(
 				{
 					url: url,
-					dataType : "json",
+					dataType: "json",
 					success: function (response) {
 
 						body.html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
@@ -418,7 +431,7 @@ $(document).ready(
 
 		var onEditReady = function (body, modal) {
 
-			Quill.prototype.getHtml = function() {
+			Quill.prototype.getHtml = function () {
 				return this.container.firstChild.innerHTML;
 			};
 
@@ -449,35 +462,32 @@ $(document).ready(
 
 					editor.on("change", function () {
 						console.log("onCHange");
-						try {
-							target.val(JSON.stringify(JSON.parse(editor.getValue())));
-						} catch (e) {
-							//Not quite ready
-						}
+						let value = editor.getValue();
+						target.val(value);
 					});
 					$(this).hide();
 				}
 			);
 
 			body.find(".text-editor").each(
-				function() {
+				function () {
 					var target = $(this);
 
-					let richContentTypes = ['content','body','html','description','postContent','notes','info']
+					let richContentTypes = ['content', 'body', 'html', 'description', 'postContent', 'notes', 'info']
 					if (richContentTypes.indexOf(target.attr("name")) === -1) {
 						return;
 					}
 
-					$("[name='"+target.attr("data-input")+"']").addClass("d-none");
+					$("[name='" + target.attr("data-input") + "']").addClass("d-none");
 
-					var element = $("[name='"+target.attr("data-input")+"']");
+					var element = $("[name='" + target.attr("data-input") + "']");
 					element.parent().addClass("pb-5");
 					var editor = new Quill(target[0],
 						{
 							theme: 'snow'   // Specify theme in configuration
 						}
 					);  // First matching element will be used
-					editor.on('text-change', function(delta, oldDelta, source) {
+					editor.on('text-change', function (delta, oldDelta, source) {
 						var deltas = editor.getContents();
 						//console.log(delta);
 						//console.log(deltas);
@@ -512,7 +522,7 @@ $(document).ready(
 			$.ajax(
 				{
 					url: "/admin/" + app.tableName + "/create",
-					dataType : "json",
+					dataType: "json",
 					success: function (response) {
 						body.html(response.results.html);
 						body.scrollTop(0);
@@ -576,7 +586,7 @@ $(document).ready(
 
 		};
 
-		var makeFieldsSortable = function(saveResult) {
+		var makeFieldsSortable = function (saveResult) {
 			let containerSelector = '.property-group';
 			let containers = document.querySelectorAll(containerSelector);
 			const sortable = new Draggable.Sortable(containers, {
@@ -706,7 +716,7 @@ $(document).ready(
 		}
 
 		let target = $("#mainNav .active");
-		target.css("background-color","#EAEAEA");
+		target.css("background-color", "#EAEAEA");
 		$('.sidebar-sticky').scrollTop(target.offset().top - 50);
 
 		switch (app.action) {

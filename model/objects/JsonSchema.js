@@ -36,6 +36,9 @@ class JsonSchema {
 	 * @returns {string}
 	 */
 	get baseName() {
+		if (!this.object.baseName) {
+			return this.tableName;
+		}
 		return this.object.baseName
 	}
 
@@ -43,7 +46,7 @@ class JsonSchema {
 	 * @returns {string}
 	 */
 	get className() {
-		return inflector.classify(this.object.baseName)
+		return inflector.classify(this.baseName)
 	}
 
 	/**
@@ -106,6 +109,20 @@ class JsonSchema {
 	 */
 	get tableName() {
 		return this.object.tableName
+	}
+
+	/**
+	 * @returns {object}
+	 */
+	get relations() {
+		return this.object.relations
+	}
+
+	/**
+	 * @returns {object}
+	 */
+	get foreignKeys() {
+		return this.object.foreignKeys
 	}
 
 	toJSON() {

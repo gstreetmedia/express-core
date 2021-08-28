@@ -46,7 +46,7 @@ class ModelRelations {
 	 * @param {object} j
 	 */
 	static processSelect(relations, key, j) {
-		if (relations[key].select) {
+		if (relations[key] && relations[key].select) {
 			j.select = j.select || [];
 			relations[key].select.forEach(
 				(field) => {

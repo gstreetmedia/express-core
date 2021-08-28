@@ -15,7 +15,7 @@ module.exports = (o) => {
 	console.log(properties);
 	properties = _.map(properties, "property");
 
-	let formHelper = require("../../helper/view/form");
+	let formHelper = require("../elements/form");
 	let inflector = require("../../helper/inflector");
 	return `
 <form id="fieldForm" data-endpoint="${global.apiRoot}/${o.model.schema.route}${action === "edit" ? '/' + data[model.primaryKey] : ''}"

@@ -108,7 +108,7 @@ class RecordItemView {
 		let properties = model.schema.properties;
 
 
-		if (!value) {
+		if (value === null) {
 			return "";
 		}
 
@@ -121,12 +121,12 @@ class RecordItemView {
 			return value;
 		}
 
-		return value;
+		//return value;
 
 		switch (properties[key].type) {
 			case "number" :
-				if (model.schema.primaryKey !== key) {
-					value = numeral(value).format();
+				if (model.schema.primaryKey !== key && properties[key].format !== "integer") {
+					//value = numeral(value).format();
 				}
 				break;
 			case "object" :

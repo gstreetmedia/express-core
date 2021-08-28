@@ -126,7 +126,7 @@ exports.input = (attr, property) => {
 	return `
 	<input class="form-control" id="${attr.id}"
 	   name="${attr.name}"
-	   value="${!attr.value ? '' : attr.value}"
+	   value="${!attr.value === null ? '' : attr.value}"
 	   type="${attr.type}"
 		${attr.required ? 'required' : ''}
 	   maxlength="${attr.maxlength || ""}"
@@ -212,3 +212,21 @@ exports.textArea = (attr) => {
 >${attr.value}</textarea>
 `
 };
+
+exports.htmlEditor = (attr) => {
+	return `
+<div id="editor-${attr.name}">
+  ${attr.value}
+</div>
+
+<!-- Include the Quill library -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<!-- Initialize Quill editor -->
+<script>
+  var quill = new Quill('#editor-${attr.name}', {
+    theme: 'snow'
+  });
+</script>
+`
+}

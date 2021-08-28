@@ -6,17 +6,9 @@ const _ = require("lodash");
 
 module.exports = async (item, options) => {
 	let tableName = item.tableName;
-	let localSchema = await sm.loadFile(tableName);
-	if (!localSchema) {
-		localSchema = await sm.findOne(
-			{
-				where : {
-					tableName : tableName
-				}
-			}
-		);
-	}
+	let localSchema = await sm.get(tableName);
 	let baseName = item.baseName || item.tableName;
+
 	if (options.removePrefix) {
 		if (_.isString(options.removePrefix)) {
 			options.removePrefix = [options.removePrefix]
@@ -71,6 +63,22 @@ module.exports = async (item, options) => {
 			k = k.toLowerCase();
 		}
 		item.required[i] = k;
+	}
+
+	for (let i = 0; i < item.readOnly.length; i++) {
+		let k = inflectFromTable.propertyName(item.readOnly[i]);
+		if (k.length === 2) {
+			k = k.toLowerCase();
+		}
+		item.required[i] = k;
+	}
+
+	if (localSchema.relations) {
+		item.relations = localSchema.relations;
+	}
+
+	if (localSchema.foreignKeys) {
+		item.foreignKeys = localSchema.foreignKeys;
 	}
 
 	item.properties = properties;

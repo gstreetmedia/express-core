@@ -70,7 +70,9 @@ module.exports = async (o) => {
     <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.9.1/underscore-min.js"></script>
     <script src="//unpkg.com/popper.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/js/bootstrap.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/5.26.0/jsoneditor.min.js"></script>
+    <!--<script src="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/5.26.0/jsoneditor.min.js"></script>-->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.5.4/jsoneditor.min.js"></script>
+    
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.js"></script>
     <script src="//unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/@shopify/draggable@1.0.0-beta.8/lib/draggable.bundle.js"></script>

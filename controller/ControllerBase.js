@@ -429,6 +429,7 @@ class ControllerBase {
 	}
 
 	async adminIndex(req) {
+
 		let m = new this.Model(req);
 		await m.init();
 		let foreignKeys = m.foreignKeys || {};
