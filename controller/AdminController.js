@@ -44,6 +44,9 @@ class AdminController extends ViewControllerBase {
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
+		console.log(Controller);
+		console.log(Model);
+
 		if (!Controller || !Model) {
 			return res.status(404).send("Unknown Controller");
 		}
@@ -269,6 +272,7 @@ class AdminController extends ViewControllerBase {
 			data = await controller.read(req);
 		}
 
+		/*
 		if (model.tableName === "_fields") {
 			let TargetModel = await AdminController.getModel({params:{model:data.tableName}});
 			return await this.render(
@@ -285,6 +289,8 @@ class AdminController extends ViewControllerBase {
 				res
 			)
 		}
+
+		 */
 
 		return await this.render(
 			['page-admin-edit-' + inflector.dasherize(model.tableName), 'page-admin-edit'],

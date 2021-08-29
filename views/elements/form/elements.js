@@ -107,7 +107,7 @@ exports.switch = (attr) => {
 };
 
 exports.input = (attr, property) => {
-	let placeholder = "";
+	let placeholder = property.description;
 	switch (property.type) {
 		case "number" :
 			placeholder = "Some Number";
@@ -126,7 +126,7 @@ exports.input = (attr, property) => {
 	return `
 	<input class="form-control" id="${attr.id}"
 	   name="${attr.name}"
-	   value="${!attr.value === null ? '' : attr.value}"
+	   value="${attr.value === null ? '' : attr.value}"
 	   type="${attr.type}"
 		${attr.required ? 'required' : ''}
 	   maxlength="${attr.maxlength || ""}"
