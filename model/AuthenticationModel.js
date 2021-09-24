@@ -1,17 +1,38 @@
-const jwt = require('jsonwebtoken')
-const moment = require('moment')
-const md5 = require('md5')
-const cache = require('../helper/cache-manager')
-const hashPassword = require('../helper/hash-password')
-const now = require('../helper/now')
-const _ = require('lodash')
+const jwt = require('jsonwebtoken');
+const moment = require('moment');
+const md5 = require('md5');
+const cache = require('../helper/cache-manager');
+const hashPassword = require('../helper/hash-password');
+const now = require('../helper/now');
+const _ = require('lodash');
+const getModel = require("../helper/get-model");
+const RoleManager = require("./../middleware/RoleManager");
 
-let TokenModel = require('./TokenModel');
-let RolePermissionModel = require('./RolePermissionModel');
-let UserModel = require('./UserModel')
-let SessionModel = require('./SessionModel')
+/**
+ * @type {TokenModel|*}
+ */
+let TokenModel = getModel('TokenModel');
+/**
+ * @type {RolePermissionModel|*}
+ */
+let RolePermissionModel = getModel('RolePermissionModel');
+/**
+ * @type {UserModel|*}
+ */
+let UserModel = getModel('UserModel');
+/**
+ * @type {SessionModel|*}
+ */
+let SessionModel = getModel('SessionModel');
 
 class AuthenticationModel {
+
+	constructor(req) {
+		this.req = req;
+		req.locals = req.locals || {
+			roleManager : new RoleManager(req)
+		}
+	}
 
 	checkLocalRequest (req) {
 		if (req.headers['referer'] &&
@@ -118,7 +139,13 @@ class AuthenticationModel {
 		//console.log("applicationKey.parent");
 		//Check header for application-key
 
-		req.locals = req.locals || {}
+		req.locals = req.locals || {
+			roleManager : new RoleManager(req)
+		}
+		/**
+		 * @type {RoleManager|RoleManager|*}
+		 */
+		const roleManager = req.locals.roleManager;
 
 		let key = req.headers['application-key'];
 		if (!key) {
@@ -138,9 +165,9 @@ class AuthenticationModel {
 			key = md5(key);
 		}
 
-		let obj = await cache.get('configuration_' + key);
+		let tokenRecord = await cache.get('authentication_token_' + key);
 
-		if (!obj) {
+		if (!tokenRecord) {
 			let query = {
 				where: {
 					key: req.headers['application-key']
@@ -149,19 +176,26 @@ class AuthenticationModel {
 					config : true,
 					roles : {
 						join : {
-							permissions : true
+							rolePermissions : true
 						}
 					},
-					permissions : true
-				}
+					tokenPermissions : true
+				},
+				debug : true
+			}
+			if (!secret && !req.get('Referrer')) {
+				return { error: 'Server / Application Calls require an Application Secret' }
 			}
 
 			if (secret) {
-				query.where.secret = req.headers['application-secret']
+				if (process.env.CORE_TOKENS_HASH_SECRET === "true") {
+					secret = hashPassword(secret);
+				}
+				query.where.secret = secret;
 			}
 
 			let tm = new TokenModel(req);
-			let tokenRecord = await tm.findOne(query);
+			tokenRecord = await tm.findOne(query);
 
 			if (!tokenRecord) {
 				if (secret) {
@@ -178,79 +212,67 @@ class AuthenticationModel {
 						statusCode : 401
 					}
 				}
-			} else {
-				//This is at the very least a request using an API KEY
-				req.addRole('api-key')
 			}
 
-			//in theory, if there is no secret limits should be applied by referring url
-			//this will all break down server to server where there won't be one. As such,
-			//when requesting server to server we should enforce the use of the secret.
-			if (!secret && !req.get('Referrer')) {
-				return { error: 'Server / Application Calls require an Application Secret' }
-			} else if (!secret && req.get('Referrer')) {
-				if (
-					req.hostname.indexOf('localhost') === -1 &&
-					tokenRecord.config.settings &&
-					tokenRecord.config.settings.hosts
-				) {
-					if (this.checkWhitelist(tokenRecord.config.settings.hosts, req) === false) {
-						return {
-							error: {
-								message : 'Token not allowed for this host',
-								statusCode : 401
-							}
+			await cache.set('authentication_token_' + key, tokenRecord, process.env.CORE_CACHE_DURATION_LONG, 600);
+		}
+
+		roleManager.addRole('api-key');
+
+		//in theory, if there is no secret limits should be applied by referring url
+		//this will all break down server to server where there won't be one. As such,
+		//when requesting server to server we should enforce the use of the secret.
+		if (!secret && !req.get('Referrer')) {
+			return {error: 'Server / Application Calls require an Application Secret'}
+		} else if (!secret && req.get('Referrer')) {
+			if (
+				req.hostname.indexOf('localhost') === -1 &&
+				tokenRecord.config.settings &&
+				tokenRecord.config.settings.hosts
+			) {
+				if (this.checkWhitelist(tokenRecord.config.settings.hosts, req) === false) {
+					return {
+						error: {
+							message : 'Token not allowed for this host',
+							statusCode : 401
 						}
 					}
 				}
-			} else if (secret && req.get('Referrer')) {
-				return {
-					error: {
-						message : 'Please do not include an application-secret when making requests from a browser.',
-						statusCode : 401
-					}
+			}
+		} else if (secret && req.get('Referrer')) {
+			return {
+				error: {
+					message : 'Please do not include an application-secret when making requests from a browser.',
+					statusCode : 401
 				}
-			} else if (secret) {
-				req.addRole('api-secret')
 			}
+		} else if (secret) {
+			roleManager.addRole('api-secret')
+		}
 
-			obj = {
-				token: null
-			}
+		if (tokenRecord.role) {
+			roleManager.addRole(tokenRecord.role);
+		}
 
-			//surface all relations to top level eg : {token:{},config:{},dataset:{}}
-			let relations = Object.keys(tm.relations)
-
-			relations.forEach(
-				function (key) {
-					if (tokenRecord[key]) {
-						obj[key] = tokenRecord[key]
-						//delete tokenRecord[key]
-					}
+		if (_.isArray(tokenRecord.roles)) {
+			tokenRecord.roles.forEach((role) => {
+				if (role.rolePermissions) {
+					roleManager.addPermissions(role.rolePermissions);
 				}
-			);
-
-			obj.token = tokenRecord;
-
-			await cache.set('configuration_' + key, obj, process.env.CACHE_DURATION_LONG || process.env.CORE_CACHE_DURATION_LONG);
-
-		} else {
-			req.addRole('api-key')
-			if (secret) {
-				req.addRole('api-secret')
-			}
+			});
+			tokenRecord.roles.forEach((role) => {
+				roleManager.addRole(role.name);
+			});
 		}
 
-		req.locals = req.locals || {};
-		_.extend(req.locals, obj)
-		_.extend(req, obj);
+		if (_.isArray(tokenRecord.tokenPermissions)) {
+			tokenRecord.tokenPermissions.forEach((item) => {
+				roleManager.addPermissions(item);
+			})
+		}
 
-		if (obj.token.roles) {
-			req.addRole(obj.token.roles);
-		}
-		if (obj.token.permissions) {
-			req.addPermissions(obj.token.permissions);
-		}
+		req.locals.token = tokenRecord;
+		req.locals.config = tokenRecord.config;
 
 		return true
 	}
@@ -261,7 +283,13 @@ class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async bearerToken (req) {
-		//console.log('bearerToken.parent')
+		req.locals = req.locals || {
+			roleManager : new RoleManager(req)
+		}
+		/**
+		 * @type {RoleManager|RoleManager|*}
+		 */
+		const roleManager = req.locals.roleManager;
 		let token
 		let decodedToken = this.getDecodedTokenFromRequest(req);
 
@@ -300,15 +328,10 @@ class AuthenticationModel {
 						status : 'active'
 					},
 					join : {
-						permissions : true,
-						userRole : {
-							join : {
-								permissions: true
-							}
-						},
+						userPermissions : true,
 						roles : {
 							join : {
-								permissions: true
+								rolePermissions: true
 							}
 						}
 					}
@@ -322,21 +345,28 @@ class AuthenticationModel {
 
 		if (user) {
 			if (user.role) {
-				req.addRole(user.role);
+				roleManager.addRole(user.role);
 			}
-			if (user.userRole) {
-				req.addRole(user.userRole);
+			if (_.isArray(user.roles)) {
+				user.roles.forEach((role) => {
+					if (role.rolePermissions) {
+						roleManager.addPermissions(role.rolePermissions);
+					}
+				})
+				user.roles.forEach((role) => {
+					roleManager.addRole(role.name);
+				})
 			}
-			if (user.roles) {
-				req.addRole(user.roles);
+			if (_.isArray(user.userPermissions)) {
+				user.userPermissions.forEach((item) => {
+					roleManager.addPermissions(item);
+				})
 			}
-			if (user.permissions) {
-				req.addPermissions(user.permissions);
-			}
-			req.user = user;
-			req.locals = req.locals || {};
-			_.extend(req.locals, user)
-			req.jwt = this.getTokenFromRequest(req);
+
+			req.locals.user = user;
+			req.locals.userPermission = user.userPermissions;
+			req.locals.userRoles = user.userRoles;
+			req.locals.jwt = req.jwt = this.getTokenFromRequest(req);
 		} else {
 			return {
 				error: {
@@ -376,12 +406,11 @@ class AuthenticationModel {
 		if (this.hasValidCookie(req)
 		) {
 			let keyResult = await this.bearerToken(req)
-			if (keyResult.error) {
-				//console.log('keyResult => ' + keyResult.error)
-			} else {
-				//console.log('Has Valid Cookie!!!')
-			}
-			if (req.currentRoles.indexOf('super-admin') !== -1) {
+			/**
+			 * @type {RoleManager|RoleManager|*}
+			 */
+			const roleManager = req.locals.roleManager;
+			if (roleManager.hasRole('super-admin')) {
 				return {
 
 				}

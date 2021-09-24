@@ -1,58 +1,20 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-
+const cache = require("../helper/cache-manager");
 
 class UserRoleModel extends ModelBase {
 
-	constructor(req) {
-		super(req);
-	}
-
 	get tableName() { return '_user_roles'; }
 
-	async create(data){
-		return await super.create(data);
-	}
-
-	async read(id, query){
-		return await super.read(id, query);
-	}
-
-	async update(id, data, fetch){
-		return await super.update(id, data, fetch);
-	}
-
-	async query(query){
-		return await super.query(query);
-	}
-
-	async destroy(id){
-		return await super.destroy(id);
-	}
-
-	get relations() {
-		return {
-			permissions: {
-				relation: "HasMany",
-				modelClass: "RolePermissionModel",
-				join: {
-					from: "roleId",
-					to: "id"
-				}
-			}
+	async afterCreate(id, data) {
+		if (data.userId) {
+			await cache.del('authenticated_user_' + data.userId);
 		}
 	}
 
-	get foreignKeys () {
-		return {
-			roleId : {
-				modelClass : "RoleModel",
-				to : "id",
-			},
-			userId : {
-				modelClass : "UserModel",
-				to : "id"
-			}
+	async afterUpdate(id, data) {
+		if (data.userId) {
+			await cache.del('authenticated_user_' + data.userId);
 		}
 	}
 

@@ -52,7 +52,7 @@ class ModelView {
 			let tab = groups[key];
 			count++;
 			return `
-				<li class="nav-item mr-1" role="presentation">
+				<li class="nav-item me-1" role="presentation">
     				<button class="nav-link${ count === 0 ? " active" : ""}" id="${key}-tab" 
     				 data-target="#${key}-relation" 
     				 type="button" 

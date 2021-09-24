@@ -1,0 +1,6 @@
+exports.relations = {
+
+}
+exports.foreignKeys = {
+
+}

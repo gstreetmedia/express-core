@@ -7,6 +7,9 @@ const path = require("path");
 const exists = require("util").promisify(fs.exists);
 const readFile = require("util").promisify(fs.readFile);
 const inflectFromTable = require("../helper/inflect-from-table");
+const getRelations = require("../helper/get-relations");
+const getForeignKeys = require("../helper/get-foreign-keys");
+
 global.schemaCache = {};
 global.relationCache = {};
 global.foreignKeyCache = {};
@@ -101,10 +104,10 @@ class SchemaModel extends ModelBase {
 	 * @returns {JsonSchema}
 	 */
 	async get(tableName, fromCache) {
-		if (global.schemaCache[tableName]) {
+		if (fromCache !== false && global.schemaCache[tableName]) {
 			return global.schemaCache[tableName];
 		}
-		if (hasSchemaTable) {
+		if (hasSchemaTable && process.env.CORE_SCHEMA_SOURCE !== "local") {
 			this.log("get [db]", tableName);
 			let schema = await this.findOne(
 				{
@@ -193,7 +196,11 @@ class SchemaModel extends ModelBase {
 
 		if (!schema) {
 			console.error("Could Not Load Schema for " + tableName);
+			return null;
 		}
+
+		schema.relations = await getRelations(tableName);
+		schema.foreignKeys = await getForeignKeys(tableName);
 		schema = new JsonSchema(schema);
 		global.schemaCache[schema.tableName] = schema;
 		return schema;
@@ -204,7 +211,7 @@ class SchemaModel extends ModelBase {
 	 */
 	async loadAll() {
 		let schemas = [];
-		if (hasSchemaTable) {
+		if (hasSchemaTable && process.env.CORE_SCHEMA_SOURCE !== "local") {
 			schemas = await this.find({sort:"title ASC"});
 			schemas.forEach(
 				(schema) => {
@@ -226,7 +233,7 @@ class SchemaModel extends ModelBase {
 					if (file.indexOf(".js") === -1) {
 						return;
 					}
-					let p = path.resolve(__dirname + "/../schema/" + file);
+					let p = path.resolve(global.appRoot + "/src/schema/" + file);
 					let schema = require(p);
 					schema = new JsonSchema(schema);
 					global.schemaCache[schema.tableName] = schema;
@@ -237,8 +244,6 @@ class SchemaModel extends ModelBase {
 						global.foreignKeyCache[schema.tableName] = schema.foreignKeys;
 					}
 					schemas.push(schema);
-
-
 				}
 			)
 		}

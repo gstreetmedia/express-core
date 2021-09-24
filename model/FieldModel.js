@@ -83,7 +83,7 @@ class FieldModel extends ModelBase {
 
 	async get(tableName, fromCache) {
 
-		if (fromCache !== false &&global.fieldCache[tableName]) {
+		if (fromCache !== false && global.fieldCache[tableName]) {
 			return global.fieldCache[tableName];
 		}
 
@@ -93,7 +93,7 @@ class FieldModel extends ModelBase {
 		//3. tableName - camel case
 		//4. TableName - capital camel case
 
-		if (hasFieldTable) {
+		if (hasFieldTable && process.env.CORE_FIELDS_SOURCE !== "local") {
 			let result = await this.findOne(
 				{
 					where: {
@@ -101,8 +101,7 @@ class FieldModel extends ModelBase {
 					}
 				}
 			);
-
-			if (result && result.id) {
+			if (result && !result.error) {
 				global.fieldCache[tableName] = result;
 				return global.fieldCache[tableName]
 			}

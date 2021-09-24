@@ -1,5 +1,5 @@
 let DataTable = require("./elements/DataTable");
-let inflector = require("../helper/inflector");
+
 /**
  * @param {ViewObject} o
  * @returns {Promise<string>}
@@ -11,20 +11,20 @@ module.exports = async (o) => {
 	let pagination = await o.getView("template-parts/pagination");
 	return `
 ${ await o.renderView(header, o) }    
-<div class="navbar">
-	<h5 class="title">${ o.model.schema.title } Index</h5>
+<div class="navbar ps-1 pe-1">
+	<h5 class="title">${ o.name } Index</h5>
 	<div>
 		<span class="fields-link">
 		<a href="/admin/fields/${ o.model.tableName }" 
 		data-table-name="${ o.model.tableName }"
 		data-name="${ o.name }" 
-		class="btn btn-secondary btn-sm">${ o.model.schema.title } Fields</a>
+		class="btn btn-secondary btn-sm">${ o.name } Fields</a>
 		</span>
 		<span class="create-link">
 		<a href="/admin/${ o.model.tableName }/create" 
 		data-table-name="${ o.model.tableName }"
 		data-name="${ o.name }" 
-		class="btn btn-secondary btn-sm">New ${ inflector.singularize(o.model.schema.title) }</a>
+		class="btn btn-secondary btn-sm">New ${ o.name }</a>
 		</span>
 	</div>
 </div>

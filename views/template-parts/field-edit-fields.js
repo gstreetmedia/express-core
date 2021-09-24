@@ -15,7 +15,7 @@ module.exports = (o) => {
 	console.log(properties);
 	properties = _.map(properties, "property");
 
-	let formHelper = require("../elements/form");
+	let formHelper = require("../../helper/view/form");
 	let inflector = require("../../helper/inflector");
 	return `
 <form id="fieldForm" data-endpoint="${global.apiRoot}/${o.model.schema.route}${action === "edit" ? '/' + data[model.primaryKey] : ''}"
@@ -67,7 +67,7 @@ module.exports = (o) => {
 					${fields[group].map(
 					(item) => {
 						return `
-					<div class="row mb-1 property-item ml-0 mr-0" data-property-name="${item.property}" data-bindid="property" >
+					<div class="row mb-1 property-item ml-0 me-0" data-property-name="${item.property}" data-bindid="property" >
 						<div class="col-lg-12 p-0">
 							<div class="card">
 								<div class="card-body p-0">

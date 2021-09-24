@@ -1,5 +1,5 @@
 const inflector = require("../../helper/inflector");
-const valueFormat = require("../views/elements/form/value-format");
+const valueFormat = require("../elements/form/value-format");
 const _ = require("lodash");
 const ViewObject = require("../../model/objects/ViewObject");
 
@@ -48,13 +48,13 @@ class DataTable {
 			let icon = `<span class="material-icons-outlined">${iconName}</span>`;
 
 			items.push(
-				`<div class="col-1 border-right border-top p-1">
-					<a href="/admin/${context.o.model.tableName}?query=${link}" class="order d-block float-right">
+				`<div class="col border-end border-top p-1 position-relative">
+					<span class="name d-inline-block float-start">${property}</span>
+					<a href="/admin/${context.o.model.tableName}?query=${link}" class="order d-block position-absolute top-0 end-0">
 						<span class="material-icons">
 							${icon}
 						</span>
 					</a>
-					<span class="name d-block float-left">${property}</span>
 				 </div>`
 			)
 		});
@@ -82,7 +82,7 @@ class DataTable {
 				let value = key.indexOf(".") !== -1 ? _.get(row, key) : row[key];
 
 				items.push(
-					`<div class="col-1 p-1 border-right">
+					`<div class="col p-1 border-end">
 					${valueFormat(this.o.model, key, value, name)}
 				</div>`
 				);
@@ -132,11 +132,11 @@ class DataTable {
 
 	actions(primaryKeyValue, row) {
 		return `
-		<div class="col-1 p-1 actions td-actions text-right">
-			<button class="btn btn-link edit" data-bindid="edit" data-table="${this.o.model.tableName}" data-id="${primaryKeyValue}">
+		<div class="col p-1 actions td-actions text-right">
+			<button class="btn btn-sm btn-link edit" data-bindid="edit" data-table="${this.o.model.tableName}" data-id="${primaryKeyValue}">
 				<i class="material-icons">edit</i>
 			</button>
-			<button class="btn btn-link delete" data-bindid="delete" data-table="${this.o.model.tableName}" data-id="${primaryKeyValue}">
+			<button class="btn btn-sm btn-link delete" data-bindid="delete" data-table="${this.o.model.tableName}" data-id="${primaryKeyValue}">
 				<i class="material-icons">close</i>
 			</button>
 		</div>
@@ -181,17 +181,19 @@ class DataTable {
 		<div style="width:${this.keys.length <= 8 ? "100%;margin-right:17px;" : (this.keys.length + 1) * 150 + "px"};min-width:100%;position: absolute;">
 			<div class="row header m-0">
 				${this.header(this.keys)}
-				<div class="col-1 border-top text-right p-1">Actions</div>
+				<div class="col border-top text-right p-1">Actions</div>
 			</div>
 			${this.rows(this.keys)}
 		</div>
 	</div>
 
 	<style>
-		#table_${this.instance} .col-1 {
+		#table_${this.instance} .col {
+		/*
 		min-width: ${this.keys.length <= 8 ? 100 / (this.keys.length + 1) + "%" : '150px'} !important;
 		max-width: ${this.keys.length <= 8 ? 100 / (this.keys.length + 1) + "%" : '150px'} !important;
 		float: left;
+		 */
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;

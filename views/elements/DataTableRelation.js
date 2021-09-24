@@ -13,7 +13,7 @@ class DataTableRelation extends DataTable {
 				return;
 			}
 			items.push(
-				`<div class="col-1 border-right border-top p-1">${inflector.classify(inflector.underscore(property))}</div>`
+				`<div class="col border-right border-top p-1">${inflector.classify(inflector.underscore(property))}</div>`
 			)
 		});
 		return items.join("");
@@ -26,15 +26,18 @@ class DataTableRelation extends DataTable {
 		<div class="inner" style="min-width:100%;position: absolute">
 			<div class="row header m-0">
 				${this.header(this.keys)}
-				<div class="col-1 border-top text-right p-1 actions">Actions</div>
+				<div class="col border-top text-right p-1 actions">Actions</div>
 			</div>
 			${this.rows(this.keys)}
 		</div>
 	</div>
 	<style>
-		#table_${ this.instance } .col-1 {
+		#table_${ this.instance } .col {
+		/*
 			min-width: ${ this.keys.length <= 8 ? 100 / (this.keys.length + 1) + "%" : '150px'} !important;
 			max-width: ${ this.keys.length <= 8 ? 100 / (this.keys.length + 1) + "%" : '150px'} !important;
+			
+		 */
 			float: left;
 			overflow: hidden;
 			white-space: nowrap;

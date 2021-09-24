@@ -50,11 +50,7 @@ exports.pluralize = (value, titleCase) => {
 };
 
 exports.dasherize = (value)=> {
-	let newValue = inflector.dasherize(value);
-	if (value.indexOf("_") === 0) {
-		newValue = "_" + newValue.substring(1, newValue.length);
-	}
-	return newValue;
+	return inflector.dasherize(value);
 };
 
 exports.humanize = (value) => {

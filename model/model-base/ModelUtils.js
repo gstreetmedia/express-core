@@ -42,7 +42,6 @@ class ModelUtils {
 	 */
 	static checkPrimaryKey(model, data) {
 		if (!data[model.primaryKey]) {
-			console.log(model.properties[model.primaryKey]);
 			switch (model.properties[model.primaryKey].type) {
 				case "string" :
 					switch (model.properties[model.primaryKey].format) {
@@ -68,10 +67,11 @@ class ModelUtils {
 	 * @param query
 	 * @param obj
 	 */
-	static addJoinFromKeys(model, query, obj) {
+	static async addJoinFromKeys(model, query, obj) {
 		if (!query) {
 			return;
 		}
+		await model.getRelations();
 		if (query.join) {
 			let keys;
 			obj.select = obj.select || [];
@@ -80,6 +80,7 @@ class ModelUtils {
 			} else {
 				keys = Object.keys(query.join);
 			}
+
 			keys.forEach(
 				(k) => {
 					if (!model.relations[k]) {
@@ -144,14 +145,11 @@ class ModelUtils {
 									return obj;
 								}
 								obj[pieces[0]] = obj[pieces[0]] || {};
-								console.log('parts => ' + _.isArray(pieces));
 								return doDeep(pieces.shift(), obj);
 							}
 							let columnName = parts[0];
 							parts.shift();
 							row[columnName] = row[columnName] || {};
-							console.log("parts here " + _.isArray(parts));
-							console.log(row[columnName]);
 							let target = doDeep(parts, row[columnName]);
 							target = row[key];
 						}
@@ -312,17 +310,21 @@ class ModelUtils {
 			}
 		}
 
+		let dotKeys = Object.keys(hash);
+
 		if (hasElements) {
 			results.forEach(
 				function (row) {
-					keys.forEach(
+					dotKeys.forEach(
 						(key) => {
-							if (hash[key]) {
+							if (row.hasOwnProperty(key)) {
 								let value = row[key];
-								try {
-									value = JSON.parse(row[key]);
-								} catch (e) {
-									//Not JSON.
+								if (_.isString(value) && (value.indexOf("{") === 0 || value.indexOf("[") === 0)) {
+									try {
+										value = JSON.parse(row[key]);
+									} catch (e) {
+										//Not JSON.
+									}
 								}
 								let parts = key.split(".");
 								row[parts[0]] = row[parts[0]] || {};
@@ -339,6 +341,7 @@ class ModelUtils {
 				}
 			);
 		}
+
 		return results;
 
 	}

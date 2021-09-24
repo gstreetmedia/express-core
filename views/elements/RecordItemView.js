@@ -1,6 +1,5 @@
-
-let inflector = require("../../helper/inflector");
-let getView = require("../../helper/view/get-view");
+const inflector = require("../../helper/inflector");
+const getView = require("../../helper/view/get-view");
 const numeral = require("numeral");
 const moment = require("moment");
 const beautify = require("json-beautify");
@@ -74,12 +73,13 @@ class RecordItemView {
 			}
 
 			if (name) {
+				let q = JSON.stringify({where:{[foreignKeyModel.primaryKey]:{"in":[data.foreignKeys[key][foreignKeyModel.primaryKey]]}}}).split('"').join('&quot;')
 				return `
-            <a href="/admin/${tableName}/${data.foreignKeys[key][foreignKeyModel.primaryKey]}/view" title="${value}" 
-                data-bindid="view"
+            <a href="/admin/${tableName}?query=${q}" title="${value}" 
                 data-title="${foreignKeyModel.schema.title}"
                 data-table-name="${foreignKeyModel.tableName}"
                 data-id="${data.foreignKeys[key][foreignKeyModel.primaryKey]}"
+                target="_blank"
             >
                 ${name}
             </a>`
@@ -87,12 +87,13 @@ class RecordItemView {
 				return this.valueRender(model, key, value, name)
 			}
 		} else if (key === model.primaryKey) {
+			let q = JSON.stringify({where:{[model.primaryKey]:{"in":[data[key]]}}}).split('"').join('&quot;')
 			return `
-			<a href="/admin/${model.tableName}/${data[key]}/view" title="${value}" 
-                data-bindid="view"
+			<a href="/admin/${model.tableName}?query=${q}" title="${value}" 
                 data-title="${model.schema.title}"
                 data-table-name="${model.tableName}"
                 data-id="${data[key]}"
+                target="_blank"
             >${data[key]}</a>`
 		} else {
 			return this.valueRender(model, key, value)
@@ -108,7 +109,7 @@ class RecordItemView {
 		let properties = model.schema.properties;
 
 
-		if (value === null) {
+		if (!value) {
 			return "";
 		}
 
@@ -121,12 +122,12 @@ class RecordItemView {
 			return value;
 		}
 
-		//return value;
+		return value;
 
 		switch (properties[key].type) {
 			case "number" :
-				if (model.schema.primaryKey !== key && properties[key].format !== "integer") {
-					//value = numeral(value).format();
+				if (model.schema.primaryKey !== key) {
+					value = numeral(value).format();
 				}
 				break;
 			case "object" :

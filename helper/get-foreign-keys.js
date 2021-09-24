@@ -1,12 +1,13 @@
 let inflector = require("./inflector");
 let fs = require("fs");
 let path = require("path");
+global.foreignKeyCache = global.foreignKeyCache || {};
 
 module.exports = async(tableName, model) => {
-	if (global.foreignKeyCache && global.foreignKeyCache[tableName]) {
+	if (global.foreignKeyCache[tableName]) {
 		return global.foreignKeyCache[tableName];
 	}
-	if (model.foreignKeys) {
+	if (model && model.foreignKeys) {
 		return model.foreignKeys;
 	}
 
@@ -16,6 +17,14 @@ module.exports = async(tableName, model) => {
 	}
 	try {
 		let obj = require(global.appRoot + '/src/schema/relations/' + fileName + '-relations');
+		if (obj.foreignKeys) {
+			global.foreignKeyCache[tableName] = obj.foreignKeys;
+			return obj.foreignKeys;
+		}
+		if (obj.relations) {
+			global.relationCache[tableName] = obj.relations;
+
+		}
 		if (obj.foreignKeys) {
 			global.foreignKeyCache[tableName] = obj.foreignKeys;
 			return obj.foreignKeys;

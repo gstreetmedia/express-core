@@ -21,8 +21,8 @@ ${ await renderView(header, o) }
 		(key) => {
 			let schema = o.schemas[key];
 			return `
-	<div class="col-md-4 mb-2">
-		<a href="/admin/${ schema.tableName }" class="btn btn-dark btn-block">${schema.title}</a>
+	<div class="col-3 mb-2">
+		<a href="/admin/${ schema.tableName }" class="btn btn-dark d-block">${schema.title}</a>
 	</div>`
 		}
 	).join("")}

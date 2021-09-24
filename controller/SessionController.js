@@ -1,20 +1,13 @@
 const ControllerBase = require('./ControllerBase');
-const _ = require('lodash');
-const fs = require("fs");
+const Model = require('../model/SessionModel');
 
 class SessionController extends ControllerBase {
-
+	/**
+	 * @param {SessionModel} model
+	 */
 	constructor(model) {
-		if(!model) {
-			if (fs.existsSync(__dirname + "/../../model/SessionModel.js")) {
-				model = require("../../model/SessionModel");
-			} else {
-				model = require('../model/SessionModel');
-			}
-		}
-		super(model);
+		super(model || Model);
 	}
-
 }
 
 module.exports = SessionController;

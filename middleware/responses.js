@@ -24,7 +24,7 @@ module.exports = async function (req, res, next) {
 		}
 		if (result instanceof Array) {
 		  obj.records = result.length;
-    }
+        }
 		res.status(200).send(obj);
 	};
 
@@ -52,7 +52,7 @@ module.exports = async function (req, res, next) {
 		let now = new Date();
 
 		let obj = {
-			success:status === 200 || status === 201 ? "success" : false,
+			success:status === 200 || status === 201,
 			results:result,
 			time : now.getTime() - startTime.getTime(),
 

@@ -19,9 +19,12 @@ module.exports = async (o) => {
                         <h5 class="modal-title">Modal title </h5>
                     </div>
 
-                    <div class="mt-1 mr-1">
+                    <div class="mt-1 me-1">
                         <button class="btn btn-primary" data-bindid="edit">Edit</button>
-                        <button type="button" class="btn btn-dark" data-dismiss="modal" aria-label="Close">
+                        <button type="button" class="btn btn-dark"
+                        data-bs-target="#view-modal"  
+                        data-bs-dismiss="modal" 
+                        aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
@@ -38,9 +41,12 @@ module.exports = async (o) => {
                     <div>
                         <h5 class="modal-title p-2">Modal title</h5>
                     </div>
-                    <div class="mt-1 mr-1">
+                    <div class="mt-1 me-1">
                         <button class="btn btn-primary" data-bindid="save">Save</button>
-                        <button type="button" class="btn btn-dark" data-dismiss="modal" aria-label="Close">
+                        <button type="button" class="btn btn-dark"
+                        data-bs-target="#edit-modal" 
+                        data-bs-dismiss="modal" 
+                        aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
@@ -59,24 +65,22 @@ module.exports = async (o) => {
     <script>
 		var app = app || {};
 		app.action = '${o.action}';
-		app.modelTitle = '${o.model.schema.title}';
-		app.route = '${o.model.schema.route}'
-		app.tableName = '${o.model.tableName}'
-		app.schema = ${JSON.stringify(o.model.schema)};
+		app.modelTitle = '${o.model && o.model.schema ? o.model.schema.title : ''}';
+		app.route = '${o.model && o.model.schema  ? o.model.schema.route : ''}'
+		app.tableName = '${o.model ? o.model.tableName : ''}'
+		app.schema = ${o.model && o.model.schema  ? JSON.stringify(o.model.schema) : '{}'};
 		app.apiRoot = '${global.apiRoot}';
     </script>
 
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.9.1/underscore-min.js"></script>
-    <script src="//unpkg.com/popper.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/js/bootstrap.js"></script>
-    <!--<script src="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/5.26.0/jsoneditor.min.js"></script>-->
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.5.4/jsoneditor.min.js"></script>
-    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/popper.js/2.10.1/umd/popper.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.1.1/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jsoneditor/5.26.0/jsoneditor.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-jsonview/1.2.3/jquery.jsonview.js"></script>
     <script src="//unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/@shopify/draggable@1.0.0-beta.8/lib/draggable.bundle.js"></script>
-
+	<script src="//cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script src="/js/quill-delta.js"></script>
     <script src="/js/jquery.serialize.json.js"></script>
@@ -88,7 +92,13 @@ module.exports = async (o) => {
     <script src="//cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.js"></script>
     <!-- Include Choices JavaScript -->
     <script src="/js/jquery.prettydropdowns.js"></script>
+    
+    ${ o.scripts.map((item)=>{
+		return `<script src="${item}"></script>`;
+	}).join("\n")};
+    
     <script src="/js/main.js"></script>
+    
     </body>
     </html>
 `

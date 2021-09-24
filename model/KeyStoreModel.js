@@ -1,12 +1,9 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const moment = require("moment-timezone");
+const cacheManager = require("../helper/cache-manager");
 
 class KeyStoreModel extends ModelBase {
-
-	constructor (req) {
-		super(req)
-	}
 
 	get tableName () {
 		return '_key_store'
@@ -20,6 +17,8 @@ class KeyStoreModel extends ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async set(key, value, ttl) {
+
+		await cacheManager.del(this.getCacheKey(null, key));
 
 		let result;
 		let record = await this.findOne(
@@ -79,27 +78,34 @@ class KeyStoreModel extends ModelBase {
 	 * @param key
 	 * @returns {Promise<null|*>}
 	 */
-	async get(key) {
-		let result = await this.findOne(
-			{
-				where : {
-					key : key
-				}
+	async get(key, cache) {
+		let cacheKey = this.getCacheKey(null, key);
+		let value = await cacheManager.get(key);
+
+		if (value) {
+			return value;
+		}
+
+		let result = await this.findOne({
+			where : {
+				key : key
 			}
-		);
+		});
+
 		if (result) {
 			if (result.ttl) {
 				let expiresAt = moment(result.updatedAt).add(result.ttl, "seconds");
 				let duration = expiresAt.diff(moment(), 'seconds');
-				//console.log(duration);
 				if (duration < 0) {
 					await this.destroy(result.id);
 					return null;
 				}
 			}
 			if (result.object) {
+				await cacheManager.set(key, result.object, 600);
 				return result.object;
 			}
+			await cacheManager.set(key, result.value, 600);
 			return result.value;
 		} else {
 			return null;
@@ -107,6 +113,7 @@ class KeyStoreModel extends ModelBase {
 	}
 
 	async destroy(key) {
+		await cacheManager.del(this.getCacheKey(null, key));
 		let result = await super.destroy(
 			{
 				where : {

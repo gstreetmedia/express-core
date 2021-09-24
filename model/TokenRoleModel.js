@@ -1,50 +1,20 @@
 const ModelBase = require('./ModelBase');
-const _ = require('lodash');
 
-module.exports = class TokenRoleModel extends ModelBase {
-
-	constructor(req) {
-		super(req);
-	}
+class TokenRoleModel extends ModelBase {
 
 	get tableName() { return '_token_roles'; }
 
-	async create(data){
-		return await super.create(data);
-	}
-
-	async read(id, query){
-		return await super.read(id, query);
-	}
-
-	async update(id, data, fetch){
-		return await super.update(id, data, fetch);
-	}
-
-	async query(query){
-		return await super.query(query);
-	}
-
-	async destroy(id){
-		return await super.destroy(id);
-	}
-
-	get relations() {
-		return {}
-
-	}
-
-	get foreignKeys () {
-		return {
-			roleId : {
-				modelClass : "RoleModel",
-				to : "id",
-			},
-			tokenId : {
-				modelClass : "TokenModel",
-				to : "id"
-			}
+	async afterCreate(id, data) {
+		if (data.tokenId) {
+			await cache.del('authentication_token_' + data.tokenId);
 		}
 	}
 
+	async afterUpdate(id, data) {
+		if (data.tokenId) {
+			await cache.del('authentication_token_' + data.tokenId);
+		}
+	}
 }
+
+module.exports = TokenRoleModel;

@@ -100,10 +100,12 @@ class ViewControllerBase {
 			o.req = req;
 		}
 		if (o.req.xhr) {
+			let html = await renderView(view, o);
+
 			return res.success(
 				{
 					data : o.data,
-					html : await renderView(view, o),
+					html : html,
 					model : o.model.schema.object
 				}
 			);

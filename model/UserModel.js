@@ -6,12 +6,9 @@ const jwt = require('jsonwebtoken');
 const uuid = require("node-uuid");
 const moment = require("moment");
 const fs = require("fs");
+const cache = require("../helper/cache-manager");
 
 class UserModel extends ModelBase {
-
-	constructor (req) {
-		super(req)
-	}
 
 	get tableName () {
 		return '_users'
@@ -30,11 +27,7 @@ class UserModel extends ModelBase {
 	 * @constructor
 	 */
 	get SessionModel() {
-		if (this._SessionModel) {
-			return this._SessionModel;
-		}
-		this._SessionModel = require('./SessionModel');
-		return this._SessionModel;
+		return this.loadModel("SessionModel");
 	}
 
 	async create (data) {
@@ -60,7 +53,11 @@ class UserModel extends ModelBase {
 		} else if (data.password === '') {
 			delete data.password
 		}
-		return await super.update(id, data, fetch)
+		return super.update(id, data, fetch)
+	}
+
+	async afterUpdate(id, data) {
+		await cache.del('authenticated_user_' + id);
 	}
 
 	async login (username, password, ignorePassword) {
@@ -130,18 +127,32 @@ class UserModel extends ModelBase {
 	}
 
 	async logout (token) {
-		let sm = new this.SessionModel(this.req)
-		return await sm.destroyWhere(
+		let sm = new this.SessionModel(this.req);
+		let session = sm.findOne(
 			{
-				where: {
-					token: token
+				where : {
+					token : token
 				}
 			}
 		)
+		if (session) {
+			await cache.del('authenticated_user_' + session.userId);
+			await sm.destroyWhere(
+				{
+					where: {
+						token: token
+					}
+				}
+			)
+		}
+		return {
+
+		}
 	}
 
 	async logoutAll (id) {
-		let sm = new this.SessionModel(this.req)
+		let sm = new this.SessionModel(this.req);
+		await cache.del('authenticated_user_' + id);
 		return await sm.destroyWhere(
 			{
 				where: {

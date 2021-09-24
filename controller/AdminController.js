@@ -4,7 +4,9 @@ const fs = require('fs');
 const inflector = require("../helper/inflector");
 const FieldModel = require("../model/FieldModel");
 const SchemaModel = require("../model/SchemaModel");
-const ViewObject = require("../model/objects/ViewObject")
+const ViewObject = require("../model/objects/ViewObject");
+const getModel = require("../helper/get-model");
+const getController = require("../helper/get-controller");
 
 class AdminController extends ViewControllerBase {
 
@@ -41,7 +43,13 @@ class AdminController extends ViewControllerBase {
 	 */
 	async index(req, res) {
 
+		/**
+		 * @type {ControllerBase}
+		 */
 		let Controller = await AdminController.getController(req);
+		/**
+		 * @type {ModeBase}
+		 */
 		let Model = await AdminController.getModel(req);
 
 		console.log(Controller);
@@ -188,6 +196,7 @@ class AdminController extends ViewControllerBase {
 
 		let controller = new Controller();
 		let model = new Model(req);
+		model.debug = true;
 		await model.init();
 
 		const tableName = model.tableName;
@@ -221,13 +230,21 @@ class AdminController extends ViewControllerBase {
 		let data;
 		if (controller.adminView) {
 			//If desired, create items in data for input field options (e.g select)
-			data = await controller.adminView(req);
+			console.log("get View Data");
+			data = await model.read(req.params.id, req.query);
+			console.log("got View Data");
 		} else {
 			data = await controller.read(req);
 		}
 
 		if (!data) {
-			return res.notFound(req.params.id);
+			return res.error(
+				{
+					message : "Could Not Find Record",
+					id : req.params.id,
+					statusCode : 404
+				}
+			)
 		}
 
 		return await this.render(
@@ -415,6 +432,7 @@ class AdminController extends ViewControllerBase {
 
 		let controller = new Controller();
 		let model = new Model(req);
+		model.debug = true;
 		await model.init();
 
 		const tableName = model.tableName;
@@ -430,6 +448,10 @@ class AdminController extends ViewControllerBase {
 				}
 			}
 		);
+
+		if (!req.query.properties.includes(model.primaryKey)) {
+			req.query.properties.push(model.primaryKey);
+		}
 
 		return await controller.search(req, res);
 
@@ -465,14 +487,16 @@ class AdminController extends ViewControllerBase {
 	static async getModel(req) {
 		let m = new SchemaModel();
 		await m.init();
+		/**
+		 * @type {JSONSchema}
+		 */
 		let schema = await m.get(req.params.model);
 		if (schema) {
-			let c = global.appRoot + "/src/model/" + schema.className + "Model";
-			if (fs.existsSync(c + ".js")) {
-				return require(c);
+			let m = getModel(schema.className + "Model");
+			if (m) {
+				return m;
 			}
 		}
-
 		console.error("Could not find " + schema.className + "Model");
 
 		return null;
@@ -481,11 +505,15 @@ class AdminController extends ViewControllerBase {
 	static async getController(req) {
 		let m = new SchemaModel();
 		await m.init();
+		/**
+		 * @type {JSONSchema}
+		 */
+		console.log("Get Controller for " + req.params.model);
 		let schema = await m.get(req.params.model);
 		if (schema) {
-			let c = global.appRoot + "/src/controller/" + schema.className + "Controller";
-			if (fs.existsSync(c + ".js")) {
-				return require(c);
+			let c = getController(schema.className + "Controller");
+			if (c) {
+				return c;
 			}
 		}
 

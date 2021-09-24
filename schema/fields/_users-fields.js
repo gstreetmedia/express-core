@@ -1,655 +1,653 @@
-
 module.exports = {
-	adminIndex : [
-	
+	adminIndex: [
+
 		{
-			property:"id", 
+			property: "id",
 			visible: true
 		},
 
 		{
-			property:"name", 
+			property: "name",
 			visible: true
 		},
 
 		{
-			property:"firstName", 
+			property: "firstName",
 			visible: true
 		},
 
 		{
-			property:"lastName", 
+			property: "lastName",
 			visible: true
 		},
 
 		{
-			property:"email", 
+			property: "email",
 			visible: true
 		},
 
 		{
-			property:"username", 
+			property: "username",
 			visible: true
 		},
 
 		{
-			property:"password", 
+			property: "password",
 			visible: true
 		},
 
 		{
-			property:"role", 
+			property: "role",
 			visible: true
 		},
 
 		{
-			property:"status", 
+			property: "status",
 			visible: true
 		},
 
 		{
-			property:"emailProofToken", 
+			property: "emailProofToken",
 			visible: true
 		},
 
 		{
-			property:"emailProofTokenExpiresAt", 
+			property: "emailProofTokenExpiresAt",
 			visible: true
 		},
 
 		{
-			property:"emailStatus", 
+			property: "emailStatus",
 			visible: true
 		},
 
 		{
-			property:"emailChangeCandidate", 
+			property: "emailChangeCandidate",
 			visible: true
 		},
 
 		{
-			property:"passwordResetToken", 
+			property: "passwordResetToken",
 			visible: true
 		},
 
 		{
-			property:"passwordResetTokenExpiresAt", 
+			property: "passwordResetTokenExpiresAt",
 			visible: true
 		},
 
 		{
-			property:"lastLoginAt", 
+			property: "lastLoginAt",
 			visible: true
 		},
 
 		{
-			property:"createdAt", 
+			property: "createdAt",
 			visible: false
 		},
 
 		{
-			property:"updatedAt", 
-			visible: false
-		}
-	],
-	publicIndex : [
-	
-		{
-			property:"id", 
-			visible: true
-		},
-
-		{
-			property:"name", 
-			visible: true
-		},
-
-		{
-			property:"firstName", 
-			visible: true
-		},
-
-		{
-			property:"lastName", 
-			visible: true
-		},
-
-		{
-			property:"email", 
-			visible: true
-		},
-
-		{
-			property:"username", 
-			visible: true
-		},
-
-		{
-			property:"password", 
-			visible: true
-		},
-
-		{
-			property:"role", 
-			visible: true
-		},
-
-		{
-			property:"status", 
-			visible: true
-		},
-
-		{
-			property:"emailProofToken", 
-			visible: true
-		},
-
-		{
-			property:"emailProofTokenExpiresAt", 
-			visible: true
-		},
-
-		{
-			property:"emailStatus", 
-			visible: true
-		},
-
-		{
-			property:"emailChangeCandidate", 
-			visible: true
-		},
-
-		{
-			property:"passwordResetToken", 
-			visible: true
-		},
-
-		{
-			property:"passwordResetTokenExpiresAt", 
-			visible: true
-		},
-
-		{
-			property:"lastLoginAt", 
-			visible: true
-		},
-
-		{
-			property:"createdAt", 
-			visible: false
-		},
-
-		{
-			property:"updatedAt", 
+			property: "updatedAt",
 			visible: false
 		}
 	],
-	adminCreate : [
-		
+	publicIndex: [
+
 		{
-			property:"id", 
+			property: "id",
+			visible: true
+		},
+
+		{
+			property: "name",
+			visible: true
+		},
+
+		{
+			property: "firstName",
+			visible: true
+		},
+
+		{
+			property: "lastName",
+			visible: true
+		},
+
+		{
+			property: "email",
+			visible: true
+		},
+
+		{
+			property: "username",
+			visible: true
+		},
+
+		{
+			property: "password",
+			visible: true
+		},
+
+		{
+			property: "role",
+			visible: true
+		},
+
+		{
+			property: "status",
+			visible: true
+		},
+
+		{
+			property: "emailProofToken",
+			visible: true
+		},
+
+		{
+			property: "emailProofTokenExpiresAt",
+			visible: true
+		},
+
+		{
+			property: "emailStatus",
+			visible: true
+		},
+
+		{
+			property: "emailChangeCandidate",
+			visible: true
+		},
+
+		{
+			property: "passwordResetToken",
+			visible: true
+		},
+
+		{
+			property: "passwordResetTokenExpiresAt",
+			visible: true
+		},
+
+		{
+			property: "lastLoginAt",
+			visible: true
+		},
+
+		{
+			property: "createdAt",
 			visible: false
 		},
 
 		{
-			property:"name", 
-			visible: true
-		},
-
-		{
-			property:"firstName", 
-			visible: true
-		},
-
-		{
-			property:"lastName", 
-			visible: true
-		},
-
-		{
-			property:"email", 
-			visible: true
-		},
-
-		{
-			property:"username", 
-			visible: true
-		},
-
-		{
-			property:"password", 
-			visible: true
-		},
-
-		{
-			property:"role", 
-			visible: true
-		},
-
-		{
-			property:"status", 
-			visible: true
-		},
-
-		{
-			property:"emailProofToken", 
-			visible: true
-		},
-
-		{
-			property:"emailProofTokenExpiresAt", 
-			visible: true
-		},
-
-		{
-			property:"emailStatus", 
-			visible: true
-		},
-
-		{
-			property:"emailChangeCandidate", 
-			visible: true
-		},
-
-		{
-			property:"passwordResetToken", 
-			visible: true
-		},
-
-		{
-			property:"passwordResetTokenExpiresAt", 
-			visible: true
-		},
-
-		{
-			property:"lastLoginAt", 
-			visible: true
-		},
-
-		{
-			property:"createdAt", 
-			visible: false
-		},
-
-		{
-			property:"updatedAt", 
-			visible: false
-		}
-	],
-	publicCreate : [
-		
-		{
-			property:"id", 
-			visible: false
-		},
-		{
-			property:"name", 
-			visible: true
-		},
-		{
-			property:"firstName", 
-			visible: true
-		},
-		{
-			property:"lastName", 
-			visible: true
-		},
-		{
-			property:"email", 
-			visible: true
-		},
-		{
-			property:"username", 
-			visible: true
-		},
-		{
-			property:"password", 
-			visible: true
-		},
-		{
-			property:"role", 
-			visible: true
-		},
-		{
-			property:"status", 
-			visible: true
-		},
-		{
-			property:"emailProofToken", 
-			visible: true
-		},
-		{
-			property:"emailProofTokenExpiresAt", 
-			visible: true
-		},
-		{
-			property:"emailStatus", 
-			visible: true
-		},
-		{
-			property:"emailChangeCandidate", 
-			visible: true
-		},
-		{
-			property:"passwordResetToken", 
-			visible: true
-		},
-		{
-			property:"passwordResetTokenExpiresAt", 
-			visible: true
-		},
-		{
-			property:"lastLoginAt", 
-			visible: true
-		},
-		{
-			property:"createdAt", 
-			visible: false
-		},
-		{
-			property:"updatedAt", 
+			property: "updatedAt",
 			visible: false
 		}
 	],
-	adminUpdate : [
-		
+	adminCreate: [
+
 		{
-			property:"id", 
+			property: "id",
 			visible: false
 		},
+
 		{
-			property:"name", 
+			property: "name",
 			visible: true
 		},
+
 		{
-			property:"firstName", 
+			property: "firstName",
 			visible: true
 		},
+
 		{
-			property:"lastName", 
+			property: "lastName",
 			visible: true
 		},
+
 		{
-			property:"email", 
+			property: "email",
 			visible: true
 		},
+
 		{
-			property:"username", 
+			property: "username",
 			visible: true
 		},
+
 		{
-			property:"password", 
+			property: "password",
 			visible: true
 		},
+
 		{
-			property:"role", 
+			property: "role",
 			visible: true
 		},
+
 		{
-			property:"status", 
+			property: "status",
 			visible: true
 		},
+
 		{
-			property:"emailProofToken", 
+			property: "emailProofToken",
 			visible: true
 		},
+
 		{
-			property:"emailProofTokenExpiresAt", 
+			property: "emailProofTokenExpiresAt",
 			visible: true
 		},
+
 		{
-			property:"emailStatus", 
+			property: "emailStatus",
 			visible: true
 		},
+
 		{
-			property:"emailChangeCandidate", 
+			property: "emailChangeCandidate",
 			visible: true
 		},
+
 		{
-			property:"passwordResetToken", 
+			property: "passwordResetToken",
 			visible: true
 		},
+
 		{
-			property:"passwordResetTokenExpiresAt", 
+			property: "passwordResetTokenExpiresAt",
 			visible: true
 		},
+
 		{
-			property:"lastLoginAt", 
+			property: "lastLoginAt",
 			visible: true
 		},
+
 		{
-			property:"createdAt", 
+			property: "createdAt",
 			visible: false
 		},
+
 		{
-			property:"updatedAt", 
-			visible: false
-		}
-	],
-	publicUpdate : [
-		
-		{
-			property:"id", 
-			visible: false
-		},
-		{
-			property:"name", 
-			visible: true
-		},
-		{
-			property:"firstName", 
-			visible: true
-		},
-		{
-			property:"lastName", 
-			visible: true
-		},
-		{
-			property:"email", 
-			visible: true
-		},
-		{
-			property:"username", 
-			visible: true
-		},
-		{
-			property:"password", 
-			visible: true
-		},
-		{
-			property:"role", 
-			visible: true
-		},
-		{
-			property:"status", 
-			visible: true
-		},
-		{
-			property:"emailProofToken", 
-			visible: true
-		},
-		{
-			property:"emailProofTokenExpiresAt", 
-			visible: true
-		},
-		{
-			property:"emailStatus", 
-			visible: true
-		},
-		{
-			property:"emailChangeCandidate", 
-			visible: true
-		},
-		{
-			property:"passwordResetToken", 
-			visible: true
-		},
-		{
-			property:"passwordResetTokenExpiresAt", 
-			visible: true
-		},
-		{
-			property:"lastLoginAt", 
-			visible: true
-		},
-		{
-			property:"createdAt", 
-			visible: false
-		},
-		{
-			property:"updatedAt", 
+			property: "updatedAt",
 			visible: false
 		}
 	],
-	adminRead : [
-	
+	publicCreate: [
+
 		{
-			property:"id", 
+			property: "id",
+			visible: false
+		},
+		{
+			property: "name",
 			visible: true
 		},
 		{
-			property:"name", 
+			property: "firstName",
 			visible: true
 		},
 		{
-			property:"firstName", 
+			property: "lastName",
 			visible: true
 		},
 		{
-			property:"lastName", 
+			property: "email",
 			visible: true
 		},
 		{
-			property:"email", 
+			property: "username",
 			visible: true
 		},
 		{
-			property:"username", 
+			property: "password",
 			visible: true
 		},
 		{
-			property:"password", 
+			property: "role",
 			visible: true
 		},
 		{
-			property:"role", 
+			property: "status",
 			visible: true
 		},
 		{
-			property:"status", 
+			property: "emailProofToken",
 			visible: true
 		},
 		{
-			property:"emailProofToken", 
+			property: "emailProofTokenExpiresAt",
 			visible: true
 		},
 		{
-			property:"emailProofTokenExpiresAt", 
+			property: "emailStatus",
 			visible: true
 		},
 		{
-			property:"emailStatus", 
+			property: "emailChangeCandidate",
 			visible: true
 		},
 		{
-			property:"emailChangeCandidate", 
+			property: "passwordResetToken",
 			visible: true
 		},
 		{
-			property:"passwordResetToken", 
+			property: "passwordResetTokenExpiresAt",
 			visible: true
 		},
 		{
-			property:"passwordResetTokenExpiresAt", 
+			property: "lastLoginAt",
 			visible: true
 		},
 		{
-			property:"lastLoginAt", 
+			property: "createdAt",
+			visible: false
+		},
+		{
+			property: "updatedAt",
+			visible: false
+		}
+	],
+	adminUpdate: [
+
+		{
+			property: "id",
+			visible: false
+		},
+		{
+			property: "name",
 			visible: true
 		},
 		{
-			property:"createdAt", 
+			property: "firstName",
 			visible: true
 		},
 		{
-			property:"updatedAt", 
+			property: "lastName",
+			visible: true
+		},
+		{
+			property: "email",
+			visible: true
+		},
+		{
+			property: "username",
+			visible: true
+		},
+		{
+			property: "password",
+			visible: true
+		},
+		{
+			property: "role",
+			visible: true
+		},
+		{
+			property: "status",
+			visible: true
+		},
+		{
+			property: "emailProofToken",
+			visible: true
+		},
+		{
+			property: "emailProofTokenExpiresAt",
+			visible: true
+		},
+		{
+			property: "emailStatus",
+			visible: true
+		},
+		{
+			property: "emailChangeCandidate",
+			visible: true
+		},
+		{
+			property: "passwordResetToken",
+			visible: true
+		},
+		{
+			property: "passwordResetTokenExpiresAt",
+			visible: true
+		},
+		{
+			property: "lastLoginAt",
+			visible: true
+		},
+		{
+			property: "createdAt",
+			visible: false
+		},
+		{
+			property: "updatedAt",
+			visible: false
+		}
+	],
+	publicUpdate: [
+
+		{
+			property: "id",
+			visible: false
+		},
+		{
+			property: "name",
+			visible: true
+		},
+		{
+			property: "firstName",
+			visible: true
+		},
+		{
+			property: "lastName",
+			visible: true
+		},
+		{
+			property: "email",
+			visible: true
+		},
+		{
+			property: "username",
+			visible: true
+		},
+		{
+			property: "password",
+			visible: true
+		},
+		{
+			property: "role",
+			visible: true
+		},
+		{
+			property: "status",
+			visible: true
+		},
+		{
+			property: "emailProofToken",
+			visible: true
+		},
+		{
+			property: "emailProofTokenExpiresAt",
+			visible: true
+		},
+		{
+			property: "emailStatus",
+			visible: true
+		},
+		{
+			property: "emailChangeCandidate",
+			visible: true
+		},
+		{
+			property: "passwordResetToken",
+			visible: true
+		},
+		{
+			property: "passwordResetTokenExpiresAt",
+			visible: true
+		},
+		{
+			property: "lastLoginAt",
+			visible: true
+		},
+		{
+			property: "createdAt",
+			visible: false
+		},
+		{
+			property: "updatedAt",
+			visible: false
+		}
+	],
+	adminRead: [
+
+		{
+			property: "id",
+			visible: true
+		},
+		{
+			property: "name",
+			visible: true
+		},
+		{
+			property: "firstName",
+			visible: true
+		},
+		{
+			property: "lastName",
+			visible: true
+		},
+		{
+			property: "email",
+			visible: true
+		},
+		{
+			property: "username",
+			visible: true
+		},
+		{
+			property: "password",
+			visible: true
+		},
+		{
+			property: "role",
+			visible: true
+		},
+		{
+			property: "status",
+			visible: true
+		},
+		{
+			property: "emailProofToken",
+			visible: true
+		},
+		{
+			property: "emailProofTokenExpiresAt",
+			visible: true
+		},
+		{
+			property: "emailStatus",
+			visible: true
+		},
+		{
+			property: "emailChangeCandidate",
+			visible: true
+		},
+		{
+			property: "passwordResetToken",
+			visible: true
+		},
+		{
+			property: "passwordResetTokenExpiresAt",
+			visible: true
+		},
+		{
+			property: "lastLoginAt",
+			visible: true
+		},
+		{
+			property: "createdAt",
+			visible: true
+		},
+		{
+			property: "updatedAt",
 			visible: true
 		}
 	],
-	publicRead : [
-		
+	publicRead: [
+
 		{
-			property:"id", 
+			property: "id",
 			visible: true
 		},
 		{
-			property:"name", 
+			property: "name",
 			visible: true
 		},
 		{
-			property:"firstName", 
+			property: "firstName",
 			visible: true
 		},
 		{
-			property:"lastName", 
+			property: "lastName",
 			visible: true
 		},
 		{
-			property:"email", 
+			property: "email",
 			visible: true
 		},
 		{
-			property:"username", 
+			property: "username",
 			visible: true
 		},
 		{
-			property:"password", 
+			property: "password",
 			visible: true
 		},
 		{
-			property:"role", 
+			property: "role",
 			visible: true
 		},
 		{
-			property:"status", 
+			property: "status",
 			visible: true
 		},
 		{
-			property:"emailProofToken", 
+			property: "emailProofToken",
 			visible: true
 		},
 		{
-			property:"emailProofTokenExpiresAt", 
+			property: "emailProofTokenExpiresAt",
 			visible: true
 		},
 		{
-			property:"emailStatus", 
+			property: "emailStatus",
 			visible: true
 		},
 		{
-			property:"emailChangeCandidate", 
+			property: "emailChangeCandidate",
 			visible: true
 		},
 		{
-			property:"passwordResetToken", 
+			property: "passwordResetToken",
 			visible: true
 		},
 		{
-			property:"passwordResetTokenExpiresAt", 
+			property: "passwordResetTokenExpiresAt",
 			visible: true
 		},
 		{
-			property:"lastLoginAt", 
+			property: "lastLoginAt",
 			visible: true
 		},
 		{
-			property:"createdAt", 
+			property: "createdAt",
 			visible: false
 		},
 		{
-			property:"updatedAt", 
+			property: "updatedAt",
 			visible: false
 		}
-		],
-	};
-	
+	],
+};

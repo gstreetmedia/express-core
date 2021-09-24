@@ -8,7 +8,7 @@ module.exports = async (data) => {
 	<div class="container">
 		<div class="row mb-4">
 			<div class="col-md-12 text-center ">
-				&copy;${new Date().getFullYear()} Made by <a href="http://www.membio.com">Membio.js</a>.
+				&copy;${new Date().getFullYear()} Made with <i class="fa fa-heart"></i></a>.
 			</div>
 		</div>
 	</div>

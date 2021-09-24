@@ -2,6 +2,7 @@ const ModelBase = require('./ModelBase');
 const _ = require('lodash');
 const uuid = require("node-uuid");
 const hashPassword = require("../helper/hash-password");
+const cache = require('../helper/cache-manager');
 
 module.exports = class TokenModel extends ModelBase {
 
@@ -33,7 +34,6 @@ module.exports = class TokenModel extends ModelBase {
 		if (process.env.CORE_TOKENS_HASH_SECRET === "true" && data.secret) {
 			data.secret = hashPassword(data.secret);
 		}
-
 		let result = await super.update(id, data, true);
 		if (!result.error && secret) {
 			result.secret = secret;

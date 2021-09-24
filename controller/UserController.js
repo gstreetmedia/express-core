@@ -2,12 +2,14 @@ const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
 const hashPassword = require("../helper/hash-password");
 const moment = require("moment-timezone");
-const fs = require("fs");
 const Model = require('../model/UserModel');
-class UserController extends ControllerBase {
 
-	constructor(Model) {
-		super(Model);
+class UserController extends ControllerBase {
+	/**
+	 * @param {UserModel} model
+	 */
+	constructor(model) {
+		super(model || Model);
 	}
 
 	async login(req, res) {
@@ -51,12 +53,12 @@ class UserController extends ControllerBase {
 
 	async logout(req, res) {
 
-		if (!req.jwt && !req.token) {
+		if (!req.locals.jwt && !req.locals.token) {
 			return res.invalid("Missing Token");
 		}
 
 		let m = new this.Model(req);
-		let result = await m.logout(req.jwt ? req.jwt : req.token);
+		let result = await m.logout(req.locals.jwt ? req.locals.jwt : req.locals.token);
 
 		res.clearCookie('token');
 		res.clearCookie('application-key');
@@ -117,7 +119,7 @@ class UserController extends ControllerBase {
 
 	async updatePassword(req, res) {
 		let m = new this.Model();
-		let record = await m.read(req.user.id);
+		let record = await m.read(req.locals.user.id);
 		if (!req.body.currentPassword) {
 			return res.error(
 				{
@@ -134,7 +136,7 @@ class UserController extends ControllerBase {
 				}
 			)
 		}
-		let result = await m.update(req.user.id, {password:req.body.password});
+		let result = await m.update(req.locals.user.id, {password:req.body.password});
 
 		if (result.error) {
 			return res.error(result.error);
@@ -151,7 +153,7 @@ class UserController extends ControllerBase {
 				}
 			)
 		}
-		let result = await m.updateEmailStart(req.user.id, req.body.email);
+		let result = await m.updateEmailStart(req.locals.user.id, req.body.email);
 		if (result.error) {
 			return res.error(result.error);
 		}

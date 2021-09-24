@@ -4,35 +4,7 @@ const cacheManager = require("../helper/cache-manager");
 
 module.exports = class RoleModel extends ModelBase {
 
-	constructor(req) {
-		super(req);
-	}
-
 	get tableName() { return '_roles'; }
-
-	async index(query){
-		return await super.index(query);
-	}
-
-	async create(data){
-		return await super.create(data);
-	}
-
-	async read(id, query){
-		return await super.read(id, query);
-	}
-
-	async update(id, data, fetch){
-		return await super.update(id, data, fetch);
-	}
-
-	async query(query){
-		return await super.query(query);
-	}
-
-	async destroy(id){
-		return await super.destroy(id);
-	}
 
 	/**
 	 * Pass in the id of a role and we'll get back something.
@@ -106,19 +78,6 @@ module.exports = class RoleModel extends ModelBase {
 		}
 
 		return role;
-	}
-
-	get relations() {
-		return {
-			permissions : {
-				relation: "HasMany",
-				modelClass: "RolePermissionModel",
-				join: {
-					from: "id",
-					to: "roleId"
-				}
-			}
-		}
 	}
 
 }

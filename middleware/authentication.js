@@ -4,10 +4,11 @@ const path = require("path");
 if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication.js"))) {
 	console.log("using core authentication");
 	let AuthenticationModel = require("../model/AuthenticationModel");
-	let m = new AuthenticationModel();
+
 	module.exports = async function (req, res, next) {
+		let m = new AuthenticationModel(req);
 		try {
-			if (req.isAuth === true) {
+			if (req.locals.isAuth === true) {
 				if (next) {
 					return next();
 				}
@@ -18,7 +19,7 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication
 				return res.error(result.error);
 			}
 
-			req.isAuth = true;
+			req.locals.isAuth = true;
 
 			if (next) {
 				next();
@@ -30,5 +31,6 @@ if (!fs.existsSync(path.resolve(global.appRoot + "/src/middleware/authentication
 	}
 
 } else {
+	console.log("using custom authentication");
 	module.exports = require(global.appRoot + "/src/middleware/authentication");
 }

@@ -3,13 +3,9 @@ const fs = require("fs");
 const inflector = require("./inflector");
 const pathToRegexp = require('path-to-regexp');
 const _ = require("lodash");
-const SchemaModel = require("../model/SchemaModel");
 
-module.exports = async(app, options) => {
+module.exports = (app, options) => {
 
-	let sm = new SchemaModel();
-	await sm.getSchema();
-	await sm.loadAll();
 
 	let endPoints;
 	if (!global.endPoints) {
@@ -163,35 +159,58 @@ module.exports = async(app, options) => {
 				return;
 			}
 
-			let baseRoute = schemaName.split("/")[1];
-			let schema = null;
-			for(let key in global.schemaCache) {
-				if (global.schemaCache[key].route === baseRoute) {
-					schema = global.schemaCache[key];
-				}
+			let root;
+			let schemaPath;
+
+			root = inflector.pluralize(inflector.underscore(schemaName.split("/")[1]));
+			root = root.split("configs").join("config");
+			root = root.split("syncs").join("sync");
+			root = root.split("metum").join("meta");
+			root = root.split("datasets").join("dataset");
+
+			root = inflector.dasherize(root);
+			//console.log(root);
+			schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
+
+			if (!fs.existsSync(schemaPath)) {
+				root = inflector.underscore(schemaName.split("/")[1]);
+				root = inflector.dasherize(root);
+				//console.log(root);
+				schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
 			}
 
-			if (schema) {
+
+			let schema = null;
+			if (fs.existsSync(schemaPath)) {
+				schema = JSON.parse(JSON.stringify(require(schemaPath)))
+
 				//$schema, $id, dataSource, tableName, primaryKey, updatedAt
-				let properties = {};
+				delete schema.$schema;
+				delete schema.$id;
+				delete schema.createdAt;
+				delete schema.id;
+				delete schema.dataSource;
+				delete schema.tableName;
+				delete schema.primaryKey;
+				delete schema.updatedAt;
+				delete schema.readOnly;
+				delete schema.additionalProperties;
 
 				Object.keys(schema.properties).forEach(
 					function (key) {
 						let obj = schema.properties[key];
-						properties[key] = {
-							type: obj.type,
-							format: obj.format,
-							description : obj.description,
-							enum : obj.enum
-						};
+						delete obj.allowNull;
+						delete obj.columnName;
+						delete obj.precision;
+						delete obj.cast;
+						delete obj.unique;
+						if (obj.type === "array") {
+							obj.items = {};
+						}
+						schema.properties[key] = obj;
 					}
 				);
-				obj.components.schemas[schema.route] = {
-					title : schema.title,
-					properties : properties,
-					required : schema.required
-				}
-
+				obj.components.schemas[root] = schema;
 			} else {
 				//console.log("Cannot find schema");
 				//console.log(schemaPath);
@@ -255,19 +274,19 @@ module.exports = async(app, options) => {
 							if (schema) {
 								obj.paths[path][method].responses['200'].content = {
 									['application/json']: {
-										schema: {"$ref": "#/components/schemas/" + schema.route}
+										schema: {"$ref": "#/components/schemas/" + root}
 									}
 								}
 							}
 						} else if (path.indexOf("/index") !== -1) {
 							obj.paths[path][method].parameters = query.concat(routeParameters);
 							if (schema) {
-								obj.paths[path].get.responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + schema.route}
+								obj.paths[path].get.responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + root}
 							}
 						} else if (path.indexOf("search") === -1) {
 							obj.paths[path][method].parameters = query.concat(routeParameters);
 							if (schema) {
-								obj.paths[path][method].responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + schema.route}
+								obj.paths[path][method].responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + root}
 							}
 						}
 					} else if (method === "post" || method === "put" || method === "patch") {
@@ -278,7 +297,7 @@ module.exports = async(app, options) => {
 									content: {
 										['application/json']: {
 											schema: {
-												"$ref": "#/components/schemas/" + schema.route
+												"$ref": "#/components/schemas/" + root
 											}
 										}
 									},

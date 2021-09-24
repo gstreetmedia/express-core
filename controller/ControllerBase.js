@@ -1,11 +1,29 @@
-let validateAgainstSchema = require("../helper/validate-against-schema");
 let _ = require("lodash");
 let cache = require("../helper/cache-manager");
 
 class ControllerBase {
 	constructor(Model) {
-		this.Model = Model;
-		this.cache = cache;
+		this._Model = Model;
+	}
+
+	/**
+	 * @returns {ModelBase | class}
+	 * @constructor
+	 */
+	get Model() {
+		return this._Model;
+	}
+
+	/**
+	 * @param {ModelBase} value
+	 * @constructor
+	 */
+	set Model(value) {
+		this._Model = value;
+	}
+
+	get cache() {
+		return cache;
 	}
 
 	/**
@@ -63,7 +81,6 @@ class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async create(req, res) {
-
 		try {
 			let m = new this.Model(req);
 			let result = await m.create(req.body);
@@ -225,9 +242,8 @@ class ControllerBase {
 
 		let m = new this.Model(req);
 		m.debug = req.query.debug === true;
-		let count = await m.count(req.query, true);
 
-		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
+		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.roleManager.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
 			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		}
 
@@ -242,9 +258,14 @@ class ControllerBase {
 
 		req.limit = req.query.limit;
 		req.offset = req.query.offset;
-		req.count = parseInt(count);
 
 		let result = await m.query(req.query);
+
+		if (_.isArray(result) && (result.length === req.query.limit || req.query.offset > 0)) {
+			req.count = await m.count(req.query, true);
+		} else {
+			req.count = result.length;
+		}
 
 		if (res) {
 			if (result.error) {
@@ -431,7 +452,9 @@ class ControllerBase {
 	async adminIndex(req) {
 
 		let m = new this.Model(req);
+		m.debug = true;
 		await m.init();
+
 		let foreignKeys = m.foreignKeys || {};
 		let keys = Object.keys(foreignKeys);
 		req.query.join = req.query.join || {};
@@ -445,9 +468,7 @@ class ControllerBase {
 			keys.shift();
 		}
 
-		let count = await m.count(req.query);
-
-		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
+		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.roleManager.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
 			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
 		}
 		if (isNaN(req.query.limit)) {
@@ -462,9 +483,16 @@ class ControllerBase {
 
 		req.limit = req.query.limit;
 		req.offset = req.query.offset || 0;
-		req.count = parseInt(count);
 
 		let result = await m.find(req.query);
+
+		//Logic? Don't count unless we are paging through results
+		if (_.isArray(result) && (result.length === req.query.limit || req.query.offset > 0)) {
+			req.count = await m.count(req.query, true);
+		} else {
+			req.count = result.length;
+		}
+
 
 		return result;
 	}
@@ -522,7 +550,7 @@ class ControllerBase {
 	}
 
 	async adminUpdate(req) {
-		let m = new this.Model(req);
+		let m = new this.Model();
 		await m.init();
 		let foreignKeys = _.clone(m.foreignKeys);
 		let keys = Object.keys(foreignKeys);
@@ -535,7 +563,7 @@ class ControllerBase {
 			let model = foreignKey.modelClass || foreignKey.model;
 			let to = foreignKey.to;
 			let FKM = m.loadModel(model);
-			let fkm = new FKM(req);
+			let fkm = new FKM();
 			let count = await fkm.count();
 			if (count < 25) {
 				let items = await fkm.find(
@@ -552,7 +580,14 @@ class ControllerBase {
 						if (item[to] && item[to] !== '') {
 							options.push(
 								{
-									model : fkm,
+									model : {
+										schema : fkm.schema.object,
+										tableName : fkm.tableName,
+										fields : fkm.fields,
+										relations: fkm.relations,
+										foreignKeys : fkm.foreignKeys,
+										primaryKey : fkm.primaryKey
+									},
 									value: item[to],
 									name: item[fkm.name],
 									[fkm.primaryKey] : item[fkm.primaryKey]
@@ -572,8 +607,9 @@ class ControllerBase {
 	}
 
 	async adminView(req) {
-		let m = new this.Model(req);
-		return m.read(req.params.id, req.query);
+		let m = new this.Model();
+		let result = await m.read(req.params.id, req.query);
+		return result;
 	}
 
 	async adminDestroy(req) {

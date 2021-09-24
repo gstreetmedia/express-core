@@ -1,3 +1,5 @@
+const _ = require("lodash");
+
 module.exports = (data) => {
 	return `
 module.exports = {
@@ -37,7 +39,7 @@ return `
 	}
 	},
 	required : ${JSON.stringify(data.required)},
-	readOnly: ${ data.readOnly.length > 0 ? JSON.stringify(data.readOnly) : "[]"},
+	readOnly: ${ _.isArray(data.readOnly) && data.readOnly.length > 0 ? JSON.stringify(data.readOnly) : "[]"},
 	type: "object",
 	additionalProperties: false,
 	$defs: ${ data.$defs ? JSON.stringify(data.$defs) : "{}"}

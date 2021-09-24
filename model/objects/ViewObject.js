@@ -7,7 +7,6 @@ class ViewObject {
 
 	constructor(o) {
 		this.obj = o;
-
 	}
 
 	/**
@@ -57,7 +56,13 @@ class ViewObject {
 	 * @returns {ModelBase}
 	 */
 	get model() {
-		return this.obj.model;
+		return this.obj.model || {
+			tableName : "_",
+			schema : {
+				title : "Unknowm"
+			},
+			title : "Unknown"
+		};
 	}
 
 	/**
@@ -130,6 +135,34 @@ class ViewObject {
 			return this.schema.route;
 		}
 		return inflectFromTable.route(this.model.tableName);
+	}
+
+	get styles() {
+		this.obj.styles = this.obj.styles || [];
+		return this.obj.styles;
+	}
+
+	get scripts() {
+		this.obj.scripts = this.obj.scripts || [];
+		return this.obj.scripts;
+	}
+
+	get header() {
+		this.obj.header = this.obj.header || [];
+		return this.obj.header;
+	}
+
+	set addHeader(value) {
+		this.header.push(value);
+	}
+
+	get footer() {
+		this.obj.footer = this.obj.footer || [];
+		return this.obj.header;
+	}
+
+	set addFooter(value) {
+		this.footer.push(value);
 	}
 
 	/**

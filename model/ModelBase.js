@@ -7,6 +7,7 @@ const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 const getRelations = require("../helper/get-relations");
 const getForeignKeys = require("../helper/get-foreign-keys");
+const getModel = require("../helper/get-model");
 const cacheManager = require("../helper/cache-manager");
 const sleep = require('util').promisify(setTimeout);
 const ModelUtils = require("./model-base/ModelUtils");
@@ -19,9 +20,24 @@ class ModelBase {
 	 * or req.account.id etc.
 	 */
 	constructor(req) {
-		this.req = req;
-		if (req && req.connectionString) {
-			this._connectionStringWrite = req.connectionString;
+		if (req) {
+			this.req = req;
+			this.req.locals.isConnected = true;
+			if (this.req && !this.req.locals.hasCloseEvent) {
+				this.req.on("close", () => { //Used to abort long queries
+					//console.log("Connection Abort");
+					this.req.locals.isConnected = false;
+				})
+				this.req.locals.hasCloseEvent = true;
+			}
+			if (this.req.connectionString) {
+				this._connectionStringWrite = req.connectionString;
+				this._connectionStringRead = req.connectionString;
+			}
+			if (this.req.locals.connectionString) {
+				this._connectionStringWrite = req.locals.connectionString;
+				his._connectionStringRead = req.locals.connectionString;
+			}
 		}
 	}
 
@@ -56,7 +72,7 @@ class ModelBase {
 		if (this._schema) {
 			return this._schema;
 		}
-		if (global.schemaCache[this.tableName]) {
+		if (global.schemaCache && global.schemaCache[this.tableName]) {
 			this.log("get schema", "from cache");
 			this._schema = global.schemaCache[this.tableName];
 		}
@@ -66,16 +82,17 @@ class ModelBase {
 	 * @returns {JsonSchema}
 	 */
 	async getSchema() {
-		if (!global.schemaCache || !this.schema) {
+		if (!this.schema) {
 			let M = require("./SchemaModel");
 			let m = new M(this.req);
+			m.debug = this.debug;
 			await m.getSchema();
 			this._schema = await m.get(this.tableName);
 		}
 		return this.schema;
 	}
 
-	set schema(_value) {
+	set schema(value) {
 		this._schema = value;
 	}
 
@@ -94,22 +111,24 @@ class ModelBase {
 		if (this._fields) {
 			return this._fields
 		}
-		if (global.fieldCache[this.tableName]) {
+		if (global.fieldCache && global.fieldCache[this.tableName]) {
+			this.log("get fields", "from cache");
 			this._fields = global.fieldCache[this.tableName];
 		}
 		return this._fields;
 	}
 
-	set fields(_value) {
+	set fields(value) {
 		this._fields = value;
 	}
 
 	async getFields() {
 		this.log("getFields");
-		if (!global.fieldCache || !this.fields) {
+		if (!this.fields) {
 			let M = require("./FieldModel");
 			let m = new M(this.req);
 			await m.init();
+			m.debug = this.debug;
 			this._fields = await m.get(this.tableName);
 		}
 		return this.fields;
@@ -259,7 +278,11 @@ class ModelBase {
 
 			if (process.env[key].indexOf("postgresql://") === -1 &&
 				process.env[key].indexOf("mysql://") === -1 &&
-				process.env[key].indexOf("mssql://") === -1) {
+				process.env[key].indexOf("mssql://") === -1 &&
+				process.env[key].indexOf("redis://") === -1 &&
+				process.env[key].indexOf("elastic://") === -1 &&
+				process.env[key].indexOf("mongo://") === -1
+			) {
 				continue;
 			}
 
@@ -294,6 +317,12 @@ class ModelBase {
 			this.db = "mysql"
 		} else if (cs.indexOf("mssql://") === 0) {
 			this.db = "mssql"
+		} else if (cs.indexOf("redis://") === 0) {
+			this.db = "redis"
+		} else if (cs.indexOf("mongo://") === 0) {
+			this.db = "mongo"
+		} else if (cs.indexOf("elastic://") === 0) {
+			this.db = "elastic"
 		}
 		return this.db;
 	}
@@ -306,13 +335,22 @@ class ModelBase {
 		let cs = this.connectionString(action);
 		if (cs.indexOf("postgresql://") === 0) {
 			this.db = "pg";
-			return await require("../helper/postgres-pool")(cs);
+			return await require("./model-base/pool-postgres")(cs);
 		} else if (cs.indexOf("mysql://") === 0) {
 			this.db = "mysql"
-			return await require("../helper/mysql-pool")(cs);
+			return await require("./model-base/pool-mysql")(cs);
 		} else if (cs.indexOf("mssql://") === 0) {
 			this.db = "mssql"
-			return await require("../helper/mssql-pool")(cs);
+			return await require("./model-base/pool-mssql")(cs);
+		} else if (cs.indexOf("redis://") === 0) {
+			this.db = "redis"
+			return await require("./model-base/redis-mssql")(cs);
+		} else if (cs.indexOf("elastic://") === 0) {
+			this.db = "elastic"
+			return await require("./model-base/pool-elastic")(cs);
+		} else if (cs.indexOf("mongo://") === 0) {
+			this.db = "mongo"
+			return await require("./model-base/pool-mongo")(cs);
 		}
 
 		//TODO Elastic, Redis
@@ -320,6 +358,7 @@ class ModelBase {
 
 	async getClient(action) {
 		let pool = await this.getPool(action);
+		return pool;
 		let client;
 		switch (this.db) {
 			case "pg" :
@@ -333,6 +372,7 @@ class ModelBase {
 	}
 
 	async releaseClient(client) {
+		return;
 		if (client.release) {
 			await client.release();
 		}
@@ -352,13 +392,19 @@ class ModelBase {
 		let cs = this.connectionString("read");
 
 		if (cs.indexOf("postgresql://") !== -1) {
-			builder = require("../helper/query-to-pgsql");
+			builder = require("./model-base/QueryToPgSql");
 		} else if (cs.indexOf("postgres://") !== -1) {
-			builder = require("../helper/query-to-pgsql");
+			builder = require("./model-base/QueryToPgSql");
 		} else if (cs.indexOf("mysql://") !== -1) {
-			builder = require("../helper/query-to-mysql");
+			builder = require("./model-base/QueryToMysql");
 		} else if (cs.indexOf("mssql://") !== -1) {
-			builder = require("../helper/query-to-mssql");
+			builder = require("./model-base/QueryToMssql");
+		} else if (cs.indexOf("redis://") !== -1) {
+			builder = require("./model-base/QueryToRedis");
+		} else if (cs.indexOf("elastic://") !== -1) {
+			builder = require("./model-base/QueryToElastic");
+		} else if (cs.indexOf("mongo://") !== -1) {
+			builder = require("./model-base/QueryToElastic");
 		}
 
 		if (!builder) {
@@ -405,7 +451,7 @@ class ModelBase {
 
 		if (query && query.select) {
 			obj.select = query.select;
-			ModelUtils.addJoinFromKeys(this, query, obj);
+			await ModelUtils.addJoinFromKeys(this, query, obj);
 		}
 
 		let builder = this.queryBuilder;
@@ -475,8 +521,6 @@ class ModelBase {
 		}
 
 		await this.beforeCreate(params);
-
-		console.log(params);
 
 		let command = this.queryBuilder.insert(params);
 
@@ -563,9 +607,17 @@ class ModelBase {
 		this.log("update");
 		await this.getSchema();
 
-		let params = await ModelUtils.convertDataTypes(this, data);
+		if (!id) {
+			return {
+				error : {
+					message : "Update must be called with a valid id"
+				}
+			}
+		}
 
+		let params = await ModelUtils.convertDataTypes(this, data);
 		let exists = await this.exists(id);
+
 		if (!exists) {
 			return {
 				error : {
@@ -614,8 +666,6 @@ class ModelBase {
 		}
 
 		let proceed = await this.beforeUpdate(id, params);
-
-		console.log(params);
 
 		if (proceed) {
 			let command = this.queryBuilder.update(query, params);
@@ -703,31 +753,59 @@ class ModelBase {
 
 		let obj = _.clone(query);
 
-		if (query && query.select && query.join) {
-			obj.select = query.select;
-			await this.getRelations();
-			ModelUtils.addJoinFromKeys(this, query, obj);
+		if (query && query.join && (_.isArray(query.select) && query.length > 0)) {
+			await ModelUtils.addJoinFromKeys(this, query, obj);
 		}
 
-		let command = this.queryBuilder.select(obj);
-
-		let result = await this.execute(command, this.queryBuilder.postProcess);
-
-		if (result.error) {
-			return result;
+		let context = this;
+		let doQuery = async(offset, results) => {
+			results = results || [];
+			let query = _.clone(obj);
+			let maxLimit = process.env.CORE_REQUEST_LIMIT && !isNaN(parseInt(process.env.CORE_REQUEST_LIMIT)) ? parseInt(process.env.CORE_REQUEST_LIMIT) : 500;
+			let originalLimit = !isNaN(obj.limit) ? obj.limit : maxLimit;
+			if (!isNaN(obj.limit) && obj.limit >= maxLimit) {
+				query.limit = Math.min(obj.limit, maxLimit);
+			}
+			query.offset = offset;
+			let command = this.queryBuilder.select(query);
+			let result = await this.execute(command, this.queryBuilder.postProcess);
+			if (!result.error && result.length > 0) {
+				results = results.concat(result);
+				if (result.length === query.limit && results.length < originalLimit) {
+					if (!context.req || !context.req.locals.isConnected === false) {
+						return doQuery(offset += query.limit, results);
+					}
+				}
+			} else {
+				return result;
+			}
+			return results;
 		}
 
-		await this.afterFind(result);
+		let results = await doQuery(obj.offset || 0);
+
+		if (this.req && this.req.locals.isConnected === false) {
+			return {
+				error : {
+					message : "Request ended prematurely"
+				}
+			}
+		}
+
+		await this.afterFind(results);
 
 		if (query.join) {
-			result = await ModelRelations.join(this, result, query);
+			this.log("query", query.join);
+			results = await ModelRelations.join(this, results, query);
+		} else {
+			this.log("query", "no join");
 		}
 
 		if (cacheKey) {
-			await cacheManager.set(cacheKey, result);
+			await cacheManager.set(cacheKey, results);
 		}
 
-		return result;
+		return results;
 	}
 
 	/**
@@ -739,9 +817,10 @@ class ModelBase {
 		await this.getSchema();
 		let cacheKey;
 		let result;
+		let q = query ? {where:_.clone(query.where)} : {where:{}};
 
 		if (cache === true) {
-			cacheKey = this.getCacheKey(query, "count");
+			cacheKey = this.getCacheKey(q, "count");
 			result = await cacheManager.get(cacheKey);
 			if (result) {
 				return result;
@@ -760,7 +839,7 @@ class ModelBase {
 		}
 		 */
 
-		let command = this.queryBuilder.count(query);
+		let command = this.queryBuilder.count(q);
 		result = await this.execute(command);
 
 		if (result.error) {
@@ -775,8 +854,9 @@ class ModelBase {
 				result = result[0][key];
 			}
 			if (cacheKey) {
-				await cacheManager.set(cacheKey, result, 5);
+				await cacheManager.set(cacheKey, result, result > 10000 ? 120 : 60);
 			}
+			this.log("count", result);
 			return result;
 		} else {
 			return 0;
@@ -1026,6 +1106,7 @@ class ModelBase {
 		this.lastCommand = command;
 
 		this.log("execute", sql.toString());
+		let startTime = new Date().getTime();
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
 			client = client || await this.getClient("read");
@@ -1056,9 +1137,17 @@ class ModelBase {
 					break;
 			}
 
+			this.log("execute", "query time " + (new Date().getTime() - startTime));
+
 			return results;
 
 		} else {
+			if (process.env.CORE_READ_ONLY === "true") {
+				console.log("Updating disabled by env CORE_READ_ONLYs")
+				return {
+
+				}
+			}
 			client = client || await this.getClient("write");
 			let results = {error: {
 				message : "Nothing Happened"
@@ -1078,7 +1167,7 @@ class ModelBase {
 			await this.releaseClient(client);
 
 			switch (this.db) {
-				case "mysql" :
+				case "mssql" :
 					results = results.recordset;
 					break;
 				case "mysql" :
@@ -1223,13 +1312,14 @@ class ModelBase {
 		if (typeof modelName !== "string") {
 			return modelName;
 		}
-		global.modelCache = global.modelCache || {};
-		global.modelCache[modelName] = require("../../model/" + modelName);
-		return global.modelCache[modelName];
+		return getModel(modelName);
 	}
 
 	log(method, message) {
 		if (this.debug) {
+			if (message && typeof message === "object") {
+				message = JSON.stringify(message);
+			}
 			console.log(this.tableName + (method ? "::" + method : "") + (message ? " -> " + message : ""));
 		}
 	}

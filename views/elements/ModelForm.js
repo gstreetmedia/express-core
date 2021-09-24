@@ -3,7 +3,7 @@ const RecordItemView = require("../elements/RecordItemView");
 const _ = require("lodash");
 const inflector = require("../../helper/inflector");
 const getView = require("../../helper/view/get-view");
-const formHelper = require("./form/form");
+const formHelper = require("./form/form-helper");
 
 
 class ModelForm {
@@ -61,7 +61,7 @@ class ModelForm {
 		}
 
 		return `
-				<div class="form-group row clearfix">
+				<div class="form-group row clearfix mb-2">
 					<label class="label col-md-3">
 					${inflector.camelize(inflector.underscore(key))}${required ? "*" : ""}
 				</label>

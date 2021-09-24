@@ -11,11 +11,16 @@ class ModelRelations {
 	}
 
 	/**
-	 * @param key
-	 * @param j
+	 * @param {object} relations
+	 * @param {object} results
+	 * @param {string} key
+	 * @param {object} j
 	 */
-	static processWhere(key, j) {
-		if (relations[key].where) {
+	static processWhere(relations, results, key, j) {
+		if (!relations[key]) {
+			console.log("processWhere no relation for " + key);
+		}
+		if (relations[key] && relations[key].where) {
 			j.where = j.where || {};
 			for (let p in relations[key].where) {
 				let expression = j.where[p] || relations[key].where[p];
@@ -46,6 +51,9 @@ class ModelRelations {
 	 * @param {object} j
 	 */
 	static processSelect(relations, key, j) {
+		if (!relations[key]) {
+			console.log("processSelect no relation for " + key);
+		}
 		if (relations[key] && relations[key].select) {
 			j.select = j.select || [];
 			relations[key].select.forEach(
@@ -84,7 +92,12 @@ class ModelRelations {
 	static async join (model, results, query){
 
 		let relations = await model.getRelations();
+
+		model.log("join::relations", relations);
+
 		let foreignKeys = await model.getForeignKeys();
+
+		model.log("join::foreignKeys", foreignKeys);
 
 		if (!relations && !foreignKeys) {
 			return results;
@@ -138,6 +151,8 @@ class ModelRelations {
 		while (keys.length > 0) {
 			let key = keys[0];
 			if (relations[key]) {
+				model.log("join", "key => " + key);
+
 				let relation = _.clone(relations[key]);
 				if (relation.allowedRoles && (model.req && !model.req.hasRole(relation.allowedRoles))) {
 					keys.shift();
@@ -215,7 +230,8 @@ class ModelRelations {
 
 				targetKeys = _.uniq(targetKeys);
 
-				model.log("join", "!!!!!!!!!!!!!!!!TargetKeys => " + targetKeys);
+				let startTime = new Date().getTime();
+				model.log("join", "targetKeys => " + targetKeys);
 				model.log("join","joinFrom => " + joinFrom);
 				model.log("join","joinThroughTo => " + joinThroughTo);
 				model.log("join","joinThroughFrom => " + joinThroughFrom);
@@ -237,11 +253,12 @@ class ModelRelations {
 						throughModel.debug = true;
 					}
 					throughList = await throughModel.query(joinThrough);
-
-					if (throughList.length === 0) {
+					model.log("join","throughModel query time -> " + (new Date().getTime() - startTime));
+					if (throughList.error || throughList.length === 0) {
 						keys.shift();
 						continue;
 					}
+
 					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
 					targetKeys = _.flatten(targetKeys);
 					targetKeys = _.uniq(targetKeys);
@@ -268,7 +285,7 @@ class ModelRelations {
 						}
 
 						if (relations[key].where) {
-							ModelRelations.processWhere(key, j);
+							ModelRelations.processWhere(relations, results, key, j);
 						}
 
 						j.where = j.where || {};
@@ -281,7 +298,7 @@ class ModelRelations {
 						}
 
 						if (!originalSelect || originalSelect.length === 0) {
-							ModelRelations.processSelect(key, j);
+							ModelRelations.processSelect(relations, key, j);
 						}
 
 						if (j.select && _.indexOf(j.select, joinTo) === -1) {
@@ -289,7 +306,9 @@ class ModelRelations {
 							removeJoinTo = true;
 						}
 
+						startTime = new Date().getTime();
 						list = await relationModel.query(j);
+						model.log("join","hasone query time -> " + (new Date().getTime() - startTime));
 
 						if (list.error) {
 							keys.shift();
@@ -365,7 +384,7 @@ class ModelRelations {
 						}
 
 						if (relations[key].where) {
-							ModelRelations.processWhere(key, j);
+							ModelRelations.processWhere(relations, results, key, j);
 						}
 
 						j.where = j.where || {};
@@ -378,7 +397,7 @@ class ModelRelations {
 						j.limit = j.limit || relation.limit || null;
 
 						if (!originalSelect || originalSelect.length === 0) {
-							ModelRelations.processSelect(key, j);
+							ModelRelations.processSelect(relations, key, j);
 						}
 
 						//must select the targetJoin key
@@ -391,7 +410,9 @@ class ModelRelations {
 							j.join = "*"
 						}
 
+						startTime = new Date().getTime();
 						list = await relationModel.query(j);
+						model.log("join","hasmany query time -> " + (new Date().getTime() - startTime));
 
 						if (list.error) {
 							keys.shift();

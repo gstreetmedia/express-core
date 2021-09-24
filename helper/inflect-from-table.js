@@ -1,4 +1,5 @@
-const inflector= require("./inflector");
+const inflector = require("./inflector");
+const getModel = require("./get-model");
 
 exports.route = (tableName) => {
 	let route = tableName;
@@ -43,7 +44,7 @@ exports.propertyName = (columnName) => {
 	styles = styles.split(",");
 	styles.forEach(
 		(style) => {
-			switch (style.toLowerCase()) {
+			switch (style) {
 				case "singular" :
 					columnName = inflector.singularize(columnName);
 					break;
@@ -55,13 +56,12 @@ exports.propertyName = (columnName) => {
 					break;
 				case "underscore" :
 				case "snake_case" :
-				case "snakecase" :
 					columnName = inflector.underscore(columnName);
 					break;
-				case "camelcase" :
-					columnName = inflector.camelize(columnName, false);
+				case "camelCase" :
+					columnName = inflector.camelize(columnName);
 					break
-				case "titlecase" :
+				case "TitleCase" :
 					columnName = inflector.camelize(route, true);
 					break
 				case "lowercase" :
@@ -74,12 +74,12 @@ exports.propertyName = (columnName) => {
 }
 
 exports.styles = {
-	SINGULAR : "singular",
-	CAMEL_CASE : "camelCase",
-	PLURAL : "plural",
-	DASHED : "dashed",
-	UNDERSCORE : "underscore",
-	SNAKE_CASE : "snake_case",
-	TITLE_CASE : "TitleCase",
-	LOWERCASE : "lowercase"
+	SINGULAR: "singular",
+	CAMEL_CASE: "camelCase",
+	PLURAL: "plural",
+	DASHED: "dashed",
+	UNDERSCORE: "underscore",
+	SNAKE_CASE: "snake_case",
+	TITLE_CASE: "TitleCase",
+	LOWERCASE: "lowercase"
 }

@@ -9,7 +9,7 @@ module.exports = async (o) => {
 ${ await o.renderView(header, o) }    
 <div class="container login-view">
 	<div class="row">
-		<div class="col-lg-4 col-md-8 col-sm-12 ml-auto mr-auto">
+		<div class="col-4 mx-auto">
 			<form class="form form-signin"
 				  method="POST"
 				  action="${ global.apiRoot }/user/login"
@@ -28,7 +28,7 @@ ${ await o.renderView(header, o) }
 								<input type="checkbox" name="rememberMe" value="yes"> Remember me
 							</label>
 						</div>
-						<button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+						<button class="btn btn-lg btn-primary d-block w-100" type="submit">Sign in</button>
 					</div>
 				</div>
 			</form>

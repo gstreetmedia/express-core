@@ -56,8 +56,8 @@ if (!fs.existsSync(routerBase)) {
 /*
 CORE_PROPERTY_NAME_STYLE=snake_case
 CORE_PROPERTY_NAME_PLURAL_STYLE=singular
-CORE_TABLE_NAME_STYLE=snake_case
-CORE_TABLE_NAME_PLURAL_STYLE=plural
+CORE_TABLE_NAME_STYLE=snake_case,plural
+
  */
 let convertName = (key, style) => {
 	style = style || process.env.CORE_PROPERTY_NAME_STYLE || "camelCase";
@@ -107,13 +107,13 @@ async function convert(connectionString, options) {
 
 		if (cs.indexOf("postgres") === 0) {
 			converter = require("./pg-tables-to-schema");
-			pool = await require("../helper/postgres-pool")(connectionString[i]);
+			pool = await require("../model/model-base/postgres-pool")(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
 			converter = require("./mysql-tables-to-schema");
-			pool = await require("../helper/mysql-pool")(connectionString[i]);
+			pool = await require("../model/model-base/mysql-pool")(connectionString[i]);
 		} else if (cs.indexOf("mssql") === 0) {
 			converter = require("./mssql-tables-to-schema");
-			let p = require("../helper/mssql-pool")
+			let p = require("../model/model-base/mssql-pool")
 			pool = await p(connectionString[i]);
 		} //TODO elastic?
 

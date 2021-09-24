@@ -70,7 +70,7 @@ module.exports = async (item, options) => {
 		if (k.length === 2) {
 			k = k.toLowerCase();
 		}
-		item.required[i] = k;
+		item.required[i] = inflectFromTable.propertyName(item.readOnly[i]);
 	}
 
 	if (localSchema.relations) {

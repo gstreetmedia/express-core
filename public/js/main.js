@@ -74,11 +74,11 @@ $(document).ready(
 		$("#modelSearch").autocomplete(
 			{
 				autoSelectFirst: true,
-				serviceUrl: app.apiRoot + "/admin/search/" + app.route,
+				serviceUrl: "/admin/search/" + app.tableName,
 				groupBy: "field",
-				minChars: 4,
-				noCache: true,
-				deferRequestBy: 3,
+				minChars : 4,
+				noCache : true,
+				deferRequestBy : 3,
 				transformResult: function (response) {
 					var results = [];
 					response = JSON.parse(response);
@@ -100,7 +100,7 @@ $(document).ready(
 				},
 				onSelect: function (suggestion) {
 					console.log(suggestion);
-					window.location = "/admin/" + app.route + '?query={"where":{"' + suggestion.data.field + '":{"=":"' + suggestion.value + '"}}}';
+					window.location = "/admin/" + app.tableName + '?query={"where":{"' + suggestion.data.field + '":{"=":"' + suggestion.value + '"}}}';
 				},
 				onSearchComplete: function () {
 
@@ -142,7 +142,7 @@ $(document).ready(
 					let data = $(this).serializeJSON();
 
 					Object.keys(data).forEach(
-						function (key) {
+						function(key) {
 							if (data[key] === "null") {
 								data[key] = null;
 							}
@@ -150,16 +150,15 @@ $(document).ready(
 					);
 
 					let field = target.find("[name]");
-					let errors = [];
 					field.each(
-						function () {
+						function() {
 							var element = $(this);
 							//var e = document.getElementsByClassName('form-check-input')
 							var inputType = this.tagName === "INPUT" ? this.type : this.tagName;
 							var dataType = element.attr("data-type");
 							var name = element.attr("name");
 							var value = $(this).val();
-							if (value.toLowerCase() === "null") {
+							if (value === "null") {
 								value = null;
 							}
 							console.log(dataType + " => " + name + " " + inputType);
@@ -186,21 +185,12 @@ $(document).ready(
 									}
 									break;
 								case "object" :
-									if (value === null) {
-										data[name] = null;
-									} else	if (value.indexOf("{") === 0 || value.indexOf("[") === 0) {
-										var o;
-										try {
-											o = JSON.parse(value);
-											data[name] = o;
-										} catch (e) {
-											errors.push(name + " does not appear to be a valid object " );
-											errors.push(e.message);
-										}
-									} else {
-										errors.push(name + " should start with { or [");
+									try {
+										let o = JSON.parse(data[name]);
+										data[name] = o;
+									} catch (e) {
+										//Not JSON
 									}
-
 									break;
 								case "boolean" :
 									console.log("fix bool " + name + " => " + value);
@@ -221,9 +211,6 @@ $(document).ready(
 							}
 						}
 					);
-					if (errors.length > 0) {
-						return swal("Oops!", errors.join("\n"), "error")
-					}
 
 					if (target.attr("id") === "fieldForm") {
 						data = saveFields(data, false);
@@ -273,33 +260,41 @@ $(document).ready(
 		};
 
 		var view = function (tableName, id, modelTitle) {
-			var modal = $("#view-modal");
-			var header = modal.find(".modal-header");
-			var body = modal.find(".modal-body");
-			var title = modal.find(".modal-title");
+
+			var modal = new bootstrap.Modal(document.getElementById('view-modal'), {});
+			var viewModal = document.getElementById("view-modal");
+			var header = viewModal.getElementsByClassName('modal-header')[0];//modal.find(".modal-header");
+			var body = viewModal.getElementsByClassName('modal-body')[0]; //modal.find(".modal-body");
+			var title = viewModal.getElementsByClassName('modal-title')[0]; //modal.find(".modal-title");
 			var url = "/admin/" + tableName + "/" + id + "/view";
 
-			title.html("View " + (modelTitle || app.modelTitle));
-			body.html(activityIndicator);
+			title.innerHTML = "View " + (modelTitle || app.modelTitle);
+			body.innerHTML = activityIndicator;
 
-			var action = header.find("[data-bindid='edit']");
-			action.off("click").on("click",
+			var action = header.querySelectorAll("[data-bindid='edit']")[0];
+			action.addEventListener("click",
 				function () {
-					modal.modal('hide');
+					modal.hide();
 					edit(tableName, id);
 				}
-			);
+			)
 
-			modal.modal();
+			modal.show();
 
 			$.ajax(
 				{
 					url: url,
-					dataType: "json",
+					dataType : "json",
 					success: function (response) {
-						body.html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
-						body.scrollTop(0);
-						onViewReady(body, modal);
+						$(body).html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
+						body.scrollTop = 0;
+						setTimeout(
+							function() {
+								onViewReady($(body)),
+									1000
+							}
+						)
+						onViewReady($(body));
 					},
 					error: function (xhr) {
 
@@ -308,7 +303,8 @@ $(document).ready(
 			);
 		};
 
-		var onViewReady = function (body, id) {
+		var onViewReady = function () {
+			var body = $("#view-modal .modal-body");
 			body.find(".gridded-relation").each(
 				function () {
 					var target = $(this);
@@ -326,11 +322,13 @@ $(document).ready(
 					target.addClass("gridded-relation-active")
 				}
 			);
-
+			console.log(body.find("[data-json-view]"));
 			body.find("[data-json-view]").each(
 				function () {
+					console.log("huh?")
 					var target = $(this);
 					var obj = window[target.attr('data-json-view')];
+					console.log(target.attr('data-json-view'));
 					if (obj) {
 
 						try {
@@ -338,13 +336,13 @@ $(document).ready(
 							let keys = Object.keys(obj);
 							keys = keys.sort();
 							keys.forEach(
-								function (key) {
+								function(key) {
 									sorted[key] = obj[key];
 								}
 							)
 							target.JSONView(sorted);
 						} catch (e) {
-
+							console.log(e);
 						}
 
 					}
@@ -403,24 +401,26 @@ $(document).ready(
 		};
 
 		var edit = function (tableName, id, modelTitle) {
-			var modal = $("#edit-modal");
-			var body = modal.find(".modal-body");
-			var title = modal.find(".modal-title");
+
+			var modal = new bootstrap.Modal(document.getElementById('edit-modal'), {});
+			var viewModal = document.getElementById("edit-modal");
+			var header = viewModal.getElementsByClassName('modal-header')[0];//modal.find(".modal-header");
+			var body = viewModal.getElementsByClassName('modal-body')[0]; //modal.find(".modal-body");
+			var title = viewModal.getElementsByClassName('modal-title')[0]; //modal.find(".modal-title");
+			title.innerHTML = "Edit " + (modelTitle || app.modelTitle);
+			body.innerHTML = activityIndicator;
 			var url = "/admin/" + tableName + "/" + id + "/edit";
 
-			title.html("Edit " + (modelTitle || app.modelTitle));
-			body.html(activityIndicator);
-			modal.modal();
+			modal.show();
 
 			$.ajax(
 				{
 					url: url,
-					dataType: "json",
+					dataType : "json",
 					success: function (response) {
-
-						body.html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
-						body.scrollTop(0);
-						onEditReady(body, modal);
+						$(body).html(response.results.html + "<script> var viewData = " + JSON.stringify(response.results.data) + "</script>");
+						body.scrollTop = 0
+						onEditReady($(body), modal);
 					},
 					error: function (xhr) {
 
@@ -431,7 +431,7 @@ $(document).ready(
 
 		var onEditReady = function (body, modal) {
 
-			Quill.prototype.getHtml = function () {
+			Quill.prototype.getHtml = function() {
 				return this.container.firstChild.innerHTML;
 			};
 
@@ -461,33 +461,45 @@ $(document).ready(
 					}, {line: totalLines});
 
 					editor.on("change", function () {
-						console.log("onCHange");
-						let value = editor.getValue();
-						target.val(value);
+						console.log("onChange");
+						//console.log(editor.getValue());
+						//console.log(target);
+						try {
+							let value = editor.getValue();
+							try {
+								console.log(JSON.parse(value));
+								target.val(value);
+							} catch (e) {
+								console.log("Not Valid JSON");
+							}
+
+						} catch (e) {
+							//Not quite ready
+						}
 					});
 					$(this).hide();
 				}
 			);
 
 			body.find(".text-editor").each(
-				function () {
+				function() {
 					var target = $(this);
 
-					let richContentTypes = ['content', 'body', 'html', 'description', 'postContent', 'notes', 'info']
+					let richContentTypes = ['content','body','html','description','postContent','notes','info']
 					if (richContentTypes.indexOf(target.attr("name")) === -1) {
 						return;
 					}
 
-					$("[name='" + target.attr("data-input") + "']").addClass("d-none");
+					$("[name='"+target.attr("data-input")+"']").addClass("d-none");
 
-					var element = $("[name='" + target.attr("data-input") + "']");
+					var element = $("[name='"+target.attr("data-input")+"']");
 					element.parent().addClass("pb-5");
 					var editor = new Quill(target[0],
 						{
 							theme: 'snow'   // Specify theme in configuration
 						}
 					);  // First matching element will be used
-					editor.on('text-change', function (delta, oldDelta, source) {
+					editor.on('text-change', function(delta, oldDelta, source) {
 						var deltas = editor.getContents();
 						//console.log(delta);
 						//console.log(deltas);
@@ -499,34 +511,36 @@ $(document).ready(
 					});
 				}
 			);
-
-			var action = modal.find("[data-bindid='save']");
+			var viewModal = $("#edit-modal");
+			var action = viewModal.find("[data-bindid='save']");
 			var form = body.find("form");
 			initForm(form);
 			action.off("click").on("click", function () {
+				modal.hide();
 				form.submit()
 			});
 		};
 
 		var create = function (tableName, modelTitle) {
-			var modal = $("#edit-modal");
-			var header = modal.find(".modal-header");
-			var body = modal.find(".modal-body");
-			var title = modal.find(".modal-title");
-			var action = modal.find(".modal-action");
+			var modal = new bootstrap.Modal(document.getElementById('edit-modal'), {});
+			var viewModal = document.getElementById("edit-modal");
+			var header = viewModal.getElementsByClassName('modal-header')[0];//modal.find(".modal-header");
+			var body = viewModal.getElementsByClassName('modal-body')[0]; //modal.find(".modal-body");
+			var title = viewModal.getElementsByClassName('modal-title')[0]; //modal.find(".modal-title");
+			var action = viewModal.getElementsByClassName("modal-action")[0];
 
-			title.html("Create " + (modelTitle));
-			body.html(activityIndicator);
-			modal.modal();
+			title.innerHTML = "Create " + (modelTitle);
+			body.innerHTML = activityIndicator;
+			modal.show();
 
 			$.ajax(
 				{
 					url: "/admin/" + app.tableName + "/create",
-					dataType: "json",
+					dataType : "json",
 					success: function (response) {
-						body.html(response.results.html);
-						body.scrollTop(0);
-						onEditReady(body, modal);
+						body.innerHTML = response.results.html;
+						body.scrollTop = 0;
+						onEditReady($(body), modal);
 					},
 					error: function (xhr) {
 
@@ -586,7 +600,7 @@ $(document).ready(
 
 		};
 
-		var makeFieldsSortable = function (saveResult) {
+		var makeFieldsSortable = function(saveResult) {
 			let containerSelector = '.property-group';
 			let containers = document.querySelectorAll(containerSelector);
 			const sortable = new Draggable.Sortable(containers, {
@@ -663,40 +677,51 @@ $(document).ready(
 		}
 
 		var index = function () {
-			$(".gridded .row-striped").off().on("click",
+			$(".gridded .row-striped").off().on("dblclick",
 				function (e) {
 					var target = $(e.target);
 					var bindId = DataBind.getId(target);
+					var element,id,table;
 
 					switch (bindId) {
 						case "view" :
-							var element = DataBind.getElement(target, "view");
-							var table = element.attr("data-table");
-							var id = element.attr("data-id");
+							element = DataBind.getElement(target, "view");
+							table = element.attr("data-table");
+							id = element.attr("data-id");
 							e.preventDefault();
 							return view(table, id, table);
 							break;
-						case "edit" :
-							var element = DataBind.getElement(target, "view");
-							var id = element.attr("data-id");
-							var table = element.attr("data-table");
-							e.preventDefault();
-							return edit(table, id, table);
-							break;
-						case "delete" :
-							var element = DataBind.getElement(target, "view");
-							var id = element.attr("data-id");
-							var table = element.attr("data-table");
-							e.preventDefault();
-							return destroy(table, id, table);
 						case "route" :
-							var element = DataBind.getElement(target, bindId);
+							element = DataBind.getElement(target, bindId);
 							e.preventDefault();
 							window.location = element.attr("data-route");
 
 					}
 				}
 			);
+
+			$(".gridded .actions button").on("click",
+				function(e) {
+					var target = $(e.target);
+					var bindId = DataBind.getId(target);
+					var element,id,table;
+					switch (bindId) {
+						case "edit" :
+							element = DataBind.getElement(target, "view");
+							id = element.attr("data-id");
+							table = element.attr("data-table");
+							e.preventDefault();
+							return edit(table, id, table);
+							break;
+						case "delete" :
+							element = DataBind.getElement(target, "view");
+							id = element.attr("data-id");
+							table = element.attr("data-table");
+							e.preventDefault();
+							return destroy(table, id, table);
+					}
+				}
+			)
 
 			$(function () {
 				$('[data-toggle="tooltip"]').tooltip()
@@ -716,7 +741,7 @@ $(document).ready(
 		}
 
 		let target = $("#mainNav .active");
-		target.css("background-color", "#EAEAEA");
+		target.css("background-color","#EAEAEA");
 		$('.sidebar-sticky').scrollTop(target.offset().top - 50);
 
 		switch (app.action) {

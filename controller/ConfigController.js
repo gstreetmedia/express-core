@@ -1,20 +1,13 @@
 const ControllerBase = require('./ControllerBase');
-const _ = require('lodash');
-const fs = require("fs");
+const Model = require("../model/ConfigModel");
 
 class ConfigController extends ControllerBase {
-
+	/**
+	 * @param {ConfigModel} model
+	 */
 	constructor(model) {
-		if(!model) {
-			if (fs.existsSync(__dirname + "/../../model/ConfigModel.js")) {
-				model = require("../../model/ConfigModel");
-			} else {
-				model = require('../model/ConfigModel');
-			}
-		}
-		super(model);
+		super(model || Model);
 	}
-
 }
 
 module.exports = ConfigController;

@@ -46,6 +46,7 @@ class JsonSchema {
 	 * @returns {string}
 	 */
 	get className() {
+		console.log("ClassName => " + inflector.classify(this.baseName));
 		return inflector.classify(this.baseName)
 	}
 
@@ -126,7 +127,7 @@ class JsonSchema {
 	}
 
 	toJSON() {
-		return JSON.stringify(this.object);
+		return this.object;
 	}
 
 	toString() {

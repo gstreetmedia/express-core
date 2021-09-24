@@ -1,26 +1,20 @@
 let router = require('express').Router();
-const fs = require("fs");
+let getController = require("../helper/get-controller");
 let authentication = require('../middleware/authentication');
-let path = require("path");
-
-let Controller;
-if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/RolePermissionController.js"))) {
-	Controller = require('../controller/ConfigController');
-} else {
-	Controller = require(global.appRoot + "/src/controller/RolePermissionController");
-}
-let c = new Controller();
+let c;
 
 router.use(authentication);
 
 router.use(async function (req, res, next) {
-	req.allowRole('api-user');
+	req.roleManager.allowRole('super-admin');
+	const Controller = getController("RolePermissionsController");
+	c = new Controller();
 	return next();
 });
 
 
 router.get('/', async (req, res, next) => {
-	if (req.checkRole()) {
+	if (req.roleManager.checkRole()) {
 		return await c.query(req, res);
 	}
 	return next();
@@ -28,7 +22,7 @@ router.get('/', async (req, res, next) => {
 
 
 router.get('/:id', async (req, res, next) => {
-	if (req.checkRole()) {
+	if (req.roleManager.checkRole()) {
 		return await c.read(req, res);
 	}
 	return next();
@@ -36,7 +30,7 @@ router.get('/:id', async (req, res, next) => {
 
 
 router.post('/', async (req, res, next) => {
-	if (req.checkRole()) {
+	if (req.roleManager.checkRole()) {
 		return await c.create(req, res);
 	}
 	return next();
@@ -44,14 +38,14 @@ router.post('/', async (req, res, next) => {
 
 
 router.put('/:id', async (req, res, next) => {
-	if (req.checkRole()) {
+	if (req.roleManager.checkRole()) {
 		return await c.update(req, res);
 	}
 	return next();
 });
 
 router.delete('/:id', async (req, res, next) => {
-	if (req.checkRole()) {
+	if (req.roleManager.checkRole()) {
 		return await c.destroy(req, res);
 	}
 	return next();

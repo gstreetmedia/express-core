@@ -12,7 +12,7 @@ module.exports = async(o) => {
 	let fieldEditor = await getView("template-parts/field-editor");
 	return `
 	${ await renderView(header, o) }
-	<div class="navbar">
+	<div class="navbar ps-2 pe-2">
 		<h5 class="title">${ o.name } Fields</h5>
 	</div>
 	${ fieldEditor(o) } 

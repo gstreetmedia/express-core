@@ -1,3 +1,5 @@
+let fs = require("fs");
+
 module.exports = {
 	__express : async(filePath, options, callback) => {
 		let template = require(filePath);

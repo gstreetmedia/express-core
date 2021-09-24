@@ -1,56 +1,48 @@
 let router = require('express').Router();
-const fs = require("fs");
-const path = require("path");
+let getController = require("../helper/get-controller");
 let authentication = require('../middleware/authentication');
-let Controller;
-if (!fs.existsSync(path.resolve(global.appRoot + "/src/controller/SchemaController.js"))) {
-	Controller = require(global.appRoot + "/src/controller/SchemaController");
-} else {
-	Controller = require("../controller/SchemaController");
-}
 let c;
 
 router.use(authentication);
 
-router.use(async function(req, res, next){
-	req.allowRole(['super-api']);
-	if (!c) {
-		c = new Controller();
-	}
-	//add other roles as needed, or call req.addRole('some-role') in individual endpoints
+router.use(async function (req, res, next) {
+	req.roleManager.allowRole('super-admin');
+	const Controller = getController("SchemaController");
+	c = new Controller();
 	return next();
 });
 
+
 router.get('/', async function (req, res, next) {
-	if(req.checkRole()){
+	if(req.roleManager.checkRole()){
 		return await c.query(req, res);
 	}
 	return next();
 });
 
 router.get('/:id', async function (req, res, next) {
-	if(req.checkRole()){
+	if(req.roleManager.checkRole()){
 		return await c.read(req, res);
 	}
 	return next();
 });
 
 router.post('/', async function (req, res, next) {
-	if(req.checkRole()){
+	if(req.roleManager.checkRole()){
 		return await c.create(req, res);
 	}
 	return next();
 });
 
 router.put('/:id', async function (req, res, next) {
-	if(req.checkRole()){
+	if(req.roleManager.checkRole()){
 		return await c.update(req, res);
 	}
 	return next();
 });
 
 router.patch('/:id', async function (req, res, next) {
-	if(req.checkRole()){
+	if(req.roleManager.checkRole()){
 		return await c.update(req, res);
 	}
 	return next();
@@ -58,7 +50,7 @@ router.patch('/:id', async function (req, res, next) {
 
 /*
 router.delete('/:id', async function (req, res, next) {
-	if(req.checkRole()){
+	if(req.roleManager.checkRole()){
 		return await c.destroy(req, res);
 	}
 	return next();

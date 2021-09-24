@@ -1,6 +1,5 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-
 const getIpAddress = require("../helper/get-ip-address");
 const jwt = require('jsonwebtoken');
 const moment = require("moment");
