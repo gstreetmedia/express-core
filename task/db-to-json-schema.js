@@ -78,12 +78,12 @@ const sleep = require('util').promisify(setTimeout);
 async function convert(connectionString, options) {
 
 	let schemaModel = new SchemaModel();
-	//schemaModel.debug = true;
+	schemaModel.debug = true;
 	await schemaModel.getSchema();
 	//schemaModel.createTable(); //TODO do this only once
 
 	let fieldModel = new FieldModel();
-	//fieldModel.debug = true;
+	fieldModel.debug = true;
 	await schemaModel.getSchema();
 	//FieldModel.createTable(); //TODO do this only once
 
@@ -94,6 +94,8 @@ async function convert(connectionString, options) {
 	} else if (!_.isArray(connectionString)) {
 		connectionString = [connectionString];
 	}
+
+	console.log(connectionString);
 
 	let cs;
 	let routers = [];
@@ -107,13 +109,13 @@ async function convert(connectionString, options) {
 
 		if (cs.indexOf("postgres") === 0) {
 			converter = require("./pg-tables-to-schema");
-			pool = await require("../model/model-base/postgres-pool")(connectionString[i]);
+			pool = await require("../model/model-base/pool-postgres")(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
 			converter = require("./mysql-tables-to-schema");
-			pool = await require("../model/model-base/mysql-pool")(connectionString[i]);
+			pool = await require("../model/model-base/pool-mysql")(connectionString[i]);
 		} else if (cs.indexOf("mssql") === 0) {
 			converter = require("./mssql-tables-to-schema");
-			let p = require("../model/model-base/mssql-pool")
+			let p = require("../model/model-base/pool-mysql")
 			pool = await p(connectionString[i]);
 		} //TODO elastic?
 
@@ -127,9 +129,13 @@ async function convert(connectionString, options) {
 				connectionString: cs
 			}, options[i]), pool);
 
+
+		let routes = [];
+
 		schema.forEach(
 			function (item) {
 				//console.log(item.tableName);
+				routes.push(item);
 				item.dataSource = cs.database;
 				if (options[i].ignore) {
 					if (_.indexOf(options[i].ignore, item.tableName) === -1) {
@@ -151,20 +157,20 @@ async function convert(connectionString, options) {
 				}
 			}
 		)
-
+		let dbSchemaToJsonSchema = require("./db-schema-to-json-schema");
 		for (let q = 0; q < schemas.length; q++) {
 
 			let destination = options[i].destination || "file";
 			let item = schemas[q];
-			let dbSchemaToJsonSchema = require("./db-schema-to-json-schema");
+
 			item = await dbSchemaToJsonSchema(item, options[i]);
 
 			//TODO need to remove schemas that no longer exist
 			if (destination === "db") {
 				let result = await schemaModel.set(item.tableName, item);
+				console.log(result);
 				if (result.error) {
 					console.log(result);
-					await schemaModel.saveFile(item.tableName, item);
 					process.exit();
 				}
 			} else {
@@ -215,11 +221,8 @@ async function convert(connectionString, options) {
 
 			let fileRoot = inflector.dasherize(baseName);
 
-			if (!isNaN(parseInt(fileRoot))) {
-				fileRoot = "_" + fileRoot;
-				if (fileRoot.indexOf("-") === 0) {
-					fileRoot = "_" + fileRoot.substring(1, fileRoot.length)
-				}
+			if (fileRoot.indexOf("-") === 0) {
+				fileRoot = "_" + fileRoot.substring(1, fileRoot.length)
 			}
 
 			let controllerPath = controllerBase + "/" + className + "Controller.js";
@@ -400,12 +403,30 @@ async function convert(connectionString, options) {
 				fs.writeFileSync(routerPath, template(modelName, endpoint));
 			}
 
-			routers.push({tableName : item.tableName, baseName:baseName});
+			routers.push({tableName : item.tableName, route:item.route});
 		}
 	}
 
-	routers.sort();
-	routers = _.uniq(routers);
+	if (fs.existsSync("./src/router/app-router.js")) {
+		let appRouter = require(global.appRoot + "/src/router/app-router.js");
+		let routes = appRouter.routeMap;
+		let keys = Object.keys(routes);
+
+		Object.keys(routes).forEach(
+			(route) => {
+				if (!_.filter(routers, { route: route })) {
+					routers.push(
+						{ route : route, tableName : routes[route] }
+					);
+				}
+			}
+		)
+	}
+	routers.sort(
+		(a,b) => {
+			return a.tableName > b.tableName ? 1 : -1
+		}
+	)
 
 	let template = require("./templates/app-router");
 	fs.writeFileSync("./src/router/app-router.js", template(routers));

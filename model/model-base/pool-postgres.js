@@ -15,7 +15,7 @@ module.exports = async (connectionString) => {
 	};
 
 	let pool = new Pool(options);
-
+	await pool.connect();
 	pools[key] = pool;
 
 	return pool

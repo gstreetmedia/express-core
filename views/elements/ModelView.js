@@ -25,7 +25,7 @@ class ModelView {
 				let html = '';
 				let ModelName = model.relations[key].model || model.relations[key].modelClass;
 				let RelationModel = model.loadModel(ModelName);
-				let relationModel = new RelationModel();
+				let relationModel = new RelationModel(model.req);
 				await relationModel.init();
 				let relationData = data[key];
 

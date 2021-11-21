@@ -22,10 +22,6 @@ class SchemaModel extends ModelBase {
 	}
 
 	get tableName() {
-		return SchemaModel.tableName;
-	}
-
-	static get tableName() {
 		return "_schemas";
 	}
 
@@ -34,6 +30,7 @@ class SchemaModel extends ModelBase {
 	}
 
 	async update(id, data) {
+		console.log("update");
 		let result = await super.update(id, data, true);
 		if (!result.error) {
 			let schema = new JsonSchema(result);
@@ -50,6 +47,7 @@ class SchemaModel extends ModelBase {
 	}
 
 	async create(data) {
+		console.log("create");
 		let result = await super.create(data, true);
 		if (!result.error) {
 			let schema = new JsonSchema(result);
@@ -75,12 +73,15 @@ class SchemaModel extends ModelBase {
 		if (global.schemaCache[SchemaModel.tableName]) {
 			return global.schemaCache[SchemaModel.tableName];
 		}
-		this._schema = await this.get(SchemaModel.tableName); //Need a primer
+
+		this._schema = await this.get(this.tableName);
+
 		let schema = await this.findOne({
 			where : {
-				tableName : SchemaModel.tableName
+				tableName : this.tableName
 			}
 		});
+
 		if (!schema.error) {
 			hasSchemaTable = true;
 			this._schema = global.schemaCache[SchemaModel.tableName] = new JsonSchema(schema);
@@ -133,14 +134,16 @@ class SchemaModel extends ModelBase {
 
 	async set(tableName, data) {
 		if (hasSchemaTable) {
+			console.log("set 1");
 			let table = await this.get(tableName, false);
 			if (table) {
-				await this.update(data, true);
+				return await this.update(table.id, data, true);
 			} else {
-				await this.create(table.id, data, true);
+				return await this.create(data);
 			}
 		} else {
-			this.saveFile(tableName, data);
+			console.log("set 2");
+			return this.saveFile(tableName, data);
 		}
 	}
 
@@ -179,6 +182,7 @@ class SchemaModel extends ModelBase {
 		this.log("loadFile", tableName);
 		let schema;
 		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
+		console.log(p);
 		if (await exists(p)) {
 			this.log("loadFile", p);
 			schema = require(p.split(".js").join(""));
@@ -261,15 +265,14 @@ class SchemaModel extends ModelBase {
 
 	saveFile(tableName, data) {
 		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
-		if (fs.existsSync(p)) {
-			let template = require("../task/templates/schema");
+		let template = require("../task/templates/schema");
+		fs.writeFileSync(p, template(data));
+		if (data.relations || data.foreignKeys) {
+			let template = require("../task/templates/relations");
+			let p = path.resolve(global.appRoot + "/src/schema/relations/" + this.getLocalFileName(tableName, "relations"));
 			fs.writeFileSync(p, template(data));
-			if (data.relations || data.foreignKeys) {
-				let template = require("../task/templates/relations");
-				let p = path.resolve(global.appRoot + "/src/schema/relations/" + this.getLocalFileName(tableName, "relations"));
-				fs.writeFileSync(p, template(data));
-			}
 		}
+		return data;
 	}
 
 

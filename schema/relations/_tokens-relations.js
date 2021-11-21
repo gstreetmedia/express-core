@@ -1,15 +1,15 @@
-exports.relations = {
+exports.types = {
 	config: {
-		relation: "HasOne",
-		modelClass: "ConfigModel",
+		type: "HasOne",
+		model: "ConfigModel",
 		join: {
 			from: "configId",
 			to: "id"
 		}
 	},
 	roles: {
-		relation: "HasMany",
-		modelClass: "RoleModel",
+		type: "HasMany",
+		model: "RoleModel",
 		throughClass: "TokenRoleModel",
 		join: {
 			from: "id",
@@ -20,9 +20,18 @@ exports.relations = {
 			to: "id"
 		}
 	},
+	tokenRoles : {
+		type: "HasMany",
+		model: "TokenRoleModel",
+		join: {
+			from: "id",
+			to: "tokenId"
+		},
+		debug : true
+	},
 	tokenPermissions: {
-		relation: "HasMany",
-		modelClass: "TokenPermissionModel",
+		type: "HasMany",
+		model: "TokenPermissionModel",
 		join: {
 			from: "id",
 			to: "tokenId"
@@ -31,15 +40,11 @@ exports.relations = {
 }
 exports.foreignKeys = {
 	roleId : {
-		modelClass : "RoleModel",
+		model : "RoleModel",
 		to : "id",
 	},
-	tokenId : {
-		modelClass : "TokenModel",
-		to : "id"
-	},
 	configId : {
-		modelClass : "ConfigModel",
+		model : "ConfigModel",
 		to : "id"
 	}
 }

@@ -2,7 +2,6 @@ const now = require("../helper/now");
 const uuid = require("node-uuid");
 const _ = require("lodash");
 const inflector = require("../helper/inflector");
-
 const md5 = require("md5");
 const connectionStringParser = require("../helper/connection-string-parser");
 const getRelations = require("../helper/get-relations");
@@ -11,7 +10,8 @@ const getModel = require("../helper/get-model");
 const cacheManager = require("../helper/cache-manager");
 const sleep = require('util').promisify(setTimeout);
 const ModelUtils = require("./model-base/ModelUtils");
-const ModelRelations = require("./model-base/ModelRelations")
+const ModelRelations = require("./model-base/ModelRelations");
+const util = require("util");
 
 class ModelBase {
 
@@ -30,7 +30,9 @@ class ModelBase {
 				})
 				this.req.locals.hasCloseEvent = true;
 			}
+
 			if (this.req.connectionString) {
+				console.warn("Please move connectionString to req.locals for " + this.tableName);
 				this._connectionStringWrite = req.connectionString;
 				this._connectionStringRead = req.connectionString;
 			}
@@ -98,14 +100,14 @@ class ModelBase {
 
 	/**
 	 * @type {Object}
-	 * @property adminIndex
-	 * @property adminUpdate
-	 * @property adminRead
-	 * @property adminCreate
-	 * @property publicIndex
-	 * @property publicUpdate
-	 * @property publicRead
-	 * @property publicCreate
+	 * @property adminIndex - listing
+	 * @property adminUpdate - updating
+	 * @property adminRead - viewing
+	 * @property adminCreate - creating
+	 * @property publicIndex - listing
+	 * @property publicUpdate - updating
+	 * @property publicRead - viewing
+	 * @property publicCreate - creating
 	 */
 	get fields() {
 		if (this._fields) {
@@ -129,11 +131,28 @@ class ModelBase {
 			let m = new M(this.req);
 			await m.init();
 			m.debug = this.debug;
-			this._fields = await m.get(this.tableName);
+			let fields = await m.get(this.tableName);
+			if (!fields) {
+				fields = [];
+				this.schema.keys.forEach(
+					(key) => {
+						fields.push(
+							{
+								property:key,
+								visible: true
+							}
+						)
+					}
+				)
+				this._fields = {adminIndex :fields, adminRead:fields, adminUpdate:fields, adminCreate:fields};
+			}
 		}
 		return this.fields;
 	}
 
+	/**
+	 * @returns {*|JsonSchema.properties|*}
+	 */
 	get properties() {
 		if(this._properties) {
 			return this._properties;
@@ -152,9 +171,15 @@ class ModelBase {
 	}
 
 	get keys() {
-		return Object.keys(this.properties);
+		return this.schema.keys;
 	}
 
+	/**
+	 * Generate a unique cache key for this request
+	 * @param query
+	 * @param id
+	 * @returns {string}
+	 */
 	getCacheKey(query, id) {
 		let cacheKey = this.tableName + "_" + (id ? id : "");
 		if (query) {
@@ -163,7 +188,11 @@ class ModelBase {
 		return cacheKey
 	}
 
+	/**
+	 * @returns {*|JsonSchema.primaryKey|*}
+	 */
 	get primaryKey() {
+		//TODO make sure we support composite primary keys
 		if(this._primaryKey) {
 			return this._primaryKey;
 		}
@@ -183,6 +212,9 @@ class ModelBase {
 		return this.primaryKey;
 	}
 
+	/**
+	 * @returns {object}
+	 */
 	get relations() {
 		return this._relations;
 	}
@@ -194,6 +226,9 @@ class ModelBase {
 		return this.relations;
 	}
 
+	/**
+	 * @returns {object}
+	 */
 	get foreignKeys() {
 		return this._foreignKeys;
 	}
@@ -205,6 +240,10 @@ class ModelBase {
 		return this.foreignKeys;
 	}
 
+	/**
+	 * @param {string} - action (read,write)
+	 * @returns {string}
+	 */
 	connectionString(action) {
 		let dataSource = this.dataSource || this.schema.dataSource;
 		action = action.toLowerCase() === "read" ? "Read" : "Write";
@@ -309,6 +348,9 @@ class ModelBase {
 		throw new Error("Indeterminate Connection String");
 	}
 
+	/**
+	 * @returns {string|*}
+	 */
 	dbType() {
 		let cs = this.connectionString("read");
 		if (cs.indexOf("postgresql://") === 0) {
@@ -332,7 +374,13 @@ class ModelBase {
 	 * @returns {Pool}
 	 */
 	async getPool(action) {
-		let cs = this.connectionString(action);
+		let cs;
+		if (util.types.isAsyncFunction(this.connectionString)) {
+			cs = await this.connectionString(action);
+		} else {
+			cs = this.connectionString(action);
+		}
+
 		if (cs.indexOf("postgresql://") === 0) {
 			this.db = "pg";
 			return await require("./model-base/pool-postgres")(cs);
@@ -344,7 +392,7 @@ class ModelBase {
 			return await require("./model-base/pool-mssql")(cs);
 		} else if (cs.indexOf("redis://") === 0) {
 			this.db = "redis"
-			return await require("./model-base/redis-mssql")(cs);
+			return await require("./model-base/pool-redis")(cs);
 		} else if (cs.indexOf("elastic://") === 0) {
 			this.db = "elastic"
 			return await require("./model-base/pool-elastic")(cs);
@@ -358,14 +406,20 @@ class ModelBase {
 
 	async getClient(action) {
 		let pool = await this.getPool(action);
-		return pool;
-		let client;
 		switch (this.db) {
 			case "pg" :
-				client = await pool.connect();
-				return client;
+				return pool;
 			case "mysql" :
 				return pool;
+			case "mssql" :
+				return pool;
+			case "redis" :
+				return pool;
+			case "elastic" :
+				return pool;
+			case "mongo" :
+				//TODO Return Collection
+				return pool.collection(this.tableName);
 			default :
 				return pool;
 		}
@@ -404,7 +458,7 @@ class ModelBase {
 		} else if (cs.indexOf("elastic://") !== -1) {
 			builder = require("./model-base/QueryToElastic");
 		} else if (cs.indexOf("mongo://") !== -1) {
-			builder = require("./model-base/QueryToElastic");
+			builder = require("./model-base/QueryToMongo");
 		}
 
 		if (!builder) {
@@ -412,7 +466,6 @@ class ModelBase {
 		}
 		this._builder = new builder(this);
 		return this._builder;
-		//TODO MSSQL, ElasticSearch, Mongo, Redis
 	}
 
 	/**
@@ -428,7 +481,7 @@ class ModelBase {
 	 *
 	 * @param {string | int} id
 	 * @param query - used to pass in select & join
-	 * @returns {Promise<*>}
+	 * @returns {object|Promise}
 	 */
 	async read(id, query, cache) {
 		await this.getSchema();
@@ -481,10 +534,9 @@ class ModelBase {
 	/**
 	 * create a new record
 	 * @param data
-	 * @returns {Promise<*>}
+	 * @returns {object|Promise}
 	 */
-	async create(data)
-	{
+	async create(data){
 		this.log("create");
 		await this.getSchema();
 		let sleepCount = 0;
@@ -584,7 +636,7 @@ class ModelBase {
 	 * Shorthand method for determining if a create or an update is necessary
 	 * @param query
 	 * @param data
-	 * @returns {Promise<void|*>}
+	 * @returns {object|Promise}
 	 */
 	async upsert(query, data) {
 		this.log("upsert");
@@ -601,7 +653,7 @@ class ModelBase {
 	 * @param id
 	 * @param data
 	 * @param fetch
-	 * @returns {Promise<void>}
+	 * @returns {object|Promise}
 	 */
 	async update(id, data, fetch) {
 		this.log("update");
@@ -616,9 +668,10 @@ class ModelBase {
 		}
 
 		let params = await ModelUtils.convertDataTypes(this, data);
-		let exists = await this.exists(id);
 
-		if (!exists) {
+		let currentRecord = await this.read(id);
+
+		if (!currentRecord) {
 			return {
 				error : {
 					id : id,
@@ -628,7 +681,7 @@ class ModelBase {
 		}
 
 		if (this.properties[this.updatedAt]) {
-			params[this.updatedAt] = now();
+			params[this.updatedAt] = data[this.updatedAt] = now();
 		}
 
 		let required = await ModelUtils.checkRequiredProperties(this, params, "update");
@@ -678,9 +731,20 @@ class ModelBase {
 
 			await this.afterUpdate(id, params);
 
+			if (this.historyEnabled) {
+				let HM = this.loadModel("HistoryModel");
+				let hm = new HM(this.req);
+				await hm.create(
+					{
+						before : currentRecord,
+						after : params,
+						model : this
+					}
+				);
+			}
+
 			if (fetch) {
-				let record = await this.read(id);
-				return record;
+				return _.extend(currentRecord, params);
 			}
 
 			return {
@@ -696,6 +760,11 @@ class ModelBase {
 		}
 	}
 
+	/**
+	 * @param {object} query - {where : {foo:bar}}
+	 * @param {object} data
+	 * @returns {Promise<{error: {data, missing: *, action: string}}|{error}|*|{error: {data, invalid: *, action: string}}>}
+	 */
 	async updateWhere(query, data) {
 		await this.getSchema();
 		data[this.updatedAt] = now();
@@ -736,10 +805,11 @@ class ModelBase {
 
 	/**
 	 * search for one or more records
-	 * @param query
+	 * @param {object} query
 	 * @returns {Promise<*>}
 	 */
 	async query(query, cache) {
+
 		await this.getSchema();
 
 		let cacheKey;
@@ -753,8 +823,11 @@ class ModelBase {
 
 		let obj = _.clone(query);
 
-		if (query && query.join && (_.isArray(query.select) && query.length > 0)) {
+		if (query && query.join && _.isArray(query.select)) {
 			await ModelUtils.addJoinFromKeys(this, query, obj);
+		} else {
+			//console.log("not adding joinFromKeys " + this.tableName);
+			//console.log(query);
 		}
 
 		let context = this;
@@ -767,8 +840,10 @@ class ModelBase {
 				query.limit = Math.min(obj.limit, maxLimit);
 			}
 			query.offset = offset;
+
 			let command = this.queryBuilder.select(query);
 			let result = await this.execute(command, this.queryBuilder.postProcess);
+
 			if (!result.error && result.length > 0) {
 				results = results.concat(result);
 				if (result.length === query.limit && results.length < originalLimit) {
@@ -784,6 +859,7 @@ class ModelBase {
 
 		let results = await doQuery(obj.offset || 0);
 
+
 		if (this.req && this.req.locals.isConnected === false) {
 			return {
 				error : {
@@ -796,6 +872,9 @@ class ModelBase {
 
 		if (query.join) {
 			this.log("query", query.join);
+			if (this.req && !this.req.locals.currentResults) {
+				this.req.locals.currentResults = results;
+			}
 			results = await ModelRelations.join(this, results, query);
 		} else {
 			this.log("query", "no join");
@@ -811,7 +890,7 @@ class ModelBase {
 	/**
 	 *
 	 * @param query
-	 * @returns {Promise<*>}
+	 * @returns {object|Promise}
 	 */
 	async count(query, cache) {
 		await this.getSchema();
@@ -842,8 +921,14 @@ class ModelBase {
 		let command = this.queryBuilder.count(q);
 		result = await this.execute(command);
 
-		if (result.error) {
+		if (result && result.error) {
 			return result;
+		} else if (!result) {
+			return {
+				error : {
+					"message" : "Count Failure"
+				}
+			}
 		}
 
 		if (result) {
@@ -865,8 +950,8 @@ class ModelBase {
 
 	/**
 	 * Psuedo for query
-	 * @param query
-	 * @returns {Promise<*>}
+	 * @param {object} query
+	 * @returns {{object|Promise}}
 	 */
 	async find(query, cache) {
 		await this.getSchema();
@@ -894,7 +979,8 @@ class ModelBase {
 
 	/**
 	 * Query to find one record
-	 * @param query
+	 * @param {object} query
+	 * @param {boolean} cache - cache the result?
 	 * @returns {Promise<*>}
 	 */
 	async findOne(query, cache) {
@@ -933,7 +1019,7 @@ class ModelBase {
 	 * @param id
 	 * @returns {Promise<*>}
 	 */
-	async destroy(id) {
+	async destroy(id, isDebug) {
 		this.log("destroy", id);
 		await this.getSchema();
 		let record = await this.read(id);
@@ -955,6 +1041,15 @@ class ModelBase {
 				}
 
 				let command = this.queryBuilder.delete(query);
+
+				if (isDebug) {
+					return {
+						error : {
+							sql : command.toString()
+						}
+					}
+				}
+
 				let result = await this.execute(command);
 				await this.afterDestroy(id, record);
 
@@ -982,9 +1077,16 @@ class ModelBase {
 	 * @param query
 	 * @returns {Promise<*>}
 	 */
-	async destroyWhere(query) {
+	async destroyWhere(query, isDebug) {
 		await this.getSchema();
 		let command = this.queryBuilder.delete(query);
+		if (isDebug) {
+			return {
+				error : {
+					query : command.toString()
+				}
+			}
+		}
 		let result = await this.execute(command);
 		return result;
 	}
@@ -1103,9 +1205,12 @@ class ModelBase {
 			}
 		}
 
+		if (this.debug) {
+			this.log("execute", sql);
+		}
+
 		this.lastCommand = command;
 
-		this.log("execute", sql.toString());
 		let startTime = new Date().getTime();
 
 		if (sql.toLowerCase().indexOf("select") === 0) {
@@ -1195,6 +1300,7 @@ class ModelBase {
 	 * Simple utility for creating a select prop_name as propName
 	 * @param property
 	 * @returns {string}
+	 * @deprecated
 	 */
 	selectAs(property) {
 		return this.property[property].columnName + " as " + property;
@@ -1230,7 +1336,7 @@ class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async afterCreate(id, data) {
-		return;
+		return data;
 	}
 
 	/**
@@ -1240,7 +1346,7 @@ class ModelBase {
 	 * @returns {Promise<boolean>}
 	 */
 	async beforeUpdate(id, data) {
-		return true;
+		return data;
 	}
 
 	/**
@@ -1251,7 +1357,7 @@ class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async afterUpdate(id, data) {
-		return;
+		return data;
 	}
 
 	/**
@@ -1262,7 +1368,7 @@ class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async beforeDestroy(id, data) {
-		return true;
+		return data;
 	}
 
 
@@ -1274,9 +1380,14 @@ class ModelBase {
 	 * @returns {Promise<void>}
 	 */
 	async afterDestroy(id, data) {
-		return;
+		return data;
 	}
 
+	/**
+	 * Recurses results to map objects to
+	 * @param data
+	 * @returns {Promise<*>}
+	 */
 	async afterFind(data) {
 		if (this.afterQuery) {
 			return await this.afterQuery(data)
@@ -1300,7 +1411,10 @@ class ModelBase {
 	}
 
 	get name() {
-		return "name";
+		if (this.properties.hasOwnProperty("name")) {
+			return "name";
+		}
+
 	}
 
 	/**
@@ -1315,12 +1429,34 @@ class ModelBase {
 		return getModel(modelName);
 	}
 
-	log(method, message) {
+	log(method, message, id) {
 		if (this.debug) {
 			if (message && typeof message === "object") {
 				message = JSON.stringify(message);
 			}
-			console.log(this.tableName + (method ? "::" + method : "") + (message ? " -> " + message : ""));
+			//Show as error for stack tracing
+			console.error(this.tableName + (method ? "::" + method : "") + (message ? " -> " + message : ""));
+
+			if (process.env.CORE_LOGGING === "true") {
+				if (this.req && this.req.locals.isAdmin) {
+					if (!['create','update','destroy','destroyWhere'].includes(method)) {
+						return;
+					}
+				}
+				let LogModel = require("./LogModel");
+				let lm = new LogModel(this.req);
+				lm.create(
+					{
+						objectId : id ? id : null,
+						objectType : this.tableName,
+						message : message,
+						method : method,
+						status : "active"
+					}
+				).then((result)=>{
+					console.log(JSON.stringify(result));
+				});
+			}
 		}
 	}
 

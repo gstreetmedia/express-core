@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const uuid = require("node-uuid");
 const moment = require("moment");
 const fs = require("fs");
+const getModel = require("../helper/get-model");
 const cache = require("../helper/cache-manager");
 
 class UserModel extends ModelBase {
@@ -528,6 +529,31 @@ class UserModel extends ModelBase {
 				statusCode : 401
 			}
 		}
+	}
+
+	async destroy(id) {
+
+		const UP = getModel("UserPermissionModel");
+		let m = new UP(this.req);
+		await m.destroyWhere(
+			{
+				where : {
+					userId : id
+				}
+			}
+		);
+
+		const UR = getModel("UserRoleModel");
+		m = new UR(this.req);
+		await m.destroyWhere(
+			{
+				where : {
+					userId : id
+				}
+			}
+		);
+
+		return super.destroy(id);
 	}
 
 }

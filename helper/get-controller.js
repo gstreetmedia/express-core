@@ -10,10 +10,10 @@ module.exports = (ControllerName) => {
 	}
 
 	if (fs.existsSync(global.appRoot + '/src/controller/' + ControllerName + ".js")) {
-		console.log("getting controller => " + global.appRoot + '/src/controller/' + ControllerName)
+		//console.log("getting controller => " + global.appRoot + '/src/controller/' + ControllerName)
 		global.controllerCache[ControllerName] = require(global.appRoot + '/src/controller/' + ControllerName);
 	} else if (fs.existsSync(__dirname + "/../controller/" + ControllerName + ".js")) {
-		console.log("getting controller => " + __dirname + "/../controller/" + ControllerName)
+		//console.log("getting controller => " + __dirname + "/../controller/" + ControllerName)
 		global.controllerCache[ControllerName] = require(__dirname + "/../controller/" + ControllerName);
 	}
 	return global.controllerCache[ControllerName];

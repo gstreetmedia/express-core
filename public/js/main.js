@@ -304,20 +304,23 @@ $(document).ready(
 		};
 
 		var onViewReady = function () {
+			console.log("onViewReady");
 			var body = $("#view-modal .modal-body");
-			body.find(".gridded-relation").each(
+			console.log(body.find(".gridded.model-relation"));
+			body.find(".gridded.model-relation").each(
 				function () {
 					var target = $(this);
 					var w = 0;
-					target.find('.header .col-1').each(
+					target.find('.header .col').each(
 						function () {
 							//var col = $(this);
 							//col.width(col.width());
 							w += 150;
 						}
 					);
+					var rows = target.find('.row-striped')
 					target.find(".inner").width(w);
-					target.height(target.find(".inner").height() + 17);
+					target.height(54 + rows.length * 27);
 					target.parent().height(target.height());
 					target.addClass("gridded-relation-active")
 				}
@@ -677,26 +680,32 @@ $(document).ready(
 		}
 
 		var index = function () {
-			$(".gridded .row-striped").off().on("dblclick",
+
+			$(".gridded.model-index").find("[data-bindid='view']").off().on("dblclick",
 				function (e) {
 					var target = $(e.target);
 					var bindId = DataBind.getId(target);
 					var element,id,table;
 
-					switch (bindId) {
-						case "view" :
-							element = DataBind.getElement(target, "view");
-							table = element.attr("data-table");
-							id = element.attr("data-id");
-							e.preventDefault();
-							return view(table, id, table);
-							break;
-						case "route" :
-							element = DataBind.getElement(target, bindId);
-							e.preventDefault();
-							window.location = element.attr("data-route");
+					element = DataBind.getElement(target, "view");
+					table = element.attr("data-table");
+					id = element.attr("data-id");
+					e.preventDefault();
+					return view(table, id, table);
+				}
+			);
 
-					}
+			$(".gridded.model-relation").find("[data-bindid='view']").off().on("dblclick",
+				function (e) {
+					var target = $(e.target);
+					var bindId = DataBind.getId(target);
+					var element,id,table;
+
+					element = DataBind.getElement(target, "view");
+					table = element.attr("data-table");
+					id = element.attr("data-id");
+					var url = "/admin/" + table + "/" + id + "/view";
+					window.open(url);
 				}
 			);
 

@@ -38,7 +38,11 @@ module.exports = function (value) {
 		if (port) {
 			port = parseInt(port);
 		}
-		let tail = parts.split("/")[1].split("?");
+
+		let tail = ["none"];
+		if (parts.split('/').length > 1) {
+			tail = parts.split("/")[1].split("?");
+		}
 
 		let dbName = tail[0];
 
@@ -66,6 +70,7 @@ module.exports = function (value) {
 
 		return obj;
 	} catch (e) {
+		console.log(e);
 		console.error("Connection String Could not parse " + value);
 		return null;
 	}

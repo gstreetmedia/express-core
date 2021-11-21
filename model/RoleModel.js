@@ -24,8 +24,9 @@ module.exports = class RoleModel extends ModelBase {
 
 		let query = {
 			join : {
-				permissions : true,
-				select : ['id','objectType','objectId','relatedObjectType','relatedObjectId','c','r','u','d','cFields','rFields','uFields']
+				rolePermissions : {
+					select : ['id','objectType','objectId','relatedObjectType','relatedObjectId','c','r','u','d','cFields','rFields','uFields']
+				},
 			}
 		};
 
@@ -60,24 +61,54 @@ module.exports = class RoleModel extends ModelBase {
 
 		let query = {
 			where : {
-				name : roleName,
+				name : {"in" : !_.isArray(roleName) ? [roleName] : roleName},
 				status : "active"
 			},
 			join : {
-				permissions : true
+				rolePermissions : true
 			}
 		};
 
-		role = await this.findOne(query, true);
+		let roles = await this.find(query, true);
 
-		if (role && !role.error) {
-			await cacheManager.set(key, role)
+		if (roles && !roles.error) {
+			await cacheManager.set(key, roles)
 		} else {
 			console.log("Could not find role " + roleName);
 			//console.log(roleName);
 		}
+		if (_.isArray(roleName)) {
+			if (roles.length > 0) {
+				return roles[0];
+			}
+			return null;
+		}
+		return roles;
+	}
 
-		return role;
+	async destroy(id) {
+
+		const RP = getModel("RolePermissionModel");
+		let m = new RP(this.req);
+		await m.destroyWhere(
+			{
+				where : {
+					roleId : id
+				}
+			}
+		);
+
+		const TR = getModel("TokenRoleModel");
+		m = new TR(this.req);
+		await m.destroyWhere(
+			{
+				where : {
+					roleId : id
+				}
+			}
+		);
+
+		return super.destroy(id);
 	}
 
 }

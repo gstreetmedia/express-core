@@ -30,13 +30,16 @@ class ModelRelations {
 				let compare = Object.keys(expression)[0];
 				if (expression[compare].indexOf("{{") === 0) {
 					let targetKey = expression[compare].replace("{{", "").replace("}}","");
-					try {
-						if (results[0][targetKey]) {
-							expression[compare] = results[0][targetKey];
+					for (let i = 0; i < results.length; i++) {
+						if (results[i].hasOwnProperty(targetKey)) {
+							expression[compare] = results[i][targetKey];
+							break;
 						}
-					} catch (e) {
-						console.log("processWhere issue join " + targetKey);
-						console.log(results);
+					}
+					if (!expression[compare]) {
+						console.error("ModelRelations::processWhere Issue");
+						console.log(expression);
+						console.log(JSON.stringify(results));
 					}
 				}
 				j.where[p] = expression;
@@ -93,11 +96,11 @@ class ModelRelations {
 
 		let relations = await model.getRelations();
 
-		model.log("join::relations", relations);
+		//model.log("join::relations", relations);
 
 		let foreignKeys = await model.getForeignKeys();
 
-		model.log("join::foreignKeys", foreignKeys);
+		//model.log("join::foreignKeys", foreignKeys);
 
 		if (!relations && !foreignKeys) {
 			return results;
@@ -148,7 +151,12 @@ class ModelRelations {
 
 		let keys = Object.keys(join);
 
+		if (model.req) {
+			model.req.locals.currentResults = results;
+		}
+
 		while (keys.length > 0) {
+
 			let key = keys[0];
 			if (relations[key]) {
 				model.log("join", "key => " + key);
@@ -230,11 +238,19 @@ class ModelRelations {
 
 				targetKeys = _.uniq(targetKeys);
 
+				if (targetKeys.length === 0 || targetKeys === null) {
+					model.log("join", "no target keys for " + key);
+					keys.shift();
+					continue;
+				}
+
 				let startTime = new Date().getTime();
 				model.log("join", "targetKeys => " + targetKeys);
 				model.log("join","joinFrom => " + joinFrom);
-				model.log("join","joinThroughTo => " + joinThroughTo);
-				model.log("join","joinThroughFrom => " + joinThroughFrom);
+				if (relation.join.through) {
+					model.log("join", "joinThroughTo => " + joinThroughTo);
+					model.log("join", "joinThroughFrom => " + joinThroughFrom);
+				}
 				model.log("join","joinTo => " + joinTo);
 
 				let throughModelClass = relation.throughClass || relation.throughModel || relation.throughModelClass;
@@ -254,6 +270,7 @@ class ModelRelations {
 					}
 					throughList = await throughModel.query(joinThrough);
 					model.log("join","throughModel query time -> " + (new Date().getTime() - startTime));
+
 					if (throughList.error || throughList.length === 0) {
 						keys.shift();
 						continue;
@@ -273,6 +290,7 @@ class ModelRelations {
 				if (!RelationModel) {
 					console.warn("Join Error. Model " + relationModelClassName + " does not exist");
 				}
+
 				let relationModel = new RelationModel(model.req);
 
 				switch (relationType.toLowerCase()) {
@@ -379,7 +397,7 @@ class ModelRelations {
 					case "has-many" :
 					case "many" :
 
-						if (j.debug) {
+						if (j.debug || model.debug) {
 							relationModel.debug = true;
 						}
 
@@ -415,6 +433,7 @@ class ModelRelations {
 						model.log("join","hasmany query time -> " + (new Date().getTime() - startTime));
 
 						if (list.error) {
+							console.log(list);
 							keys.shift();
 							continue;
 						}
@@ -533,7 +552,6 @@ class ModelRelations {
 						break;
 				}
 			} else if (foreignKeys[key]) {
-
 				let j = _.clone(foreignKeys[key]);
 
 				let ForeignKeyModel = model.loadModel(foreignKeys[key].model || foreignKeys[key].modelClass);
@@ -557,7 +575,6 @@ class ModelRelations {
 						}
 					}
 				);
-
 
 				if (idList.length > 0) {
 					idList = _.uniq(idList);

@@ -1,7 +1,7 @@
 const inflector = require("./inflector");
 const getModel = require("./get-model");
 
-exports.table = async (route) => {
+exports.table = (route) => {
 	let tableName = route;
 	let styles = process.env.CORE_TABLE_NAME_STYLE || "snake_case,plural";
 	styles = styles.split(",");

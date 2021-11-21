@@ -124,10 +124,9 @@ class QueryToSqlBase {
 
 		if (q.select) {
 			q.select = typeof q.select === "string" ? q.select.split(',') : q.select;
-
 			for (let i = 0; i < q.select.length; i++) {
 				let key = q.select[i];
-				if (this.properties[key]) {
+				if (this.properties.hasOwnProperty(key)) {
 					selects.push(this.buildSelect(key));
 				} else if (key.indexOf(".") !== -1) {
 					key = key.split(".");
@@ -142,7 +141,9 @@ class QueryToSqlBase {
 
 		if (selects.length === 0 || !q.select) {
 			for (let key in this.properties) {
-				selects.push(this.buildSelect(key));
+				if (this.properties[key] !== undefined) {
+					selects.push(this.buildSelect(key));
+				}
 			}
 		}
 
@@ -150,7 +151,9 @@ class QueryToSqlBase {
 
 		selects.forEach(
 			function (item) {
-				queryBuilder.select(context.raw(item));
+				if (item) {
+					queryBuilder.select(context.addSelect(item));
+				}
 			}
 		);
 
@@ -217,7 +220,12 @@ class QueryToSqlBase {
 		return queryBuilder;
 	}
 
+	addSelect(item) {
+		return this.raw(item)
+	}
+
 	buildSelect(key, subKey) {
+		console.log(key);
 		let query = `"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`;
 		return this.knexRaw(query);
 	}
@@ -260,6 +268,8 @@ class QueryToSqlBase {
 
 		//TODO should data have been validated before this? Seems like it
 		for (var key in data) {
+			//TODO add nested
+			key = key.split(".")[0];
 			if (this.properties[key]) {
 				transform[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
 			} else {
@@ -304,6 +314,7 @@ class QueryToSqlBase {
 
 		//TODO should data have been validated before this? Seems like it
 		for (let key in data) {
+			key = key.split(".")[0];
 			if (this.properties[key]) {
 				//does final json conversion as needed
 				translation[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
@@ -399,8 +410,6 @@ class QueryToSqlBase {
 	 */
 	processCompare(key, compare, value, queryBuilder, isOr) {
 
-		//console.log("processCompare " + key);
-
 		let columnName;
 		let columnFormat = null;
 
@@ -477,6 +486,7 @@ class QueryToSqlBase {
 				queryBuilder[c.where](this.processStartsWith(key, value));
 				break;
 			case "contains" :
+			case "like" :
 				queryBuilder[c.where](this.processContains(key, value));
 				break;
 			case "=" :
@@ -516,26 +526,49 @@ class QueryToSqlBase {
 				queryBuilder.where(
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
-							let innerCompare = "";
-							let innerValue;
-							let innerKey = Object.keys(value[i])[0]; //{field:{}}
 
-							if (value[i][innerKey] && typeof value[i][innerKey] === "object") {
-								innerCompare = Object.keys(value[i][innerKey])[0];
-							}
+							if (_.isArray(value[i])) {
+								/*
+								or : [
+									[
+										{field1: "value"},
+										{field2: null},
+									],
+									[
+										{field3: "value"},
+										{field4: null}
+									]
+								]
 
-							if (innerCompare !== "") {
-								innerValue = value[i][innerKey][innerCompare];
+								will make
+								(field1 = value or field2 is null) and
+								(field3 = value and field4 is null)
+								 */
+								this.processCompare(isOr ? "or" : "and", isOr ? "or" : "and", value[i], builder);
 							} else {
-								innerValue = value[i][innerKey];
-							}
+								/*
+								or : [
+									{field1: value},
+									{field2: null}
+								]
+								will make
+								(field1 = value or field2 is null)
+								 */
+								let innerCompare = "";
+								let innerValue;
+								let innerKey = Object.keys(value[i])[0]; //{field:{}}
 
-							//compare, columnName, key, value, properties, queryBuilder
-							//console.log("compare => " + innerKey + " " + innerCompare + " " + JSON.stringify(innerValue));
-							//TODO need recursive syntax for
-							//and (condition1 or condition2)
-							//table, key, compare, value, properties, queryBuilder
-							this.processCompare(innerKey, innerCompare, innerValue, builder, isOr);
+								if (value[i][innerKey] && typeof value[i][innerKey] === "object") {
+									innerCompare = Object.keys(value[i][innerKey])[0];
+								}
+
+								if (innerCompare !== "") {
+									innerValue = value[i][innerKey][innerCompare];
+								} else {
+									innerValue = value[i][innerKey];
+								}
+								this.processCompare(innerKey, innerCompare, innerValue, builder, isOr);
+							}
 						}
 					}
 				);
@@ -553,6 +586,7 @@ class QueryToSqlBase {
 	 * @param queryBuilder
 	 */
 	processObjectColumn(key, compare, value, queryBuilder, isOr) {
+
 	}
 
 	/**
@@ -614,6 +648,7 @@ class QueryToSqlBase {
 	 * @param queryBuilder
 	 */
 	processArrayColumn(key, compare, value, queryBuilder) {
+
 	}
 
 	/**
@@ -660,6 +695,21 @@ class QueryToSqlBase {
 		);
 
 		return valueList;
+	}
+
+	processContains(key, value) {
+		let columnName = this.properties[key].columnName;
+		return this.raw(`"${this.tableName}"."${columnName}" LIKE ${sqlString.escape("%" + value + "%")}`)
+	}
+
+	processStartsWith(key, value) {
+		let columnName = this.properties[key].columnName;
+		return this.raw(`"${this.tableName}"."${columnName}" LIKE ${sqlString.escape(value + "%")}`)
+	}
+
+	processEndsWith(key, value) {
+		let columnName = this.properties[key].columnName;
+		return this.raw(`"${this.tableName}"."${columnName}" LIKE ${sqlString.escape("%" + value)}`)
 	}
 
 	sqlFormatArray(values, type) {

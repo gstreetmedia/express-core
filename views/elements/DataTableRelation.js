@@ -22,7 +22,7 @@ class DataTableRelation extends DataTable {
 	template() {
 		return `
 <div class="mb-4" style="position: relative">
-	<div id="table_${ this.instance }" class="container-fluid gridded gridded-inline gridded-relation">
+	<div id="table_${ this.instance }" class="container-fluid gridded gridded-inline model-relation ">
 		<div class="inner" style="min-width:100%;position: absolute">
 			<div class="row header m-0">
 				${this.header(this.keys)}

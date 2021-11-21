@@ -44,7 +44,7 @@ exports.propertyName = (columnName) => {
 	styles = styles.split(",");
 	styles.forEach(
 		(style) => {
-			switch (style) {
+			switch (style.toLowerCase()) {
 				case "singular" :
 					columnName = inflector.singularize(columnName);
 					break;
@@ -58,18 +58,21 @@ exports.propertyName = (columnName) => {
 				case "snake_case" :
 					columnName = inflector.underscore(columnName);
 					break;
-				case "camelCase" :
-					columnName = inflector.camelize(columnName);
-					break
-				case "TitleCase" :
+				case "camelcase" :
+					columnName = inflector.camelize(columnName, false);
+					break;
+				case "titlecase" :
 					columnName = inflector.camelize(route, true);
-					break
+					break;
 				case "lowercase" :
 					columnName = columnName.toLowerCase();
 					break;
 			}
 		}
 	);
+	if (columnName === "iD") {
+		return "id";
+	}
 	return columnName;
 }
 

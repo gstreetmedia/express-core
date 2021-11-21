@@ -1,4 +1,4 @@
-let mssql = require('mssql');
+let es = require('elasticsearch');
 let util = require('util');
 let connectionStringParser = require("../../helper/connection-string-parser")
 let md5 = require("md5");
@@ -17,7 +17,7 @@ module.exports = async (connectionString) => {
 
 	let cs = connectionStringParser(connectionString);
 
-	let pool = new mssql.ConnectionPool({
+	let pool = new es.Client({
 		connectionLimit: 10,
 		user: cs.username,
 		password: cs.password,

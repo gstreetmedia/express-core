@@ -9,15 +9,16 @@ let routes = {
 	"_tokens-router" : "_token",
 	"_token-permissions-router" : "_token-permission",
 	"_token-roles-router" : "_token-role",
-	"_users-permissions-router" : "user-permission",
-	"_users-roles" : "user-role",
+	"_user-permissions-router" : "user-permission",
+	"_user-roles-router" : "user-role",
 	"_users-router" : "user",
 	"_schemas-router" : "_schema",
 	"_sessions-router" : "_session"
 };
 Object.keys(routes).forEach(
 	(key)=> {
-		const handler = require("./" + key);
+
+		const handler = require(global.appRoot + "/src/core/router/" + key);
 		const route = "/" + routes[key];
 		router.use(route, handler);
 	}

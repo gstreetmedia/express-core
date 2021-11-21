@@ -13,10 +13,10 @@ module.exports = class TokenModel extends ModelBase {
 	get tableName() { return '_tokens'; }
 
 	async create(data){
-		data.key = uuid.v4();
-		let secret = data.secret = uuid.v4();
+		data.key = data.key || uuid.v4();
+		data.secret = data.secret || uuid.v4();
 		if (process.env.CORE_TOKENS_HASH_SECRET === "true") {
-			data.secret = hashPassword(secret);
+			data.secret = hashPassword(data.secret);
 		}
 		let result = await super.create(data);
 		if (!result.error) {
@@ -70,48 +70,6 @@ module.exports = class TokenModel extends ModelBase {
 		return super.destroy(id);
 	}
 
-	get relations() {
-		return {
-			config: {
-				relation: "HasOne",
-				modelClass: "ConfigModel",
-				join: {
-					from: "configId",
-					to: "id"
-				}
-			},
-			roles: {
-				relation: "HasMany",
-				modelClass: "RoleModel",
-				throughClass: "TokenRoleModel",
-				join: {
-					from: "id",
-					through: {
-						from: "tokenId",
-						to: "roleId"
-					},
-					to: "id"
-				}
-			},
-			permissions: {
-				relation: "HasMany",
-				modelClass: "TokenPermissionModel",
-				join: {
-					from: "id",
-					to: "tokenId"
-				}
-			}
-		}
-	}
-
-	get foreignKeys() {
-		return {
-			configId : {
-				modelClass : "ConfigModel",
-				to : "id"
-			}
-		}
-	}
 }
 
 /*

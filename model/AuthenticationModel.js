@@ -29,9 +29,11 @@ class AuthenticationModel {
 
 	constructor(req) {
 		this.req = req;
-		req.locals = req.locals || {
-			roleManager : new RoleManager(req)
+		req.locals = req.locals || {}
+		if (!req.locals.roleManager) {
+			req.locals.roleManager = new RoleManager(req)
 		}
+		req.roleManager = req.locals.roleManager;
 	}
 
 	checkLocalRequest (req) {
@@ -45,14 +47,15 @@ class AuthenticationModel {
 	}
 
 	checkWhitelist (whitelist, req) {
-		//console.log(req.headers);
 		if (req.headers.host.indexOf('localhost') === -1) {
 			return true
 		}
-		if (req.headers.host.indexOf('membio.com') === -1) {
-			return true
+		if (process.env.CORE_WHITELIST_BYPASS_DOMAIN) {
+			if (req.headers.headers['referer'].indexOf(process.env.CORE_WHITELIST_BYPASS_DOMAIN) === -1) {
+				return true
+			}
 		}
-		if (whitelist.indexOf(req.headers['referer']) === -1) {
+		if (whitelist.includes(req.headers['referer'])) {
 			return false
 		}
 		return true
@@ -72,6 +75,9 @@ class AuthenticationModel {
 		if (req.jwt) {
 			return req.jwt
 		}
+		if (req.locals.jwt) {
+			return req.locals.jwt
+		}
 
 		let token = this.getTokenFromRequest(req)
 
@@ -88,7 +94,7 @@ class AuthenticationModel {
 			}
 		}
 
-		req.jwt = decodedToken;
+		req.jwt = req.locals.jwt = decodedToken;
 
 		return decodedToken;
 	}
@@ -127,6 +133,25 @@ class AuthenticationModel {
 		}
 	}
 
+	get tokenQuery() {
+		let query = {
+			where: {
+				key: this.req.headers['application-key']
+			},
+			join: {
+				config : true,
+				roles : {
+					join : {
+						rolePermissions : true
+					}
+				},
+				tokenPermissions : true
+			},
+			debug : true
+		}
+		return query;
+	}
+
 	/**
 	 * Check to make sure the request has a valid
 	 * application-key
@@ -139,9 +164,7 @@ class AuthenticationModel {
 		//console.log("applicationKey.parent");
 		//Check header for application-key
 
-		req.locals = req.locals || {
-			roleManager : new RoleManager(req)
-		}
+
 		/**
 		 * @type {RoleManager|RoleManager|*}
 		 */
@@ -168,21 +191,8 @@ class AuthenticationModel {
 		let tokenRecord = await cache.get('authentication_token_' + key);
 
 		if (!tokenRecord) {
-			let query = {
-				where: {
-					key: req.headers['application-key']
-				},
-				join: {
-					config : true,
-					roles : {
-						join : {
-							rolePermissions : true
-						}
-					},
-					tokenPermissions : true
-				},
-				debug : true
-			}
+			let query = this.tokenQuery;
+
 			if (!secret && !req.get('Referrer')) {
 				return { error: 'Server / Application Calls require an Application Secret' }
 			}
@@ -222,9 +232,10 @@ class AuthenticationModel {
 		//in theory, if there is no secret limits should be applied by referring url
 		//this will all break down server to server where there won't be one. As such,
 		//when requesting server to server we should enforce the use of the secret.
-		if (!secret && !req.get('Referrer')) {
+
+		if (!secret && !req.get('referer')) {
 			return {error: 'Server / Application Calls require an Application Secret'}
-		} else if (!secret && req.get('Referrer')) {
+		} else if (!secret && req.get('referer')) {
 			if (
 				req.hostname.indexOf('localhost') === -1 &&
 				tokenRecord.config.settings &&
@@ -239,7 +250,7 @@ class AuthenticationModel {
 					}
 				}
 			}
-		} else if (secret && req.get('Referrer')) {
+		} else if (secret && req.get('referer')) {
 			return {
 				error: {
 					message : 'Please do not include an application-secret when making requests from a browser.',
@@ -255,14 +266,7 @@ class AuthenticationModel {
 		}
 
 		if (_.isArray(tokenRecord.roles)) {
-			tokenRecord.roles.forEach((role) => {
-				if (role.rolePermissions) {
-					roleManager.addPermissions(role.rolePermissions);
-				}
-			});
-			tokenRecord.roles.forEach((role) => {
-				roleManager.addRole(role.name);
-			});
+			roleManager.addRolePermissions(tokenRecord.roles);
 		}
 
 		if (_.isArray(tokenRecord.tokenPermissions)) {
@@ -283,17 +287,14 @@ class AuthenticationModel {
 	 * @returns {Promise<*>}
 	 */
 	async bearerToken (req) {
-		req.locals = req.locals || {
-			roleManager : new RoleManager(req)
-		}
+
 		/**
 		 * @type {RoleManager|RoleManager|*}
 		 */
 		const roleManager = req.locals.roleManager;
-		let token
 		let decodedToken = this.getDecodedTokenFromRequest(req);
 
-		if (decodedToken.error) {
+		if (!decodedToken || decodedToken.error) {
 			return {
 				error: {
 					message : 'Invalid or Expired Token',
@@ -348,14 +349,7 @@ class AuthenticationModel {
 				roleManager.addRole(user.role);
 			}
 			if (_.isArray(user.roles)) {
-				user.roles.forEach((role) => {
-					if (role.rolePermissions) {
-						roleManager.addPermissions(role.rolePermissions);
-					}
-				})
-				user.roles.forEach((role) => {
-					roleManager.addRole(role.name);
-				})
+				roleManager.addRolePermissions(user.roles);
 			}
 			if (_.isArray(user.userPermissions)) {
 				user.userPermissions.forEach((item) => {
@@ -366,7 +360,7 @@ class AuthenticationModel {
 			req.locals.user = user;
 			req.locals.userPermission = user.userPermissions;
 			req.locals.userRoles = user.userRoles;
-			req.locals.jwt = req.jwt = this.getTokenFromRequest(req);
+			req.locals.jwt = req.jwt = this.getDecodedTokenFromRequest(req);
 		} else {
 			return {
 				error: {
@@ -420,7 +414,7 @@ class AuthenticationModel {
 		if (req.headers['application-key']) {
 			let keyResult = await this.applicationKey(req)
 			if (keyResult.error) {
-				console.log('keyResult => ' + keyResult.error);
+				console.log('keyResult => ' + JSON.stringify(keyResult.error));
 				return keyResult;
 			}
 		} else {
@@ -429,10 +423,12 @@ class AuthenticationModel {
 
 		if (req.headers['authorization']) {
 			let authResult = await this.bearerToken(req);
-			if (authResult.error) {
-				console.log('authResult => ' + authResult.error);
+			if (authResult && authResult.error) {
+				console.log('authResult => ' + JSON.stringify(authResult.error));
 			}
 			return authResult;
+		} else {
+
 		}
 
 		return {

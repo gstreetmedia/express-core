@@ -508,7 +508,10 @@ class ControllerBase {
 		};
 
 		while (keys.length > 0) {
+
 			let foreignKey = foreignKeys[keys[0]];
+			console.log(keys[0]);
+			console.log(foreignKey);
 			let model = foreignKey.modelClass || foreignKey.model;
 			let to = foreignKey.to;
 			let FKM = m.loadModel(model);
@@ -522,16 +525,13 @@ class ControllerBase {
 						limit: 25
 					}
 				)
-				console.log(items);
 				let options = [];
 				items.forEach(
 					(item) => {
-						console.log(item);
 						if (item[to] && item[to] !== '') {
-							console.log(item[fkm.name]);
 							options.push(
 								{
-									model : fkm,
+									model : fkm.tableName,
 									value: item[to],
 									name: item[fkm.name]
 								}

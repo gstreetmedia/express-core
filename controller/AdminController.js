@@ -15,6 +15,7 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async home(req, res) {
+		req.locals.isAdmin = true;
 		let schemas = await this.getSchemaList();
 
 		await this.render(
@@ -42,7 +43,7 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async index(req, res) {
-
+		req.locals.isAdmin = true;
 		/**
 		 * @type {ControllerBase}
 		 */
@@ -51,9 +52,6 @@ class AdminController extends ViewControllerBase {
 		 * @type {ModeBase}
 		 */
 		let Model = await AdminController.getModel(req);
-
-		console.log(Controller);
-		console.log(Model);
 
 		if (!Controller || !Model) {
 			return res.status(404).send("Unknown Controller");
@@ -65,11 +63,12 @@ class AdminController extends ViewControllerBase {
 		const tableName = model.tableName;
 
 		let properties = model.properties;
-		let rawFields = model.fields.adminIndex;
+		let rawFields = model.fields ? model.fields.adminIndex : null;
 
 		if (req.query.query) {
 			try {
-				req.query = JSON.parse(req.query.query)
+				let q = unescape(req.query.query);
+				req.query = JSON.parse(q)
 			} catch (e) {
 				req.query = {};
 			}
@@ -95,18 +94,21 @@ class AdminController extends ViewControllerBase {
 			}
 		);
 
-		if (model.primaryKey && _.indexOf(req.query.select, model.schema.primaryKey) === -1) {
-			//console.log("adding Primary");
+		if (model.primaryKey && req.query.select.includes(model.schema.primaryKey) === false) {
 			req.query.select.unshift(model.primaryKey);
 		}
 
 		req.query.limit = req.query.limit || 50;
 
 		if (!req.query.sort) {
-			if (model.schema.properties.name) {
+			if (model.defaultSort) {
+				req.query.sort = model.defaultSort;
+			} else if (model.schema.properties.name) {
 				req.query.sort = "name ASC";
+			} else if (model.schema[model.primaryKey].type === "number") {
+				req.query.sort = `${model.primaryKey} DESC`;
 			} else if (model.schema.properties.createdAt) {
-				req.query.sort = "createdAt DESC";
+				req.query.sort = `${model.schema.properties[model.createdAt]} DESC`;
 			}
 		}
 
@@ -187,6 +189,7 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async view(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
@@ -268,6 +271,7 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async edit(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
@@ -324,6 +328,7 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async fields(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
@@ -368,6 +373,7 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async fieldsUpdate(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
@@ -397,6 +403,7 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async query(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
@@ -423,6 +430,7 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async search(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
@@ -464,6 +472,7 @@ class AdminController extends ViewControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async destroy(req, res) {
+		req.locals.isAdmin = true;
 		let Controller = await AdminController.getController(req);
 		return await res.render(
 			'page-admin-delete',

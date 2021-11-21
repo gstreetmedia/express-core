@@ -177,7 +177,7 @@ class DataTable {
 
 			return `
 
-	<div id="table_${this.instance}" class="container-fluid gridded">
+	<div id="table_${this.instance}" class="container-fluid gridded model-index">
 		<div style="width:${this.keys.length <= 8 ? "100%;margin-right:17px;" : (this.keys.length + 1) * 150 + "px"};min-width:100%;position: absolute;">
 			<div class="row header m-0">
 				${this.header(this.keys)}

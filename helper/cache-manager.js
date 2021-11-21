@@ -119,8 +119,8 @@ exports.reset = async() => {
 };
 
 exports.del = async(key) => {
-	console.log("cache-manager::del " + key)
+	//console.log("cache-manager::del " + key)
 	await destroyFunction("memory_" + cachePrefix + "_" + key);
-	console.log("cache-manager::deleted")
+	//console.log("cache-manager::deleted")
 	return;
 }

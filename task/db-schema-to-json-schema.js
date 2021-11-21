@@ -65,6 +65,10 @@ module.exports = async (item, options) => {
 		item.required[i] = k;
 	}
 
+	if (!item.readOnly.includes(primaryKey)) {
+		item.readOnly.push(primaryKey);
+	}
+
 	for (let i = 0; i < item.readOnly.length; i++) {
 		let k = inflectFromTable.propertyName(item.readOnly[i]);
 		if (k.length === 2) {
@@ -73,11 +77,11 @@ module.exports = async (item, options) => {
 		item.required[i] = inflectFromTable.propertyName(item.readOnly[i]);
 	}
 
-	if (localSchema.relations) {
+	if (localSchema && localSchema.relations) {
 		item.relations = localSchema.relations;
 	}
 
-	if (localSchema.foreignKeys) {
+	if (localSchema && localSchema.foreignKeys) {
 		item.foreignKeys = localSchema.foreignKeys;
 	}
 

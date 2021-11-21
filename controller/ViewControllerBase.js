@@ -101,7 +101,11 @@ class ViewControllerBase {
 		}
 		if (o.req.xhr) {
 			let html = await renderView(view, o);
-
+			Object.keys(o.data).forEach(
+				(key) => {
+					JSON.stringify(o.data[key]);
+				}
+			)
 			return res.success(
 				{
 					data : o.data,

@@ -126,6 +126,13 @@ class JsonSchema {
 		return this.object.foreignKeys
 	}
 
+	/**
+	 * @returns {string[]} - an array of the property names in this schema
+	 */
+	get keys() {
+		return Object.keys(this.object.properties);
+	}
+
 	toJSON() {
 		return this.object;
 	}

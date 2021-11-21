@@ -64,37 +64,79 @@ class ModelUtils {
 	/**
 	 * Make sure all the required keys of a join are present in the select.
 	 * @param {ModelBase} model
-	 * @param query
-	 * @param obj
+	 * @param originalQuery
+	 * @param targetQuery
 	 */
-	static async addJoinFromKeys(model, query, obj) {
-		if (!query) {
+	static async addJoinFromKeys(model, originalQuery, targetQuery) {
+		model.log("ModelUtils::addJoinFromKeys", model.tableName);
+		if (!originalQuery) {
+			//probably a simple read
+			model.log("ModelUtils::addJoinFromKeys", "no query");
 			return;
 		}
-		await model.getRelations();
-		if (query.join) {
-			let keys;
-			obj.select = obj.select || [];
-			if (query.join === "*") {
-				keys = Object.keys(model.relations);
-			} else {
-				keys = Object.keys(query.join);
-			}
-
-			keys.forEach(
-				(k) => {
-					if (!model.relations[k]) {
-						return;
-					}
-					obj.select.push(model.relations[k].join.from)
-					if (model.relations[k].where) {
-						let whereKeys = Object.keys(model.relations[k].where);
-						obj.select = obj.select.concat(whereKeys);
-					}
-				}
-			)
-			obj.select = _.uniq(obj.select);
+		if (originalQuery.join) {
+			//implies the request isn't doing a join
+			model.log("ModelUtils::addJoinFromKeys", "has join");
+		} else {
+			model.log("ModelUtils::addJoinFromKeys", "no join");
+			return;
 		}
+		if (_.isArray(originalQuery.select)) {
+			//implies no special select
+			model.log("ModelUtils::addJoinFromKeys", "has select");
+		} else {
+			model.log("ModelUtils::addJoinFromKeys", "no select");
+			return;
+		}
+		let relations = await model.getRelations();
+		if (model.relations) {
+			//model doesn't have any relations, not matter the query
+			model.log("ModelUtils::addJoinFromKeys", "has relations");
+		} else {
+			model.log("ModelUtils::addJoinFromKeys", "no relations");
+			return;
+		}
+
+		let keys;
+		let select = originalQuery.select;
+		let required = [];
+		if (originalQuery.join === "*") {
+			keys = Object.keys(this.relations);
+		} else {
+			keys = Object.keys(originalQuery.join);
+		}
+		model.log("ModelUtils::addJoinFromKeys join", keys);
+
+		keys.forEach(
+			(k) => {
+				if (!model.relations[k]) {
+					return;
+				}
+				if (model.relations[k].join.hasOwnProperty("from")) {
+					required.push(model.relations[k].join.from)
+				}
+				if (model.relations[k].join.hasOwnProperty("through")) {
+					required.push(model.relations[k].join.through.from)
+				}
+				if (model.relations[k].where) {
+					Object.keys(model.relations[k].where).forEach(
+						(ik) => {
+							if (ik !== "or" && ik !== "and") {
+								required.push(ik);
+							} else {
+								model.relations[k].where[ik].forEach(
+									(o) => {
+										required.push(Object.keys(o)[0])
+									}
+								)
+							}
+						}
+					)
+				}
+			}
+		)
+		model.log("ModelUtils::addJoinFromKeys required", _.uniq(required));
+		targetQuery.select = _.uniq(select.concat(required));
 
 	}
 

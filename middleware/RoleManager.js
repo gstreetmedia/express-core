@@ -12,7 +12,6 @@ class RoleManager {
 	 */
 	constructor(req) {
 		this.req = req;
-		//this.debug = true;
 	}
 
 	get method() {
@@ -144,7 +143,15 @@ class RoleManager {
 		let context = this;
 		roles.forEach(
 			function(item) {
-				context.addPermissions(item.rolePermissions);
+				if (item.rolePermissions) {
+					context.addPermissions(item.rolePermissions);
+				}
+				if (item.tokenPermissions) {
+					context.addPermissions(item.tokenPermissions);
+				}
+				if (item.name) {
+					context.addRole(item.name);
+				}
 			}
 		)
 	}
@@ -163,6 +170,7 @@ class RoleManager {
 			)
 		} else if (!this.permissionHash[permission.id]) {
 			this.rolePermissions.push(permission);
+			this.log("addPermissions", permission);
 			this.permissionHash[permission.id] = true;
 		}
 	};
@@ -178,6 +186,8 @@ class RoleManager {
 		if (role) {
 			this.allowRole(role);
 		}
+
+		this.req.notAuthorized = false;
 
 		let requestPath = this.originalUrl.replace(/\?.*$/, '');
 		let endPointBase = requestPath.split("/")[1];
@@ -201,6 +211,7 @@ class RoleManager {
 
 		//see if token has blanket permissions
 		let permissions = _.filter(this.rolePermissions, {objectType:"*"});
+
 		if (permissions.length > 0) {
 			this.log("checkRole", "Token Permission => [" + this.method + "] " + currentRoute);
 			this.routePermissions = permissions;
@@ -297,6 +308,10 @@ class RoleManager {
 		if (permissions.length === 0) {
 			this.log("checkRole", this.currentRoles.join(",") + " not allowed to route => " + [currentRoute,tableName,className].join(" or "));
 			//console.log(req.accountPermissions);
+		}
+
+		if (this.req) {
+			this.req.notAuthorized = true;
 		}
 
 		return false;
