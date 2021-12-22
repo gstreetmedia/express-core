@@ -1,11 +1,12 @@
-const listEndpoints = require('express-list-endpoints');
+const listEndpoints = require('./view/endpoints-lookup');
 const fs = require("fs");
-const inflector = require("./inflector");
+const inflectFromTable = require("./inflect-from-table");
+const inflectFromRoute = require("./inflect-from-route");
 const pathToRegexp = require('path-to-regexp');
 const _ = require("lodash");
+const ModelBase = require("../model/ModelBase");
 
-module.exports = (app, options) => {
-
+module.exports = async(app, options) => {
 
 	let endPoints;
 	if (!global.endPoints) {
@@ -13,6 +14,10 @@ module.exports = (app, options) => {
 	}
 
 	endPoints = _.clone(endPoints);
+
+	let SchemaModel = new ModelBase().loadModel("SchemaModel");
+	let sm = new SchemaModel();
+	await sm.init();
 
 	let obj = {
 		openapi: "3.0.0",
@@ -133,184 +138,170 @@ module.exports = (app, options) => {
 		 */
 	];
 
-	endPoints.forEach(
-		function (item) {
-			let parameters = pathToRegexp.parse(item.path);
-			let routeParameters = _.clone(options.parameters);
-			let path = "";// + item.path.split(":id").join("{id}");
-			let schemaName = parameters[0];
-			parameters.forEach(
-				(part) => {
-					if (typeof part === "string") {
-						path += part;
-					} else {
-						path += part.prefix + "{" + part.name + "}";
-					}
+	console.log(endPoints);
+
+	while(endPoints.length > 0) {
+		let item = endPoints[0];
+		let parameters = pathToRegexp.parse(item.path);
+		let routeParameters = _.clone(options.parameters);
+		let path = "";// + item.path.split(":id").join("{id}");
+		parameters.forEach(
+			(part) => {
+				if (typeof part === "string") {
+					path += part;
+				} else {
+					path += part.prefix + "{" + part.name + "}";
 				}
-			);
-			if (path === "/") {
-				return;
 			}
+		);
 
-			let routeKey = parameters[0];
-			parameters.shift();
+		let routeKey = parameters[0];
+		parameters.shift();
 
-			if (routeKey.indexOf("/admin") === 0) {
-				return;
-			}
+		if (routeKey.indexOf("/admin") === 0) {
+			endPoints.shift();
+			continue;
+		}
 
-			let root;
-			let schemaPath;
-
-			root = inflector.pluralize(inflector.underscore(schemaName.split("/")[1]));
-			root = root.split("configs").join("config");
-			root = root.split("syncs").join("sync");
-			root = root.split("metum").join("meta");
-			root = root.split("datasets").join("dataset");
-
-			root = inflector.dasherize(root);
-			//console.log(root);
-			schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
-
-			if (!fs.existsSync(schemaPath)) {
-				root = inflector.underscore(schemaName.split("/")[1]);
-				root = inflector.dasherize(root);
-				//console.log(root);
-				schemaPath = global.appRoot + "/src/schema/" + root + "-schema.js";
-			}
+		let root;
 
 
-			let schema = null;
-			if (fs.existsSync(schemaPath)) {
-				schema = JSON.parse(JSON.stringify(require(schemaPath)))
+		let schema = await sm.get(item.tableName);
 
-				//$schema, $id, dataSource, tableName, primaryKey, updatedAt
-				delete schema.$schema;
-				delete schema.$id;
-				delete schema.createdAt;
-				delete schema.id;
-				delete schema.dataSource;
-				delete schema.tableName;
-				delete schema.primaryKey;
-				delete schema.updatedAt;
-				delete schema.readOnly;
-				delete schema.additionalProperties;
+		if (schema) {
 
-				Object.keys(schema.properties).forEach(
+			delete schema.$schema;
+			delete schema.$id;
+			delete schema.createdAt;
+			delete schema.id;
+			delete schema.dataSource;
+			delete schema.tableName;
+			delete schema.primaryKey;
+			delete schema.updatedAt;
+			delete schema.readOnly;
+			delete schema.additionalProperties;
+
+			let doProps = (sourceProps)=> {
+				let properties = {};
+				Object.keys(sourceProps).forEach(
 					function (key) {
-						let obj = schema.properties[key];
-						delete obj.allowNull;
-						delete obj.columnName;
-						delete obj.precision;
-						delete obj.cast;
-						delete obj.unique;
-						if (obj.type === "array") {
-							obj.items = {};
+						properties[key] = {
+							type : sourceProps[key].type
+						};
+						if (sourceProps[key].format) {
+							properties[key].format = sourceProps[key].format;
 						}
-						schema.properties[key] = obj;
+						if (sourceProps[key].properties) {
+							properties[key].properties = doProps(sourceProps[key].properties)
+						}
 					}
 				);
-				obj.components.schemas[root] = schema;
-			} else {
-				//console.log("Cannot find schema");
-				//console.log(schemaPath);
-				return;
+				return properties;
 			}
 
-			parameters.forEach(
-				(parameter) => {
-					if (_.isObject(parameter)) {
-						parameter.in = "path";
-						delete parameter.prefix;
-						delete parameter.delimiter;
-						if (parameter.optional === false) {
-							parameter.required = true;
-						}
-						delete parameter.optional;
-						delete parameter.repeat;
-						delete parameter.pattern;
-						parameter.schema = {
-							type: "string"
-						}
-						if (schema && schema.properties[parameter.name]) {
-							parameter.schema.type = schema.properties[parameter.name].type;
-							parameter.description = schema.properties[parameter.name].description;
-						}
-						routeParameters.push(parameter);
-					} else {
-					}
-				}
-			);
-
-			if (!obj.paths[path]) {
-				obj.paths[path] = {};
-			}
-
-			item.methods.forEach(
-				(method) => {
-					method = method.toLowerCase();
-					if (method === "patch") {
-						return;
-					}
-					if (!obj.paths[path][method]) {
-						obj.paths[path][method] = {
-							summary: "",
-							responses: {
-								"200": {
-									description: "",
-									content: {
-										"application/json": {}
-									}
-								}
-							}
-						};
-					} else {
-						//console.log(path + " => " + method + " already exists");
-					}
-
-					if (method === "get") {
-						if (path.indexOf("{id}") !== -1) {
-							obj.paths[path][method].parameters = read.concat(routeParameters);
-							if (schema) {
-								obj.paths[path][method].responses['200'].content = {
-									['application/json']: {
-										schema: {"$ref": "#/components/schemas/" + root}
-									}
-								}
-							}
-						} else if (path.indexOf("/index") !== -1) {
-							obj.paths[path][method].parameters = query.concat(routeParameters);
-							if (schema) {
-								obj.paths[path].get.responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + root}
-							}
-						} else if (path.indexOf("search") === -1) {
-							obj.paths[path][method].parameters = query.concat(routeParameters);
-							if (schema) {
-								obj.paths[path][method].responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + root}
-							}
-						}
-					} else if (method === "post" || method === "put" || method === "patch") {
-						obj.paths[path][method].parameters = routeParameters;
-						if (schema) {
-							obj.paths[path][method].requestBody =
-								{
-									content: {
-										['application/json']: {
-											schema: {
-												"$ref": "#/components/schemas/" + root
-											}
-										}
-									},
-									required: true
-								};
-						}
-					} else if (method === "delete") {
-						obj.paths[path][method].parameters = routeParameters;
-					}
-				}
-			);
+			obj.components.schemas[item.table] = {properties:doProps(schema.properties)};
+		} else {
+			console.log("Cannot find schema");
+			console.log(model);
+			endPoints.shift();
+			continue;
 		}
-	);
+
+		parameters.forEach(
+			(parameter) => {
+				if (_.isObject(parameter)) {
+					parameter.in = "path";
+					delete parameter.prefix;
+					delete parameter.delimiter;
+					if (parameter.optional === false) {
+						parameter.required = true;
+					}
+					delete parameter.optional;
+					delete parameter.repeat;
+					delete parameter.pattern;
+					parameter.schema = {
+						type: "string"
+					}
+					if (schema && schema.properties[parameter.name]) {
+						parameter.schema.type = schema.properties[parameter.name].type;
+						parameter.description = schema.properties[parameter.name].description;
+					}
+					routeParameters.push(parameter);
+				} else {
+				}
+			}
+		);
+
+		if (!obj.paths[path]) {
+			obj.paths[path] = {};
+		}
+
+		item.methods.forEach(
+			(method) => {
+				method = method.toLowerCase();
+				if (method === "patch") {
+					return;
+				}
+				if (!obj.paths[path][method]) {
+					obj.paths[path][method] = {
+						summary: "",
+						responses: {
+							"200": {
+								description: "",
+								content: {
+									"application/json": {}
+								}
+							}
+						}
+					};
+				} else {
+					//console.log(path + " => " + method + " already exists");
+				}
+
+				if (method === "get") {
+					if (path.indexOf("{id}") !== -1) {
+						obj.paths[path][method].parameters = read.concat(routeParameters);
+						if (schema) {
+							obj.paths[path][method].responses['200'].content = {
+								['application/json']: {
+									schema: {"$ref": "#/components/schemas/" + item.table}
+								}
+							}
+						}
+					} else if (path.indexOf("/index") !== -1) {
+						obj.paths[path][method].parameters = query.concat(routeParameters);
+						if (schema) {
+							obj.paths[path].get.responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + item.table}
+						}
+					} else if (path.indexOf("search") === -1) {
+						obj.paths[path][method].parameters = query.concat(routeParameters);
+						if (schema) {
+							obj.paths[path][method].responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + item.table}
+						}
+					}
+				} else if (method === "post" || method === "put" || method === "patch") {
+					obj.paths[path][method].parameters = routeParameters;
+					if (schema) {
+						obj.paths[path][method].requestBody =
+							{
+								content: {
+									['application/json']: {
+										schema: {
+											"$ref": "#/components/schemas/" + item.table
+										}
+									}
+								},
+								required: true
+							};
+					}
+				} else if (method === "delete") {
+					obj.paths[path][method].parameters = routeParameters;
+				}
+			}
+		);
+
+		endPoints.shift();
+	}
 
 	fs.writeFileSync(global.appRoot + "/swagger.json", JSON.stringify(obj));
 }
