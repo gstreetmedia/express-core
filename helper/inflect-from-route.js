@@ -5,6 +5,17 @@ exports.table = (route) => {
 	let tableName = route;
 	let styles = process.env.CORE_TABLE_NAME_STYLE || "snake_case,plural";
 	styles = styles.split(",");
+	if (route.indexOf("/") === 0) {
+		tableName = tableName.split("/")[1];
+	} else if (route.indexOf("/") > 0) {
+		tableName = tableName.split("/")[0];
+	}
+
+	tableName = tableName.split("configs").join("config");
+	tableName = tableName.split("syncs").join("sync");
+	tableName = tableName.split("metum").join("meta");
+	tableName = tableName.split("datasets").join("dataset");
+
 	styles.forEach(
 		(style) => {
 			switch (style) {
