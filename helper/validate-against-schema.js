@@ -12,12 +12,14 @@ let moment = require("moment-timezone");
  */
 let validate = (key, value, schema, action) => {
 
-	let property = schema.properties[key]; //ToDO key a.b.c
-
-	if (!property) {
-		return false;
+	if (!schema.properties.hasOwnProperty(key)) {
+		return {
+			message : "Key not in Properties",
+			key : key
+		};
 	}
 
+	let property = schema.properties[key]; //ToDO key a.b.c
 	let type = schema.properties[key].type;
 	let format = schema.properties[key].format;
 	let valid = false;
