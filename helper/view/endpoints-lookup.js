@@ -1,5 +1,7 @@
 const _ = require("lodash");
 const listEnpoints = require("express-list-endpoints");
+const inflectFromRoute = require("../inflect-from-route");
+const pathToRegexp = require('path-to-regexp');
 let list = [];
 /**
  * Generates a list of endpoint, name / value pairs for building a select / checkbox form
@@ -20,11 +22,16 @@ module.exports = (app) => {
 		return [];
 	}
 
-	let hash = {};
+	endPoints.sort(
+		(a, b) => {
+			return a.path > b.path ? 1 : a.path < b.path ? -1 : 0;
+		}
+	)
 
 	endPoints.forEach(
 		function(item) {
 			let path = item.path;
+			let parameters = pathToRegexp.parse(item.path);
 			if (item.path.indexOf("/") === 0) {
 				path = item.path.split("/");
 				path.shift();
@@ -33,12 +40,14 @@ module.exports = (app) => {
 					return;
 				}
 			}
-			hash[path] = hash[path] || {name:'',value:'',methods:[]};
 
 			list.push(
 				{
 					name : path + " <span class='text-secondary'>[" + item.methods.join(", ").toLowerCase() + "]</span>",
-					value : path
+					path : path,
+					methods : item.methods,
+					table : inflectFromRoute.table(path),
+					parameters : parameters
 				}
 			)
 		}
