@@ -30,8 +30,8 @@ return `        "${obj.route || inflectFromTable.route(obj.tableName)}" : "${tab
 		let context = this;
 		Object.keys(this.routeMap).forEach(
 			(key) => {
-				const handler = require("./" + key);
-				const route = "/" + context.routeMap[key];
+				const handler = require("./" + context.routeMap[key]);
+				const route = "/" + key;
 				context._router.use(route, handler);
 			}
 		);

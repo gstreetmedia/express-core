@@ -77,24 +77,6 @@ module.exports = async function (options, pool) {
 			var tableName = column.table_name;
 			var columnName = column.column_name;
 
-			if (!schema[tableName]) {
-				schema[tableName] = {
-					$schema: 'http://json-schema.org/draft-06/schema#',
-					$id: options.baseUrl + tableName + '.json',
-					title: inflector.classify(inflector.singularize(tableName)),
-					dataSource: null,
-					tableName: tableName,
-					description: 'Generated: ' + new Date(),
-					primaryKey: null,
-					properties: {},
-					required: [],
-					readOnly: [],
-					type: 'object',
-					additionalProperties: options.additionalProperties === undefined ? false : !!options.additionalProperties
-				}
-			}
-			schema[tableName].properties[columnName] = convertColumnType(column, enums);
-
 			let desc = _.find(descriptions, {
 				table_name: tableName,
 				column_name: columnName

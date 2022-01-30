@@ -16,7 +16,8 @@ var emptySchema = {
 
 module.exports = async function( options, pool )
 {
-	let data =  await pool.query("SELECT * FROM information_schema.columns WHERE table_schema = '"+options.dbName +"'");
+	let query = "SELECT * FROM information_schema.columns WHERE table_schema = '"+options.dbName +"'";
+	let data =  await pool.query(query);
 	let rows = [];
 
 	data.forEach(

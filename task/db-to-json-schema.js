@@ -109,14 +109,16 @@ async function convert(connectionString, options) {
 
 		if (cs.indexOf("postgres") === 0) {
 			converter = require("./pg-tables-to-schema");
-			pool = await require("../model/model-base/pool-postgres")(connectionString[i]);
+			const poolPostgres = require("../model/model-base/pool-postgres")
+			pool = await poolPostgres(connectionString[i]);
 		} else if (cs.indexOf("mysql") === 0) {
 			converter = require("./mysql-tables-to-schema");
-			pool = await require("../model/model-base/pool-mysql")(connectionString[i]);
+			const poolMysql = require("../model/model-base/pool-mysql")
+			pool = await poolMysql(connectionString[i]);
 		} else if (cs.indexOf("mssql") === 0) {
 			converter = require("./mssql-tables-to-schema");
-			let p = require("../model/model-base/pool-mysql")
-			pool = await p(connectionString[i]);
+			const poolMsSql = await require("../model/model-base/pool-mssql");
+			pool = poolMsSql(connectionString[i]);
 		} //TODO elastic?
 
 		cs = connectionStringParser(cs);
@@ -168,9 +170,8 @@ async function convert(connectionString, options) {
 			//TODO need to remove schemas that no longer exist
 			if (destination === "db") {
 				let result = await schemaModel.set(item.tableName, item);
-				console.log(result);
 				if (result.error) {
-					console.log(result);
+					console.log(JSON.stringify(result));
 					process.exit();
 				}
 			} else {

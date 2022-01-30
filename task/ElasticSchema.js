@@ -3,7 +3,7 @@ let util = require("util");
 let JSONSchema = require("../model/objects/JsonSchema");
 let inflectFromTable = require("../helper/inflect-from-table");
 
-class ElasticIndicesToSchema {
+class ElasticSchema {
 
 	constructor(connectionString) {
 		this.connectionString = connectionString;
@@ -16,10 +16,26 @@ class ElasticIndicesToSchema {
 		return await require("../model/model-base/pool-elastic")(this.connectionString);
 	}
 
-	async getIndices() {
+	async getTables() {
 		let client = await this.getPool()
-		let result = await client.indices.get();
-		return result;
+		let result = await client.cat.indices(
+			{
+				format : "json"
+			}
+		);
+		let tables = [];
+		result.forEach(
+			(item) => {
+				if (item.index.indexOf(".") === 0) {
+					//skip
+				}  else if (item.index.indexOf("apm-") === 0) {
+
+				} else {
+					tables.push(item.index);
+				}
+			}
+		)
+		return tables
 	}
 
 	async getMappings(tableName) {
@@ -215,4 +231,4 @@ class ElasticIndicesToSchema {
 	}
 }
 
-module.exports = ElasticIndicesToSchema;
+module.exports = ElasticSchema;

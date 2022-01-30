@@ -9,21 +9,7 @@ module.exports = async(schema, connection) => {
 		schema = require(path.resolve(__dirname + "/../../schema/", schema + "-schema"));
 	}
 
-	let c = cs(connection);
 
-	let builder = knex(
-		{
-			client: c.client,
-			debug : true,
-			connection: {
-				host : c.host,
-				user : c.username,
-				password : c.password,
-				database : c.database,
-				port : c.port
-			}
-		},
-	)
 
 	let hasTable = await builder.schema.hasTable(schema.tableName);
 
