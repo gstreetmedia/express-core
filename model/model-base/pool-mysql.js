@@ -8,8 +8,6 @@ const sleep = require('util').promisify(setTimeout);
 
 module.exports = async (connectionString) => {
 
-	//console.log(connectionString);
-
 	let key = md5(connectionString);
 
 	if (pools[key]) {
@@ -19,8 +17,6 @@ module.exports = async (connectionString) => {
 	}
 
 	let cs = connectionStringParser(connectionString);
-
-	//console.log(cs);
 
 	let pool = new mssql.createPool({
 		connectionLimit: 10,
@@ -38,8 +34,21 @@ module.exports = async (connectionString) => {
 
 	pools[key] = pool;
 
+	let query = (sql) => {
+		return new Promise(function (resolve, reject) {
+			pool.query(sql,
+				(error, results) => {
+					if (error) {
+						return reject(error);
+					}
+					return resolve(results);
+				}
+			)
+		});
+	};
+
 	return {
-		query : util.promisify(pool.query)
+		query : query
 	};
 }
 

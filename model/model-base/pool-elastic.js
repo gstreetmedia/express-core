@@ -11,7 +11,6 @@ let pools = {};
  * @returns {Promise<EsApiClient|*>}
  */
 module.exports = async (connectionString) => {
-	console.log(connectionString);
 	let key ;
 	if (typeof connectionString === "object") {
 		key = JSON.stringify(connectionString);
@@ -26,12 +25,11 @@ module.exports = async (connectionString) => {
 
 	if (typeof connectionString === "string") {
 		cs = connectionStringParser(connectionString);
-		console.log(cs);
 	} else {
 		cs = connectionString;
 	}
 	let options = {
-		host: "https://" + cs.host.replace(":" + cs.port, ""),
+		host: cs.host.replace(":" + cs.port, ""),
 		port: cs.port,
 		httpAuth: cs.httpAuth || (cs.username + ":" + cs.password),
 	};

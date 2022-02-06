@@ -35,17 +35,96 @@ class ElasticModel extends ModelBase{
 	get primaryKey() {
 		return "id";
 	}
-
 	/**
 	 * @returns {JsonSchema}
 	 */
 	async getSchema() {
-		await super.getSchema();
 		if (!this._schema) {
-			let ElasticIndicesToSchema = require("../task/ElasticIndicesToSchema");
-			let pool = await this.getPool();
-			let em = new ElasticIndicesToSchema(this.connectionString());
-			this.schema = em.getSchema(this.tableName);
+			let map = await this.getMappings();
+			let properties = {};
+			let format = (key, sourceObj) => {
+				let obj;
+				switch (sourceObj.type) {
+					case "keyword" :
+					case "text" :
+						obj = {
+							type : "string",
+							columnName : key
+						}
+						break;
+					case "date" :
+						obj = {
+							type : "string",
+							format : "date",
+							columnName : key
+						}
+						break;
+					case "integer" :
+					case "long" :
+						obj = {
+							type : "number",
+							format : "integer",
+							columnName : key
+						}
+						break;
+					case "double" :
+						obj = {
+							type : "number",
+							format : "decimal",
+							columnName : key
+						}
+						break;
+					case "geo_point" :
+						obj = {
+							type : "object",
+							format : "geoJson",
+							columnName : key
+						}
+						break;
+					case "object" :
+						obj = {
+							type : "object",
+							columnName : key
+						}
+						break;
+					case "boolean" :
+						obj = {
+							type : "boolean",
+							columnName : key
+						}
+						break;
+
+					default :
+						if (sourceObj.properties) {
+							let properties = {};
+							Object.keys(sourceObj.properties).forEach(
+								(innerKey) => {
+									properties[innerKey] = format(innerKey, sourceObj.properties[innerKey])
+								}
+							);
+							obj = {
+								type : "object",
+								format : "nested",
+								properties : properties,
+								columnName : key
+							}
+						}
+
+				}
+
+				return obj;
+			}
+			Object.keys(map).forEach(
+				(key) => {
+					properties[key] = format(key, map[key]);
+				}
+			);
+			this.schema = global.schemaCache[this.tableName] = new JsonSchema({
+				tableName : this.tableName,
+				baseName : this.tableName,
+				properties : properties,
+				required : ["id"]
+			});
 		}
 		return this.schema;
 	}

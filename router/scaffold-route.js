@@ -1,26 +1,35 @@
+const ModelBase = require("../model/ModelBase");
+const getController = require("../helper/get-controller");
+const getModel = require("../helper/get-model");
+const inflectFromTable = require("../helper/inflect-from-table");
 
-module.exports = (tableName) => {
-	class Model extends ModelBase{
-		get tableName() {
-			return tableName
-		}
+/**
+ * @param {string} tableName
+ * @param {Router} [router]
+ * @returns {Router}
+ */
+module.exports = (tableName, router) => {
 
-	}
 
-	let router = require('express').Router();
-	const fs = require("fs");
-	const path = require("path");
+	router = router || require('express').Router();
 	let authentication = require('../middleware/authentication');
-	let Controller = require("../controller/ControllerBase");
-	let ModelBase = require("../model/ModelBase");
-	let c;
+	let Controller = getController(inflectFromTable.controllerName(tableName));
+	let ActualModel = getModel(inflectFromTable.modelName(tableName));
+	if (!Controller) {
+		Controller = require("../controller/ControllerBase");
+	}
+	class Model extends ModelBase {
+		get tableName() {
+			return tableName;
+		}
+	}
 
 	router.use(authentication);
 
 	router.use(async function(req, res, next){
 		req.roleManager.allowRole('super-api');
 		if (!c) {
-			c = new Controller(ModelBase);
+			c = new Controller(ActualModel || Model);
 		}
 		//add other roles as needed, or call req.roleManager.addRole('some-role') in individual endpoints
 		return next();
@@ -67,4 +76,6 @@ module.exports = (tableName) => {
 		}
 		return next();
 	});
+
+	return router;
 };

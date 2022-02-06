@@ -8,22 +8,18 @@ let index = async(tableName) => {
 			connectionString : process.env.DEFAULT_DB,
 			tablePrefix : ["wp_","aa_"],
 			ignoreTables : [],
-			tables : []
+			tables : [],
+			relationMapping : [
+				["tableName", "dataSource"], //if any two tables have these two field hook them up
+			]
 		}
 	)
 
 	let tables = await m.getTables();
 
 	while(tables.length > 0) {
-		//let columns = await m.getColumns(tables[0]);
-		//if (tables[0] === "wp_aa_properties") {
-			let schema = await m.getSchema(tables[0]);
-			//console.log(columns);
-			//console.log(schema.relations);
-			//console.log(schema.foreignKeys);
-			fs.writeFileSync(
-				global.appRoot + '/src/schema/json/' + schema.tableName + ".json", beautify(schema, null, 2, 100));
-		//}
+		let schema = await m.getSchema(tables[0]);
+		await m.saveSchema(schema);
 		tables.shift();
 	}
 

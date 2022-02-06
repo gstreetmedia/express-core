@@ -22,7 +22,8 @@ module.exports = {
 			maxLength: 128,
 			allowNull: false,
 			description: "",
-			columnName: "name"
+			columnName: ["firstName","lastName"],
+			virtual: true
 		},
 		firstName: {
 			type: "string",

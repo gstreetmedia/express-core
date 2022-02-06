@@ -118,7 +118,7 @@ class UserController extends ControllerBase {
 	}
 
 	async updatePassword(req, res) {
-		let m = new this.Model();
+		let m = new this.Model(req);
 		let record = await m.read(req.locals.user.id);
 		if (!req.body.currentPassword) {
 			return res.error(

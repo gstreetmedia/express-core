@@ -4,6 +4,9 @@ const _ = require("lodash");
 const cs = require("../helper/connection-string-parser");
 const inflector = require("../helper/inflector")
 const inflectFromTable = require("../helper/inflect-from-table")
+const fs = require("fs");
+const path = require("path");
+const beautify = require("json-beautify");
 
 class SchemaBase extends ModelBase {
 
@@ -30,9 +33,9 @@ class SchemaBase extends ModelBase {
 			throw new Error("Options must contain a connectionString")
 		}
 		this.map = {
-			columnName : "columnName",
-			type : "dataType",
-			autoIncrement : "autoIncrement"
+			columnName: "columnName",
+			type: "dataType",
+			autoIncrement: "autoIncrement"
 		}
 	}
 
@@ -346,7 +349,7 @@ class SchemaBase extends ModelBase {
 			return this._schemas[tableName];
 		}
 		let o = await this.getRelationsAndForeignKeys(tableName);
-
+		let primaryKey = await this.getPrimaryKey(tableName);
 		let schema = {
 			$schema: 'http://json-schema.org/draft-06/schema#',
 			$id: (this.options.baseUrl || "") + tableName + '.json',
@@ -355,14 +358,32 @@ class SchemaBase extends ModelBase {
 			dataSource: this.cs.database,
 			tableName: tableName,
 			route: inflectFromTable.route(this.sanitizeTableName(tableName)),
-			primaryKey: await this.getPrimaryKey(tableName),
+			methods:
+				{
+					get: [
+						{"/": "query"},
+						{['/:' + primaryKey]: "read"}
+					],
+					post: [
+						{"/": "post"}
+					],
+					put: [
+						{['/:' + primaryKey]: "read"},
+						{'/': "updateWhere"}
+					],
+					delete: [
+						{['/:' + primaryKey]: "destroy"},
+						{'/': "destroyWhere"}
+					]
+				},
+			primaryKey: primaryKey,
 			properties: await this.getProperties(tableName),
 			relations: o.relations,
 			foreignKeys: o.foreignKeys,
 			required: await this.getRequired(tableName),
 			readOnly: await this.getReadOnly(tableName),
 			type: 'object',
-			additionalProperties: this.options.additionalProperties === undefined ? false : !!this.options.additionalProperties,
+			additionalProperties: false,
 		};
 		this._schemas[tableName] = schema;
 		return schema;
@@ -375,6 +396,15 @@ class SchemaBase extends ModelBase {
 			schemas[tables[0]] = await this.getSchema(tables[0]);
 		}
 		return schemas;
+	}
+
+	async saveSchema(schema) {
+		let p = path.resolve(global.appRoot + '/src/schema/' + schema.dataSource);
+		if (!fs.existsSync(p)) {
+			fs.mkdirSync(p)
+		}
+		fs.writeFileSync(
+			path.resolve(p + "/" + schema.tableName + ".json"), beautify(schema, null, 4, 100))
 	}
 
 	sanitizeTableName(tableName, sigularize) {
@@ -397,7 +427,7 @@ class SchemaBase extends ModelBase {
 		let validTypes = {
 			string: {
 				format: ["uuid"],
-				length : 36
+				length: 36
 			},
 			number: {
 				format: ["integer"]
@@ -441,15 +471,33 @@ class SchemaBase extends ModelBase {
 		let relations = {};
 		let foreignKeys = {};
 		let sourceKeys = Object.keys(sourceProperties);
+		let sourceColumns = _.map(sourceKeys, (key) => {
+			return sourceProperties[key].columnName
+		});
+
 		console.log("sourceTableName -> " + sourceTableName);
 		console.log("normalizedSourceTable -> " + normalizedSourceTable);
+		console.log("sourceColumns -> " + sourceColumns);
+
+		let sourceMapRelations = [];
+
+		if (this.options.relationMapping) {
+			this.options.relationMapping.forEach(
+				(row) => {
+					if (_.intersection(row, sourceKeys).length === row.length) {
+						sourceMapRelations.push(_.intersection(row, sourceKeys));
+					}
+				}
+			)
+		}
+
 		while (sourceKeys.length > 0) {
 			let sourceKey = sourceKeys[0];
 			let sourceColumnName = sourceProperties[sourceKey].columnName;
 			let sourceProperty = sourceProperties[sourceKey];
 			let tables = _.clone(allTables);
 
-			if (!this.validRelationProperty(sourceProperty, sourceKey, sourceTableName)) {
+			if (!this.validRelationProperty(sourceProperty, sourceKey, sourceTableName) && !sourceMapRelations) {
 				sourceKeys.shift();
 				continue;
 			}
@@ -465,18 +513,59 @@ class SchemaBase extends ModelBase {
 				let normalizedTargetTable = this.sanitizeTableName(table);
 				let relationKey = inflector.camelize(inflector.singularize(normalizedTargetTable), false);
 				let targetKeys = Object.keys(targetProperties);
+				let targetColumns = _.map(sourceKeys, (key) => {
+					return sourceProperties[key].columnName
+				});
+				let targetMapRelations = [];
+
+				if (this.options.relationMapping) {
+					this.options.relationMapping.forEach(
+						(row) => {
+							if (_.intersection(row, targetKeys).length === row.length) {
+								targetMapRelations.push(_.intersection(row, targetKeys));
+							}
+						}
+					)
+				}
+
+				if (sourceMapRelations.length > 0 && targetMapRelations.length > 0) {
+					let keys;
+					sourceMapRelations.forEach(
+						(row) => {
+							targetMapRelations.forEach(
+								(r) => {
+									if (_.intersection(r, row).length === r.length) {
+										keys = r;
+									}
+								}
+							)
+						}
+					)
+					relations[inflector.pluralize(relationKey)] = {
+						type: "HasMany",
+						model: inflectFromTable.modelName(this.sanitizeTableName(table, false)),
+						join: {
+							from: keys,
+							to: keys
+						}
+					}
+					tables.shift();
+					continue;
+				}
 
 				while (targetKeys.length > 0) {
 					let targetKey = targetKeys[0];
 					let targetProperty = targetProperties[targetKey];
 					let targetColumnName = targetProperties[targetKey].columnName;
 
-					if (!this.validRelationProperty(targetProperty, targetKey, table)) {
+
+					if (!this.validRelationProperty(targetProperty, targetKey, table) && !targetMapRelations) {
 						targetKeys.shift();
 						continue;
 					}
 
 					//console.log(targetColumnName + " vs " + normalizedSourceTable);
+
 
 					//foo.id -> bar.foo_id
 					if (targetColumnName.indexOf(normalizedSourceTable) === 0) {
@@ -502,8 +591,8 @@ class SchemaBase extends ModelBase {
 						sourceMapsKeys.forEach(
 							(sourceMapKey) => {
 								if (sourceMapKey.toLowerCase() === sourceColumnName.toLowerCase()) {
-									relations[relationKey] = {
-										type: "HasOne",
+									relations[targetProperty.type === "array" || sourceProperty.type === "array" ? inflector.pluralize(relationKey) : relationKey] = {
+										type: targetProperty.type === "array" || sourceProperty.type === "array" ? "HasMany" : "HasOne",
 										model: inflectFromTable.modelName(this.sanitizeTableName(table, false)),
 										join: {
 											from: sourceKey,
@@ -536,10 +625,10 @@ class SchemaBase extends ModelBase {
 	camelizeArray(array) {
 		let rows = [];
 		array.forEach(
-			function(row) {
+			function (row) {
 				let obj = {};
 				Object.keys(row).forEach(
-					function(key) {
+					function (key) {
 						obj[inflector.camelize(key.toLowerCase(), false)] = row[key];
 					}
 				)
@@ -551,3 +640,33 @@ class SchemaBase extends ModelBase {
 }
 
 module.exports = SchemaBase;
+
+/*
+{
+				"title" : {
+					"type" : "string"
+				},
+				"dataSource" : {
+					"type" : "string"
+				},
+				"tableName" : {
+					"type" : "string"
+				},
+				"route" : {
+					"type" : "string"
+				},
+				"methods" : {
+					"type" : "array",
+					"format" : "object"
+				},
+				"primaryKey" : {
+					"type" : "string"
+				},
+				"relations" : {
+					"type" : "object"
+				},
+				"foreignKeys" : {
+					"type" : "object"
+				}
+			}
+ */

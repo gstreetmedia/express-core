@@ -1,3 +1,4 @@
+"use strict";
 const _ = require("lodash");
 
 class ModelRelations {
@@ -11,51 +12,19 @@ class ModelRelations {
 	}
 
 	/**
-	 * @param {object} relations
-	 * @param {object} results
-	 * @param {string} key
-	 * @param {object} j
-	 */
-	static processWhere(relations, results, key, j) {
-		if (!relations[key]) {
-			console.log("processWhere no relation for " + key);
-		}
-		if (relations[key] && relations[key].where) {
-			j.where = j.where || {};
-			for (let p in relations[key].where) {
-				let expression = j.where[p] || relations[key].where[p];
-				if (_.isString(expression)) {
-					expression = {"=":expression}
-				}
-				let compare = Object.keys(expression)[0];
-				if (expression[compare].indexOf("{{") === 0) {
-					let targetKey = expression[compare].replace("{{", "").replace("}}","");
-					for (let i = 0; i < results.length; i++) {
-						if (results[i].hasOwnProperty(targetKey)) {
-							expression[compare] = results[i][targetKey];
-							break;
-						}
-					}
-					if (!expression[compare]) {
-						console.error("ModelRelations::processWhere Issue");
-						console.log(expression);
-						console.log(JSON.stringify(results));
-					}
-				}
-				j.where[p] = expression;
-			}
-		}
-	}
-
-	/**
 	 * Add any selects defined in the relation
-	 * @param {object} relations
+	 * @param {object} model
 	 * @param {string} key
 	 * @param {object} j
 	 */
-	static processSelect(relations, key, j) {
+	static processSelect(model, key, j) {
+		let relations = model.relations;
+		if (!relations) {
+			return;
+		}
 		if (!relations[key]) {
-			console.log("processSelect no relation for " + key);
+			model.log("processSelect", "no relation for " + key);
+			model.log("processSelect relations->", relations);
 		}
 		if (relations[key] && relations[key].select) {
 			j.select = j.select || [];
@@ -66,6 +35,34 @@ class ModelRelations {
 			);
 			j.select = _.uniq(j.select);
 		}
+	}
+
+	static relationType(type) {
+		switch (type.toLowerCase()) {
+			case "hasone":
+			case "has-one":
+			case "one":
+				type = "has-one";
+				break;
+			case "hasmany" :
+			case "has-many" :
+			case "many" :
+				type = "has-many";
+		}
+		return type;
+	}
+
+	/**
+	 * Pluck a value out of an object. check for dot syntax
+	 * @param object
+	 * @param key
+	 * @returns {*}
+	 */
+	static getValue(object, key) {
+		if (key.indexOf(".")) {
+			return _.get(object,key);
+		}
+		return object[key];
 	}
 
 	/**
@@ -92,21 +89,29 @@ class ModelRelations {
 		}
 	};
 
+	static addWhereTo (j, index) {
+		index.forEach(
+			(row) => {
+				Object.keys(row.to).forEach(
+					(field, index) => {
+						j.where[field] = j.where[field] || {in:[]};
+						j.where[field].in.push(row.to[field]);
+						j.where[field].in = _.uniq(j.where[field].in);
+					}
+				)
+			}
+		)
+	}
+
 	static async join (model, results, query){
 
 		let relations = await model.getRelations();
-
-		//model.log("join::relations", relations);
-
 		let foreignKeys = await model.getForeignKeys();
-
-		//model.log("join::foreignKeys", foreignKeys);
 
 		if (!relations && !foreignKeys) {
 			return results;
 		}
 
-		let fromIndex = {};
 		let findOne = false;
 
 		if (!_.isArray(results)) {
@@ -156,7 +161,7 @@ class ModelRelations {
 		}
 
 		while (keys.length > 0) {
-
+			let startTime = new Date().getTime();
 			let key = keys[0];
 			if (relations[key]) {
 				model.log("join", "key => " + key);
@@ -184,88 +189,89 @@ class ModelRelations {
 				let joinThroughTo = relation.join.through ? relation.join.through.to : null;
 				let joinThroughWhere = relation.join.through ? relation.join.through.where : null;
 				let joinThroughSort = relation.join.through ? relation.join.through.sort : null;
-
 				let removeJoinTo = false; //keys not requested
 
-				let targetKeys = [];
-				let joinFromKeys = {};
-				let joinThroughFromKeys = {};
-				let joinThroughToKeys = {};
-				let joinToKeys = {};
+				if (joinFrom && !_.isArray(joinFrom)) {
+					joinFrom = [joinFrom];
+				}
+				if (joinTo && !_.isArray(joinTo)) {
+					joinTo = [joinTo];
+				}
+				if (joinThroughFrom && !_.isArray(joinThroughFrom)) {
+					joinThroughFrom = [joinThroughFrom];
+				}
+				if (joinThroughTo && !_.isArray(joinThroughTo)) {
+					joinThroughTo = [joinThroughTo];
+				}
 
-				//TODO we need a more flexible from, to, from to that supports arrays
-				/**
-				 * eg. from : ["key1","key2"] to: ["key3", "key4"]
-				 */
-				/*
-				if (_.isArray(joinFrom)) {
-					let i = 0;
-					joinFrom.forEach(
-						(joinFromItem) => {
-							let items = _.map(results, joinFromItem);
-							joinFromKeys[joinFromItem] = items;
-							joinToKeys[joinTo[i]] = items;
-							i++;
+				let index = [];
+				let buildIndex = () => {
+					results.forEach(
+						(row, i) => {
+							let obj = {
+								from : {},
+								to : {},
+								index : i
+							}
+							joinFrom.forEach(
+								(item, i) => {
+									let value = ModelRelations.getValue(row, item);
+									if (value !== null) {
+										obj.from[item] = row[item];
+										if (relation.join.through) {
+											obj.through = obj.through || {from: {}, to: {}};
+											if (joinThroughFrom[i]) {
+												obj.through.from[joinThroughFrom[i]] = value;
+											}
+										} else {
+											obj.to[joinTo[i]] = value;
+										}
+									}
+								}
+							)
+							if (obj.through && Object.keys(obj.through.from).length === joinThroughFrom.length) {
+								index.push(obj);
+							} else if (Object.keys(obj.to).length === joinTo.length) {
+								index.push(obj);
+							}
 						}
 					)
-					console.log(joinFromKeys);
-					return;
-				} else if (joinFrom.indexOf(".") !== -1) {
-
-				} else {
-					let items = _.map(results, joinFrom);
-					joinToKeys[joinTo] = items;
-					joinFromKeys[joinFrom] = items;
 				}
+				buildIndex();
 
-				 */
-
-				for (let i = 0; i < results.length; i++) { //grab the primary keys from the
-					if (joinFrom.indexOf(".") !== -1 && _.get(results[i], joinFrom, null)) {
-						//Allow for join on json value
-						let value = _.get(results[i], joinFrom, null);
-						targetKeys.push(value);
-						fromIndex[value] = i;
-					} else if (results[i] && results[i][joinFrom]) {
-						if (_.isArray(results[i][joinFrom])) {
-							targetKeys = targetKeys.concat(results[i][joinFrom]);
-						} else {
-							targetKeys.push(results[i][joinFrom]);
-						}
-						fromIndex[results[i][joinFrom]] = i;
-					}
-				}
-
-				targetKeys = _.uniq(targetKeys);
-
-				if (targetKeys.length === 0 || targetKeys === null) {
-					model.log("join", "no target keys for " + key);
+				if (index.length === 0) {
+					model.log("join -> " + key, "No Keys To Join On");
 					keys.shift();
 					continue;
 				}
 
-				let startTime = new Date().getTime();
-				model.log("join", "targetKeys => " + targetKeys);
-				model.log("join","joinFrom => " + joinFrom);
 				if (relation.join.through) {
-					model.log("join", "joinThroughTo => " + joinThroughTo);
-					model.log("join", "joinThroughFrom => " + joinThroughFrom);
-				}
-				model.log("join","joinTo => " + joinTo);
-
-				let throughModelClass = relation.throughClass || relation.throughModel || relation.throughModelClass;
-
-				if (throughModelClass) { //build new targetKey based on the pivot table
+					const ThroughModel = model.loadModel(relation.throughModel || relation.throughClass);
+					if (!ThroughModel) {
+						console.error("No model " + relation.throughModel + " exists");
+						keys.shift();
+						continue;
+					}
 
 					let joinThrough = _.clone(join[key]);
 					joinThrough.where = joinThroughWhere || {};
-					joinThrough.where[joinThroughFrom] = {in: targetKeys};
-					joinThrough.select = [joinThroughFrom, joinThroughTo];
+
+					index.forEach(
+						(row) => {
+							Object.keys(row.through.from).forEach(
+								(field) => {
+									joinThrough.where[field] = joinThrough.where[field] || {in:[]};
+									joinThrough.where[field].in.push(row.through.from[field])
+								}
+							)
+						}
+					)
+
+					joinThrough.select = joinThroughFrom.concat(joinThroughTo);
 					joinThrough.sort = joinThroughSort || null;
 
-					const ThroughModel = model.loadModel(throughModelClass);
 					let throughModel = new ThroughModel(model.req);
-					if (joinThrough.debug) {
+					if (joinThrough.debug || model.debug) {
 						throughModel.debug = true;
 					}
 					throughList = await throughModel.query(joinThrough);
@@ -276,161 +282,98 @@ class ModelRelations {
 						continue;
 					}
 
-					targetKeys = _.uniq(_.map(throughList, joinThroughTo));
-					targetKeys = _.flatten(targetKeys);
-					targetKeys = _.uniq(targetKeys);
+					index.forEach(
+						(row, rowIndex) => {
+							throughList.forEach(
+								(throughRow) => {
+									Object.keys(row.through.from).forEach(
+										(joinThroughFromKey, index) => {
+											let throughToKey = joinThroughTo[index];
+											let joinToKey = joinTo[index];
+											let sourceValue = ModelRelations.getValue(throughRow, joinThroughFromKey);
+											let targetValue = row.through.from[joinThroughFromKey];
+											let destinationValue = ModelRelations.getValue(throughRow, throughToKey);
+											if (_.isArray(sourceValue) && _.isArray(targetValue)) {
+												if (_.intersection(sourceValue, targetValue) > 0) {
+													row.through.to[throughToKey] = destinationValue;
+													row.to[joinToKey] = destinationValue;
+												}
+											} else
+											if (_.isArray(sourceValue)) {
+												if (sourceValue.includes(targetValue)) {
+													row.through.to[throughToKey] = destinationValue;
+													row.to[joinToKey] = destinationValue;
+												}
+											} else
+											if (_.isArray(targetValue)) {
+												if (targetValue.includes(sourceValue)) {
+													row.through.to[throughToKey] = destinationValue;
+													row.to[joinToKey] = destinationValue;
+												}
+											} else
+												//source is value destination is value
+											if (sourceValue === targetValue) {
+												row.through.to[throughToKey] = destinationValue;
+												row.to[joinToKey] = destinationValue;
+											}
+										}
+									)
+
+								}
+							);
+							model.log("join:: row", row);
+							if (Object.keys(row.to) === 0) {
+								index.splice(rowIndex, 1);
+							}
+						}
+					);
+
+				} else {
+
 				}
 
-				let j = _.clone(join[key]);
-				//keep a copy so we can clean out non selected props
+				model.log("join","joinTo => " + joinTo);
 
-				let relationType = relation.relation || relation.type;
+				let j = _.clone(join[key]);
+				let relationType = ModelRelations.relationType(relation.relation || relation.type);
 				let relationModelClassName = relation.modelClass || relation.model;
 				let RelationModel = model.loadModel(relationModelClassName);
 				if (!RelationModel) {
 					console.warn("Join Error. Model " + relationModelClassName + " does not exist");
+					keys.shift();
+					continue;
 				}
 
 				let relationModel = new RelationModel(model.req);
+				await relationModel.init();
+				if (j.debug || model.debug) {
+					relationModel.debug = true;
+				}
 
-				switch (relationType.toLowerCase()) {
-					case "hasone":
-					case "has-one":
-					case "one":
+				startTime = new Date().getTime();
 
-						if (j.debug) {
-							relationModel.debug = true;
-						}
+				j.where = Object.assign(relation.where || {}, j.where || {});
+				ModelRelations.addWhereTo(j, index);
 
-						if (relations[key].where) {
-							ModelRelations.processWhere(relations, results, key, j);
-						}
+				j.sort = relations[key].sort || relationModel.defaultSort;
+				j.offset = relations[key].offset || 0;
+				j.limit = j.limit || relation.limit || null;
 
-						j.where = j.where || {};
-						j.where[joinTo] = {in: targetKeys};
-						j.sort = j.sort || null;
-						j.limit = j.limit || relation.limit || targetKeys.length;
+				if (!originalSelect || originalSelect.length === 0) {
+					ModelRelations.processSelect(relationModel, key, j);
+				}
 
-						if (fullJoin) {
-							j.join = "*"
-						}
+				//must select the targetJoin key
+				if (j.select && _.indexOf(j.select, joinTo) === -1) {
+					removeJoinTo = true;
+					j.select.push(joinTo);
+				}
 
-						if (!originalSelect || originalSelect.length === 0) {
-							ModelRelations.processSelect(relations, key, j);
-						}
+				switch (relationType) {
+					case "has-one" :
 
-						if (j.select && _.indexOf(j.select, joinTo) === -1) {
-							j.select.push(joinTo);
-							removeJoinTo = true;
-						}
-
-						startTime = new Date().getTime();
+						j.limit = 1;
 						list = await relationModel.query(j);
-						model.log("join","hasone query time -> " + (new Date().getTime() - startTime));
-
-						if (list.error) {
-							keys.shift();
-							continue;
-						}
-
-						if (throughModelClass) {
-							list.forEach(
-								(row) => {
-									let throughItems = [];
-									throughList.forEach(
-										function(item) {
-											if (_.isArray(item[joinThroughTo])) {
-												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
-													throughItems.push(item)
-												}
-											} else if (item[joinThroughTo] === row[joinTo]) {
-												throughItems.push(item);
-											}
-										}
-									);
-									throughItems.forEach(
-										(throughItem) => {
-											try {
-												let resultsIndex;
-												if (_.isArray(throughItem[joinThroughFrom])) {
-													for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
-														let k = throughItem[joinThroughFrom][i];
-														if (k in fromIndex) {
-															resultsIndex = fromIndex[k];
-															break;
-														}
-													}
-												} else {
-													resultsIndex = fromIndex[throughItem[joinThroughFrom]];
-												}
-												if (removeJoinTo) {
-													delete row[joinTo];
-												}
-												results[resultsIndex][key] = row;
-
-											} catch (e) {
-												console.log("join through error " + relation.throughClass);
-											}
-										}
-									)
-								}
-							)
-						} else {
-							for (let i = 0; i < list.length; i++) {
-								//TODO Arrays
-								let o = {[joinFrom]:list[i][joinTo]};
-								for(let k = 0; k < results.length; k++) {
-									let item = results[k];
-									if (_.isArray(item[joinFrom]) && item[joinFrom].indexOf(list[i][joinTo]) !== -1) {
-										results[k][key] = list[i];
-									} else if (item[joinFrom] === list[i][joinTo]) {
-										results[k][key] = list[i];
-									}
-								}
-							}
-						}
-
-						ModelRelations.processExtras(results, key, originalSelect);
-
-						break;
-					case "hasmany" :
-					case "has-many" :
-					case "many" :
-
-						if (j.debug || model.debug) {
-							relationModel.debug = true;
-						}
-
-						if (relations[key].where) {
-							ModelRelations.processWhere(relations, results, key, j);
-						}
-
-						j.where = j.where || {};
-						if (joinFromKeys) {
-
-						}
-						j.where[joinTo] = {in: targetKeys};
-						j.sort = relations[key].sort || null;
-						j.offset = relations[key].offset || 0;
-						j.limit = j.limit || relation.limit || null;
-
-						if (!originalSelect || originalSelect.length === 0) {
-							ModelRelations.processSelect(relations, key, j);
-						}
-
-						//must select the targetJoin key
-						if (j.select && _.indexOf(j.select, joinTo) === -1) {
-							removeJoinTo = true;
-							j.select.push(joinTo);
-						}
-
-						if (fullJoin) {
-							j.join = "*"
-						}
-
-						startTime = new Date().getTime();
-						list = await relationModel.query(j);
-						model.log("join","hasmany query time -> " + (new Date().getTime() - startTime));
 
 						if (list.error) {
 							console.log(list);
@@ -438,119 +381,61 @@ class ModelRelations {
 							continue;
 						}
 
-						if (throughModelClass) {
-							list.forEach(
-								function (row) {
-									let throughItems = [];
-									throughList.forEach(
-										function(item) {
-											if (_.isArray(item[joinThroughTo])) {
-												if (item[joinThroughTo].indexOf(row[joinTo]) !== -1) {
-													throughItems.push(item)
-												}
-											} else if (item[joinThroughTo] === row[joinTo]) {
-												throughItems.push(item);
-											}
+						break;
+					case "has-many" :
+
+						list = await relationModel.query(j);
+
+						if (list.error) {
+							console.log(list);
+							keys.shift();
+							continue;
+						}
+				}
+
+				model.log("join", relationType + " query time -> " + (new Date().getTime() - startTime));
+
+				list.forEach(
+					(row, i) => {
+						index.forEach(
+							(indexItem, k) => {
+								joinTo.forEach(
+									(joinToKey, j) => {
+										let targetKey = Object.keys(indexItem.to)[j];
+										let targetValue = ModelRelations.getValue(indexItem.to, targetKey);
+										let sourceValue = ModelRelations.getValue(row ,joinToKey);
+
+										if (_.isArray(sourceValue) && _.isArray(targetValue)) {
+											indexItem.to[joinToKey] = sourceValue;
+										} else
+											//source is array destination is value
+										if (_.isArray(sourceValue)) {
+											indexItem.to[joinToKey] = sourceValue;
+										} else
+										if (_.isArray(targetValue)) {
+											indexItem.to[joinToKey] = sourceValue;
+										} else
+											//source is value destination is value
+										if (sourceValue === targetValue) {
+											indexItem.to[joinToKey] = sourceValue;
 										}
-									)
-									throughItems.forEach(
-										function(throughItem){
-											let resultsIndex;
-											if (_.isArray(throughItem[joinThroughFrom])) {
-												for (let i = 0; i < throughItem[joinThroughFrom].length; i++) {
-													let k = throughItem[joinThroughFrom][i];
-													if (k in fromIndex) {
-														resultsIndex = fromIndex[k];
-														break;
-													}
-												}
-											} else {
-												resultsIndex = fromIndex[throughItem[joinThroughFrom]];
-											}
-
-											results[resultsIndex][key] = results[resultsIndex][key] || [];
-											let filter = {[relation.join.to]:row[relation.join.to]};
-											if (!_.find(results[resultsIndex][key], filter)) {
-												if (removeJoinTo) {
-													delete row[joinTo];
-												}
-												results[resultsIndex][key].push(row);
-											}
-										}
-									);
-								}
-							)
-						} else {
-
-							for (let i = 0; i < list.length; i++) {
-								try {
-									//If the joinFrom is an array, we need to recurse all results
-									//to find out if the array of each matches the joinTo
-									try {
-										if(model.properties[joinFrom].type === "array") {
-											for(let k = 0; k < results.length; k++) {
-												if (results[k][joinFrom].includes(list[i][joinTo])) {
-													results[k][key] = results[k][key] || [];
-													results[k][key].push(list[i]);
-												}
-											}
-										} else {
-											for(let k = 0; k < results.length; k++) {
-												if (results[k][joinFrom] === list[i][joinTo]) {
-													results[k][key] = results[k][key] || [];
-													results[k][key].push(list[i]);
-												}
-											}
-										}
-									} catch (e) {
-										console.log("error in joinFrom " + joinFrom);
 									}
-									/*
-
-
-									try {
-										if (!results[fromIndex[list[i][joinTo]]][key]) {
-											results[fromIndex[list[i][joinTo]]][key] = [];
-										}
-									} catch(e) {
-										console.log("something went wrong");
-										console.log("joinTo -> " + joinTo);
-										//console.log(list[i]);
+								)
+								//console.log(indexItem);
+								if (Object.keys(indexItem.to).length === joinTo.length) {
+									if (relationType === "has-many") {
+										results[indexItem.index][key] = results[indexItem.index][key] || [];
+										results[indexItem.index][key].push(row);
+									} else {
+										results[indexItem.index][key] = results[indexItem.index][key] || {}
+										Object.assign(results[indexItem.index][key], row);
 									}
-
-									let targetKey = list[i][joinTo];
-									let value = list[i];
-
-									if (removeJoinTo === true) {
-										value = _.omit(value, joinTo);
-									}
-
-									try {
-										results[fromIndex[targetKey]][key].push(value);
-									} catch (e) {
-										console.log(results);
-										console.log(targetKey);
-										console.log(fromIndex);
-										console.log(e);
-									}
-
-									 */
-
-								} catch (e) {
-									console.log("Could not join " + key + " for " + model.tableName);
-									console.log("joinTo => " + joinTo);
-									//console.log(fromIndex);
-									console.log(e);
-									//console.log(j.select);
-									//console.log(m.lastCommand.toString());
 								}
 							}
-						}
+						)
+					}
+				)
 
-						ModelRelations.processExtras(results, key, originalSelect);
-
-						break;
-				}
 			} else if (foreignKeys[key]) {
 				let j = _.clone(foreignKeys[key]);
 
@@ -559,59 +444,111 @@ class ModelRelations {
 					console.warn("Foreign Key Join Error. " + key + " does not exist");
 				}
 				let foreignKeyModel = new ForeignKeyModel(model.req);
-				if (join[key].debug || foreignKeys[key].debug) {
+				await foreignKeyModel.init();
+				if (join[key].debug || foreignKeys[key].debug || model.debug) {
 					foreignKeyModel.debug = true;
 				}
+				let joinFrom = foreignKeys[key].from || key;
+				if (!_.isArray(joinFrom)) {
+					joinFrom = [joinFrom];
+				}
+				let joinTo = foreignKeys[key].to;
+				if (!_.isArray(joinTo)) {
+					joinTo = [joinTo];
+				}
 
-				let idList = [];
-				results.forEach(
-					(item) => {
-						if (item[key] !== null) {
-							if (_.isArray(item[key])) {
-								idList.concat(item[key]);
-							} else {
-								idList.push(item[key]);
+				let index = [];
+				let buildIndex = () => {
+					results.forEach(
+						(row, i) => {
+							let obj = {
+								from : {},
+								to : {},
+								index : i
+							}
+							joinFrom.forEach(
+								(item, i) => {
+									let value = ModelRelations.getValue(row, item);
+									if (value !== null) {
+										obj.to[joinTo[i]] = value;
+									}
+								}
+							)
+							if (Object.keys(obj.to).length === joinTo.length) {
+								index.push(obj);
 							}
 						}
-					}
-				);
+					)
+				}
+				buildIndex();
 
-				if (idList.length > 0) {
-					idList = _.uniq(idList);
+				if (index.length > 0) {
 
-					let primaryKey = foreignKeys[key].to || foreignKeyModel.primaryKey;
 					let q = {
 						where: {
-							[primaryKey]: {"in": idList}
+
 						}
 					};
 
-					if (j.select) {
-						q.select = j.select;
-					}
+					ModelRelations.addWhereTo(q, index);
+
+					q.select = foreignKeys[key].name ? [foreignKeys[key].name] : ['name'];
+					q.select = q.select.concat(joinTo);
+					q.select.push(foreignKeyModel.primaryKey);
 
 					if (j.join) {
 						q.join = _.clone(j.join);
 					}
 
+					console.log(JSON.stringify(q));
+
 					let list = await foreignKeyModel.query(q);
 
-					let context = this;
-
-					if (!list.error) {
-						list.forEach(
-							(item) => {
-								//TODO support hookup when the property is an array
-								let matches = _.filter(results, {[key]: item[primaryKey]});
-								matches.forEach(
-									function (row) {
-										row.foreignKeys = row.foreignKeys || {};
-										row.foreignKeys[key] = item;
-									}
-								)
-							}
-						)
+					if (list.error) {
+						keys.shift();
+						continue;
 					}
+
+					list.forEach(
+						(row, i) => {
+							index.forEach(
+								(indexItem, k) => {
+									joinTo.forEach(
+										(joinToKey, j) => {
+											let targetKey = Object.keys(indexItem.to)[j];
+											let targetValue = ModelRelations.getValue(indexItem.to, targetKey);
+											let sourceValue = ModelRelations.getValue(row ,joinToKey);
+
+											if (_.isArray(sourceValue) && _.isArray(targetValue)) {
+												indexItem.to[joinToKey] = sourceValue;
+											} else
+												//source is array destination is value
+											if (_.isArray(sourceValue)) {
+												indexItem.to[joinToKey] = sourceValue;
+											} else
+											if (_.isArray(targetValue)) {
+												indexItem.to[joinToKey] = sourceValue;
+											} else
+												//source is value destination is value
+											if (sourceValue === targetValue) {
+												indexItem.to[joinToKey] = sourceValue;
+											}
+										}
+									)
+									if (joinTo.length === Object.keys(indexItem.to).length) {
+										results[indexItem.index].foreignKeys = results[indexItem.index].foreignKeys || {}
+										results[indexItem.index].foreignKeys[key] = results[indexItem.index].foreignKeys[key] || {}
+										if (foreignKeys[key].name && !row.name) {
+											row.name = ModelRelations.getValue(row, foreignKeys[key].name);
+										} else if (foreignKeyModel.name && !row.name) {
+											row.name = ModelRelations.getValue(row, foreignKeyModel.name);
+										}
+										Object.assign(results[indexItem.index].foreignKeys[key], row);
+									}
+								}
+							)
+						}
+					)
 				}
 			}
 
@@ -621,7 +558,6 @@ class ModelRelations {
 		if (findOne) {
 			return results[0];
 		}
-
 		return results;
 	}
 
@@ -635,7 +571,7 @@ class ModelRelations {
 			if (relations[key]) {
 				let relatedProperty = model.relations[key];
 
-				if ("throughClass" in relatedProperty) {
+				if ("throughModel" in relatedProperty) {
 					keys.shift();
 					continue;
 				}

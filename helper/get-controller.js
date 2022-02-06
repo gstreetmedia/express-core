@@ -9,13 +9,19 @@ module.exports = (ControllerName) => {
 		return global.controllerCache[ControllerName];
 	}
 
-	if (fs.existsSync(global.appRoot + '/src/controller/' + ControllerName + ".js")) {
-		//console.log("getting controller => " + global.appRoot + '/src/controller/' + ControllerName)
-		global.controllerCache[ControllerName] = require(global.appRoot + '/src/controller/' + ControllerName);
-	} else if (fs.existsSync(__dirname + "/../controller/" + ControllerName + ".js")) {
-		//console.log("getting controller => " + __dirname + "/../controller/" + ControllerName)
-		global.controllerCache[ControllerName] = require(__dirname + "/../controller/" + ControllerName);
+	let paths = [
+		global.appRoot + '/src/controller/' + ControllerName,
+		global.appRoot + '/src/core/controller/' + ControllerName,
+	];
+
+	while(paths.length > 0) {
+		try {
+			global.controllerCache[ControllerName] = require(paths[0]);
+			break;
+		} catch (e) {
+		}
+		paths.shift();
 	}
+
 	return global.controllerCache[ControllerName];
-	throw new Error("Cannot find controller for " + ControllerName);
 }

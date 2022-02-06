@@ -53,7 +53,23 @@ module.exports = {
 		},
 		properties: {
 			type: "object",
-			properties: {},
+			properties: {
+				type: {
+					type : "string"
+				},
+				format: {
+					type : "string"
+				},
+				maxLength: {
+					type : "int"
+				},
+				description: {
+					type : "string"
+				},
+				columnName: {
+					type: "string"
+				}
+			},
 			description: "",
 			columnName: "properties"
 		},
@@ -159,7 +175,7 @@ module.exports = {
 			maxLength: 32,
 			description: "",
 			columnName: "status"
-		}
+		},
 	},
 	required: [
 		"id",
@@ -168,5 +184,11 @@ module.exports = {
 	],
 	readOnly: [],
 	type: "object",
+	relations : {
+
+	},
+	foreignKeys : {
+
+	},
 	additionalProperties: false
 };

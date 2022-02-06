@@ -1,6 +1,6 @@
 let fs = require("fs");
 let path = require("path")
-let bcrypt = require('bcrypt');
+let bcrypt = require('bcrypt-nodejs');
 let passwordFunction;
 
 module.exports = (password) => {

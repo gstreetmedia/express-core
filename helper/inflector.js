@@ -4,12 +4,12 @@ var exclusions = (value)=> {
 	value = value.split("metum").join("meta");
 	value = value.split("Metum").join("Meta");
 	value = value.split("Medium").join("Media");
-	value = value.split("medium").join("Media");
+	value = value.split("medium").join("media");
 	value = value.split("datum").join("data");
 	value = value.split("Datum").join("Data");
 	value = value.split("syncs").join("sync");
 	value = value.split("Syncs").join("Sync");
-	value = value.split("histories").join("History");
+	value = value.split("histories").join("history");
 	value = value.split("Histories").join("History");
 	return value;
 };

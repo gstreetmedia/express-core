@@ -9,9 +9,9 @@ let index = async(tableName) => {
 			tablePrefix : ["wp_","aa_"],
 			ignoreTables : [],
 			tables : [],
-			fieldMapping : [
-				['officeKey', 'sourceSystemName'],
-				['memberKey', 'sourceSystemName'],
+			relationMapping : [
+				["officeKey", "sourceSystemName"], //if any two tables have these two field hook them up
+				["memberKey", "sourceSystemName"]
 			]
 		}
 	)
@@ -20,8 +20,7 @@ let index = async(tableName) => {
 
 	while(tables.length > 0) {
 		let schema = await m.getSchema(tables[0]);
-		fs.writeFileSync(
-			global.appRoot + '/src/schema/json/' + schema.tableName + ".json", beautify(schema, null, 2, 100))
+		await m.saveSchema(schema);
 		tables.shift();
 	}
 

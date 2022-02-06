@@ -646,7 +646,7 @@ class ControllerBase {
 
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
-				let result = jsonlint.parse(req.query.where);
+				let result = JSON.parse(req.query.where);
 			} catch (e) {
 				console.log(e);
 				return {
@@ -662,7 +662,7 @@ class ControllerBase {
 			if (req.query.join !== "*") {
 				return req.query;
 				try {
-					let result = jsonlint.parse(req.query.join);
+					let result = JSON.parse(req.query.join);
 				} catch (e) {
 
 					return {
@@ -682,7 +682,6 @@ class ControllerBase {
 			}
 			if (req.query.select.indexOf("[") === 0) { //json style = ["field1","field2","field3"]
 				try {
-					let result = jsonlint.parse(req.query.select);
 					req.query.select = JSON.parse(req.query.select);
 				} catch (e) {
 

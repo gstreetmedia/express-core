@@ -12,6 +12,8 @@ const sleep = require('util').promisify(setTimeout);
 const ModelUtils = require("./model-base/ModelUtils");
 const ModelRelations = require("./model-base/ModelRelations");
 const util = require("util");
+//const AWS = require('aws-sdk');
+//AWS.config.update({region: 'us-west-2'});
 
 class ModelBase {
 
@@ -80,6 +82,7 @@ class ModelBase {
 		}
 		return this._schema;
 	}
+
 	/**
 	 * @returns {JsonSchema}
 	 */
@@ -87,9 +90,9 @@ class ModelBase {
 		if (!this.schema) {
 			let M = require("./SchemaModel");
 			let m = new M(this.req);
+			await m.init();
 			m.debug = this.debug;
-			await m.getSchema();
-			this._schema = await m.get(this.tableName);
+			this._schema = await m.get(this.tableName, await this.dataSource());
 		}
 		return this.schema;
 	}
@@ -138,13 +141,13 @@ class ModelBase {
 					(key) => {
 						fields.push(
 							{
-								property:key,
+								property: key,
 								visible: true
 							}
 						)
 					}
 				)
-				this._fields = {adminIndex :fields, adminRead:fields, adminUpdate:fields, adminCreate:fields};
+				this._fields = {adminIndex: fields, adminRead: fields, adminUpdate: fields, adminCreate: fields};
 			}
 		}
 		return this.fields;
@@ -154,7 +157,7 @@ class ModelBase {
 	 * @returns {*|JsonSchema.properties|*}
 	 */
 	get properties() {
-		if(this._properties) {
+		if (this._properties) {
 			return this._properties;
 		}
 		if (this.schema) {
@@ -193,7 +196,7 @@ class ModelBase {
 	 */
 	get primaryKey() {
 		//TODO make sure we support composite primary keys
-		if(this._primaryKey) {
+		if (this._primaryKey) {
 			return this._primaryKey;
 		}
 		if (this.schema) {
@@ -240,15 +243,22 @@ class ModelBase {
 		return this.foreignKeys;
 	}
 
+	async dataSource() {
+		let schema = await this.getSchema();
+		if (schema.dataSource) {
+			return schema.dataSource;
+		}
+		return null;
+	}
+
 	/**
 	 * @param {string} - action (read,write)
 	 * @returns {string}
 	 */
-	connectionString(action) {
-		let dataSource = this.dataSource || this.schema.dataSource;
+	async connectionString(action) {
+		let dataSource = util.types.isAsyncFunction(this.dataSource) ? await this.dataSource() : this.dataSource;
 		action = action.toLowerCase() === "read" ? "Read" : "Write";
 		let dataSourceAction = (dataSource + "_" + action).toUpperCase();
-		//console.log(this.tableName + " looking for " + dataSourceAction + " or " + dataSource);
 
 		switch (action) {
 			case "Read" :
@@ -351,8 +361,8 @@ class ModelBase {
 	/**
 	 * @returns {string|*}
 	 */
-	dbType() {
-		let cs = this.connectionString("read");
+	async dbType() {
+		let cs = await this.connectionString("read");
 		if (cs.indexOf("postgresql://") === 0) {
 			this.db = "postgres";
 		} else if (cs.indexOf("mysql://") === 0) {
@@ -405,30 +415,51 @@ class ModelBase {
 	}
 
 	async getClient(action) {
-		let pool = await this.getPool(action);
+		this.pool = this.pool || {};
+		action = action || "write";
+		let targetPool = this.pool[action];
+
+		if (targetPool && targetPool.hasOwnProperty("pool") && targetPool.pool.hasOwnProperty("ended")) {
+			if (targetPool.pool.ended === true) {
+				delete this.pool[action];
+				targetPool = null;
+			}
+		}
+
+		if (!targetPool) {
+			this.pool[action] = await this.getPool(action);
+		}
+
 		switch (this.db) {
 			case "pg" :
-				return pool;
+				return this.pool[action];
 			case "mysql" :
-				return pool;
+				return this.pool[action];
 			case "mssql" :
-				return pool;
+				return this.pool[action];
 			case "redis" :
-				return pool;
+				return this.pool[action];
 			case "elastic" :
-				return pool;
+				return this.pool[action];
 			case "mongo" :
 				//TODO Return Collection
-				return pool.collection(this.tableName);
+				return this.pool[action];
 			default :
-				return pool;
+				return this.pool[action];
 		}
 	}
 
 	async releaseClient(client) {
 		return;
-		if (client.release) {
-			await client.release();
+		switch (this.db) {
+			case "pg" :
+			case "mysql" :
+			case "mssql" :
+			case "redis" :
+			case "elastic" :
+			case "mongo" :
+			//TODO Return Collection
+			default :
 		}
 		return true;
 	}
@@ -485,6 +516,10 @@ class ModelBase {
 	 */
 	async read(id, query, cache) {
 		await this.getSchema();
+		if (query && query.join) {
+			await this.getRelations();
+		}
+
 		this.log("read", id);
 		let cacheKey;
 		if (cache === true) {
@@ -497,15 +532,12 @@ class ModelBase {
 
 		let obj = {
 			where: {},
-			select : null
+			select: null
 		};
 
 		ModelUtils.addPrimaryKeyToQuery(this, id, obj);
 
-		if (query && query.select) {
-			obj.select = query.select;
-			await ModelUtils.addJoinFromKeys(this, query, obj);
-		}
+		await ModelUtils.addJoinFromKeys(this, query, obj);
 
 		let builder = this.queryBuilder;
 		let command = builder.select(obj);
@@ -536,7 +568,7 @@ class ModelBase {
 	 * @param data
 	 * @returns {object|Promise}
 	 */
-	async create(data){
+	async create(data) {
 		this.log("create");
 		await this.getSchema();
 		let sleepCount = 0;
@@ -578,8 +610,8 @@ class ModelBase {
 
 		if (command.error) {
 			return {
-				error : {
-					message : "Bad SQL Create",
+				error: {
+					message: "Bad SQL Create",
 					e: command.error
 				}
 			};
@@ -592,9 +624,9 @@ class ModelBase {
 		}
 		if (!result) {
 			return {
-				error : {
-					message : this.tableName + ' create failure',
-					data : data
+				error: {
+					message: this.tableName + ' create failure',
+					data: data
 				}
 			}
 		}
@@ -623,11 +655,11 @@ class ModelBase {
 		return data;
 
 		//This may happen if using a separate reader / writer server.
-		this.log("create", "Could Not Read after create " + this.tableName + " -> "+ data[this.primaryKey]);
+		this.log("create", "Could Not Read after create " + this.tableName + " -> " + data[this.primaryKey]);
 
 		return {
-			error : {
-				message : "Could Not Read after create " + this.tableName + " -> "+ data[this.primaryKey]
+			error: {
+				message: "Could Not Read after create " + this.tableName + " -> " + data[this.primaryKey]
 			}
 		}
 	}
@@ -661,8 +693,8 @@ class ModelBase {
 
 		if (!id) {
 			return {
-				error : {
-					message : "Update must be called with a valid id"
+				error: {
+					message: "Update must be called with a valid id"
 				}
 			}
 		}
@@ -673,9 +705,9 @@ class ModelBase {
 
 		if (!currentRecord) {
 			return {
-				error : {
-					id : id,
-					message : "Record " + id + " does not exist"
+				error: {
+					id: id,
+					message: "Record " + id + " does not exist"
 				}
 			}
 		}
@@ -736,9 +768,9 @@ class ModelBase {
 				let hm = new HM(this.req);
 				await hm.create(
 					{
-						before : currentRecord,
-						after : params,
-						model : this
+						before: currentRecord,
+						after: params,
+						model: this
 					}
 				);
 			}
@@ -811,6 +843,9 @@ class ModelBase {
 	async query(query, cache) {
 
 		await this.getSchema();
+		if (query.join) {
+			await this.getRelations();
+		}
 
 		let cacheKey;
 		if (cache === true) {
@@ -821,19 +856,15 @@ class ModelBase {
 			}
 		}
 
-		let obj = _.clone(query);
+		let obj = Object.assign({}, query);
 
-		if (query && query.join && _.isArray(query.select)) {
-			await ModelUtils.addJoinFromKeys(this, query, obj);
-		} else {
-			//console.log("not adding joinFromKeys " + this.tableName);
-			//console.log(query);
-		}
+		await ModelUtils.addJoinFromKeys(this, query, obj);
 
 		let context = this;
-		let doQuery = async(offset, results) => {
+		let doQuery = async (offset, results) => {
 			results = results || [];
-			let query = _.clone(obj);
+			let query = Object.assign({}, obj);
+			;
 			let maxLimit = process.env.CORE_REQUEST_LIMIT && !isNaN(parseInt(process.env.CORE_REQUEST_LIMIT)) ? parseInt(process.env.CORE_REQUEST_LIMIT) : 500;
 			let originalLimit = !isNaN(obj.limit) ? obj.limit : maxLimit;
 			if (!isNaN(obj.limit) && obj.limit >= maxLimit) {
@@ -862,8 +893,8 @@ class ModelBase {
 
 		if (this.req && this.req.locals.isConnected === false) {
 			return {
-				error : {
-					message : "Request ended prematurely"
+				error: {
+					message: "Request ended prematurely"
 				}
 			}
 		}
@@ -871,7 +902,6 @@ class ModelBase {
 		await this.afterFind(results);
 
 		if (query.join) {
-			this.log("query", query.join);
 			if (this.req && !this.req.locals.currentResults) {
 				this.req.locals.currentResults = results;
 			}
@@ -896,7 +926,7 @@ class ModelBase {
 		await this.getSchema();
 		let cacheKey;
 		let result;
-		let q = query ? {where:_.clone(query.where)} : {where:{}};
+		let q = query ? {where: Object.assign({}, query.where)} : {where: {}};
 
 		if (cache === true) {
 			cacheKey = this.getCacheKey(q, "count");
@@ -925,8 +955,8 @@ class ModelBase {
 			return result;
 		} else if (!result) {
 			return {
-				error : {
-					"message" : "Count Failure"
+				error: {
+					"message": "Count Failure"
 				}
 			}
 		}
@@ -1030,12 +1060,12 @@ class ModelBase {
 
 			if (proceed !== false) {
 				let query = {};
-				if (this.schema.validateProperty(this.primaryKey,id) === true) {
+				if (this.schema.validateProperty(this.primaryKey, id) === true) {
 					this.addPrimaryKeyToQuery(id, query);
 				} else {
 					return {
-						error : {
-							message : "Invalid Primary Key Used for Delete"
+						error: {
+							message: "Invalid Primary Key Used for Delete"
 						}
 					}
 				}
@@ -1044,8 +1074,8 @@ class ModelBase {
 
 				if (isDebug) {
 					return {
-						error : {
-							sql : command.toString()
+						error: {
+							sql: command.toString()
 						}
 					}
 				}
@@ -1082,8 +1112,8 @@ class ModelBase {
 		let command = this.queryBuilder.delete(query);
 		if (isDebug) {
 			return {
-				error : {
-					query : command.toString()
+				error: {
+					query: command.toString()
 				}
 			}
 		}
@@ -1100,7 +1130,7 @@ class ModelBase {
 	async exists(id, cache) {
 		await this.getSchema();
 		let query = {
-			where : {},
+			where: {},
 		};
 		ModelUtils.addPrimaryKeyToQuery(this, id, query);
 		let result = await this.count(query, cache);
@@ -1124,8 +1154,7 @@ class ModelBase {
 		}
 
 		let query = {
-			where: {
-			}
+			where: {}
 		};
 		ModelUtils.addPrimaryKeyToQuery(this, id, query);
 
@@ -1155,8 +1184,7 @@ class ModelBase {
 	async getKey(id, key) {
 		await this.getSchema();
 		let query = {
-			where: {
-			}
+			where: {}
 		};
 		ModelUtils.addPrimaryKeyToQuery(id, query);
 		let command = this.queryBuilder.select(
@@ -1185,6 +1213,41 @@ class ModelBase {
 	 */
 	async join(results, query) {
 		return await ModelRelations.join(this, results, query)
+	}
+
+	async logExecuteError(client, sql) {
+		if (!this.debug) {
+			return;
+		}
+		try {
+
+			this.log("execute error", e.message, null, true);
+			this.log("execute error", sql, null, true);
+			this.log("execute pool counts", "totalCount->" + client.totalCount + " idleCount->" + client.idleCount + " waitingCount->" + client.waitingCount, null, true);
+			let payload = JSON.stringify(
+				{
+					endpoint: "operation",
+					payload:
+						{
+							executeError: e.message,
+							sql: e.sql,
+							counts: "totalCount->" + client.totalCount + " idleCount->" + client.idleCount + " waitingCount->" + client.waitingCount
+						}
+				}
+			);
+
+			let params = {
+				Message: payload,
+				TopicArn: process.env.SNS_NOTIFICATION_ARN
+			};
+
+			//let result = new AWS.SNS({apiVersion: '2010-03-31'}).publish(params).promise().then(() => {
+			//});
+
+		} catch (e) {
+
+		}
+		return true;
 	}
 
 	/**
@@ -1220,14 +1283,18 @@ class ModelBase {
 				results = await client.query(sql);
 			} catch (e) {
 				e.sql = sql;
+				await this.logExecuteError(client, sql);
 				this.lastError = e;
+
 				return {
 					error: {
-						message : e.message,
-						sql : sql
+						message: e.message,
+						sql: sql
 					}
 				};
 			}
+
+			await this.releaseClient(client);
 
 			switch (this.db) {
 				case "mssql" :
@@ -1249,26 +1316,32 @@ class ModelBase {
 		} else {
 			if (process.env.CORE_READ_ONLY === "true") {
 				console.log("Updating disabled by env CORE_READ_ONLYs")
-				return {
-
-				}
+				return {}
 			}
 			client = client || await this.getClient("write");
-			let results = {error: {
-				message : "Nothing Happened"
-			}};
+			let results = {
+				error: {
+					message: "Nothing Happened"
+				}
+			};
 			try {
 				results = await client.query(sql);
 			} catch (e) {
+
+				await this.logExecuteError(client, sql);
+
 				this.lastError = e;
+
 				e.sql = sql;
+
 				return {
 					error: {
-						message : e.message,
-						sql : sql
+						message: e.message,
+						sql: sql
 					}
 				};
 			}
+
 			await this.releaseClient(client);
 
 			switch (this.db) {
@@ -1278,7 +1351,7 @@ class ModelBase {
 				case "mysql" :
 					if (results.insertId > 0) { //mySQL //TODO what is pg/mssql?
 						results = {
-							[this.primaryKey] : results.insertId
+							[this.primaryKey]: results.insertId
 						}
 					}
 					break;
@@ -1372,7 +1445,6 @@ class ModelBase {
 	}
 
 
-
 	/**
 	 * Now that record is gone, maybe you want to move it to some log file, or history table
 	 * @param id
@@ -1429,8 +1501,8 @@ class ModelBase {
 		return getModel(modelName);
 	}
 
-	log(method, message, id) {
-		if (this.debug) {
+	log(method, message, id, forceLogging) {
+		if (this.debug || forceLogging) {
 			if (message && typeof message === "object") {
 				message = JSON.stringify(message);
 			}
@@ -1439,22 +1511,25 @@ class ModelBase {
 
 			if (process.env.CORE_LOGGING === "true") {
 				if (this.req && this.req.locals.isAdmin) {
-					if (!['create','update','destroy','destroyWhere'].includes(method)) {
+					if (!['create', 'update', 'destroy', 'destroyWhere'].includes(method)) {
 						return;
 					}
 				}
 				let LogModel = require("./LogModel");
 				let lm = new LogModel(this.req);
+				if (this.pool) {
+					lm.pool = this.pool;
+				}
 				lm.create(
 					{
-						objectId : id ? id : null,
-						objectType : this.tableName,
-						message : message,
-						method : method,
-						status : "active"
+						objectId: id ? id : null,
+						objectType: this.tableName,
+						message: message,
+						method: method,
+						status: "active"
 					}
-				).then((result)=>{
-					console.log(JSON.stringify(result));
+				).then((result) => {
+
 				});
 			}
 		}

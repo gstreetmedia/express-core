@@ -80,6 +80,26 @@ class JsonSchema {
 	set route(value) {
 		return this.object.route = value;
 	}
+
+	get methods() {
+		return this.object.methods || {
+			get: [
+				{"/": "query"},
+				{['/:' + this.primaryKey]: "read"}
+			],
+			post: [
+				{"/": "post"}
+			],
+			put: [
+				{['/:' + this.primaryKey]: "read"},
+				{'/': "updateWhere"}
+			],
+			delete: [
+				{['/:' + this.primaryKey]: "destroy"},
+				{'/': "destroyWhere"}
+			]
+		};
+	}
 	/**
 	 * @returns {array}
 	 */

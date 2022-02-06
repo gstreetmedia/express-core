@@ -68,7 +68,7 @@ class ModelUtils {
 	 * @param targetQuery
 	 */
 	static async addJoinFromKeys(model, originalQuery, targetQuery) {
-		model.log("ModelUtils::addJoinFromKeys", model.tableName);
+		//model.log("ModelUtils::addJoinFromKeys", model.tableName);
 		if (!originalQuery) {
 			//probably a simple read
 			model.log("ModelUtils::addJoinFromKeys", "no query");
@@ -89,52 +89,82 @@ class ModelUtils {
 			return;
 		}
 		let relations = await model.getRelations();
+		let foreignKeys = await model.getForeignKeys();
 		if (model.relations) {
 			//model doesn't have any relations, not matter the query
 			model.log("ModelUtils::addJoinFromKeys", "has relations");
 		} else {
 			model.log("ModelUtils::addJoinFromKeys", "no relations");
-			return;
+
 		}
 
 		let keys;
 		let select = originalQuery.select;
 		let required = [];
 		if (originalQuery.join === "*") {
-			keys = Object.keys(this.relations);
+			keys = Object.keys(model.relations);
 		} else {
 			keys = Object.keys(originalQuery.join);
 		}
-		model.log("ModelUtils::addJoinFromKeys join", keys);
-
-		keys.forEach(
-			(k) => {
-				if (!model.relations[k]) {
-					return;
-				}
-				if (model.relations[k].join.hasOwnProperty("from")) {
-					required.push(model.relations[k].join.from)
-				}
-				if (model.relations[k].join.hasOwnProperty("through")) {
-					required.push(model.relations[k].join.through.from)
-				}
-				if (model.relations[k].where) {
-					Object.keys(model.relations[k].where).forEach(
-						(ik) => {
-							if (ik !== "or" && ik !== "and") {
-								required.push(ik);
-							} else {
-								model.relations[k].where[ik].forEach(
-									(o) => {
-										required.push(Object.keys(o)[0])
-									}
-								)
-							}
+		//model.log("ModelUtils::addJoinFromKeys join", keys);
+		if (relations) {
+			keys.forEach(
+				(k) => {
+					if (!relations[k]) {
+						return;
+					}
+					if (relations[k].join.hasOwnProperty("from")) {
+						if (_.isArray(relations[k].join.from)) {
+							required = required.concat(relations[k].join.from)
+						} else {
+							required.push(relations[k].join.from);
 						}
-					)
+					}
+					if (relations[k].join.hasOwnProperty("through")) {
+						if (_.isArray(relations[k].join.through.from)) {
+							required = required.concat(relations[k].join.through.from)
+						} else {
+							required.push(relations[k].join.through.from);
+						}
+					}
+					if (relations[k].where) {
+						Object.keys(relations[k].where).forEach(
+							(ik) => {
+								if (ik !== "or" && ik !== "and") {
+									required.push(ik);
+								} else {
+									relations[k].where[ik].forEach(
+										(o) => {
+											required.push(Object.keys(o)[0])
+										}
+									)
+								}
+							}
+						)
+					}
 				}
+			)
+		}
+		if (foreignKeys) {
+			if (originalQuery.join === "*") {
+				keys = Object.keys(this.foreignKeys);
+			} else {
+				keys = Object.keys(originalQuery.join);
 			}
-		)
+			keys.forEach(
+				(k) => {
+					if (!model.foreignKeys[k]) {
+						return;
+					}
+					if (_.isArray(model.foreignKeys[k].from)) {
+						required = required.concat(foreignKeys[k].from)
+					} else {
+						required.push(model.foreignKeys[k].from);
+					}
+				}
+			)
+		}
+
 		model.log("ModelUtils::addJoinFromKeys required", _.uniq(required));
 		targetQuery.select = _.uniq(select.concat(required));
 
@@ -169,44 +199,43 @@ class ModelUtils {
 	 * @returns {*}
 	 */
 	static postProcessResponse(model, result) {
-
+		let isArray = _.isArray(result);
+		if (!isArray) {
+			result = [result];
+		}
 		// TODO: add special case for raw results (depends on dialect)
-		if (_.isArray(result)) {
-			result.forEach(
-				function (row) {
-					for (let key in row) {
-						if (key.indexOf("_") !== -1) {
-							row[inflector.camelize(key, false)] = row[key];
-							delete row[key];
-						}
-						if (key.indexOf(".") !== -1) {
-							let parts = key.split(".");
-							let doDeep = (pieces, obj) => {
-								obj = obj || {};
-								if (pieces.length === 0) {
-									return obj;
-								}
-								obj[pieces[0]] = obj[pieces[0]] || {};
-								return doDeep(pieces.shift(), obj);
+		result.forEach(
+			function (row) {
+				for (let key in row) {
+					if (key.indexOf("_") !== -1) {
+
+					}
+					if (key.indexOf(".") !== -1) {
+						let parts = key.split(".");
+						let doDeep = (pieces, obj) => {
+							obj = obj || {};
+							if (pieces.length === 0) {
+								return obj;
 							}
-							let columnName = parts[0];
-							parts.shift();
-							row[columnName] = row[columnName] || {};
-							let target = doDeep(parts, row[columnName]);
-							target = row[key];
+							obj[pieces[0]] = obj[pieces[0]] || {};
+							return doDeep(pieces.shift(), obj);
+						}
+						let columnName = parts[0];
+						parts.shift();
+						row[columnName] = row[columnName] || {};
+						let target = doDeep(parts, row[columnName]);
+						target = row[key];
+					} else {
+						let newKey = model.schema.dbColumnToSchemaProperty(key);
+						if (newKey !== key) {
+							row[newKey] = row[key];
+							delete row[key];
 						}
 					}
 				}
-			)
-		} else {
-			for (let key in result) {
-				if (key.indexOf("_") !== -1) {
-					result[inflector.camelize(key, false)] = result[key];
-					delete result[key];
-				}
 			}
-		}
-		return result;
+		)
+		return isArray ? result : result[0];
 	}
 
 	/**

@@ -12,26 +12,21 @@ module.exports = async(tableName, model) => {
 	}
 
 	let fileName = inflector.dasherize(tableName.toLowerCase());
-	if (fileName.indexOf("-") === 0) {
-		fileName = "_" + fileName.substring(1, fileName.length);
-	}
-	try {
-		let obj = require(global.appRoot + '/src/schema/relations/' + fileName + '-relations');
-		if (obj.foreignKeys) {
-			global.foreignKeyCache[tableName] = obj.foreignKeys;
-			return obj.foreignKeys;
-		}
-		if (obj.relations) {
-			global.relationCache[tableName] = obj.relations;
+	let paths = [
+		global.appRoot + '/src/schema/relations/' + fileName + '-relations',
+		global.appRoot + '/src/core/schema/relations/' + fileName + '-relations',
+	]
 
+	while(paths.length > 0) {
+		try {
+			let relations = require(paths[0]);
+			global.foreignKeyCache[tableName] = relations.foreignKeys;
+			return global.foreignKeyCache[tableName];
+		} catch (e) {
+			//console.log(e.message);
+			//console.log("no relations @ " + paths[0]);
 		}
-		if (obj.foreignKeys) {
-			global.foreignKeyCache[tableName] = obj.foreignKeys;
-			return obj.foreignKeys;
-		}
-		global.foreignKeyCache[tableName] = {};
-		return global.foreignKeyCache[tableName];
-	} catch (e) {
-		return {};
+		paths.shift();
 	}
+	global.foreignKeyCache[tableName] = global.foreignKeyCache[tableName] || {};
 }

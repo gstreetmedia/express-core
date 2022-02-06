@@ -268,8 +268,6 @@ class QueryToSqlBase {
 
 		//TODO should data have been validated before this? Seems like it
 		for (var key in data) {
-			//TODO add nested
-			key = key.split(".")[0];
 			if (this.properties[key]) {
 				transform[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
 			} else {
@@ -314,7 +312,6 @@ class QueryToSqlBase {
 
 		//TODO should data have been validated before this? Seems like it
 		for (let key in data) {
-			key = key.split(".")[0];
 			if (this.properties[key]) {
 				//does final json conversion as needed
 				translation[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);

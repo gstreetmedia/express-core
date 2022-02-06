@@ -532,26 +532,33 @@ class UserModel extends ModelBase {
 	}
 
 	async destroy(id) {
-
-		const UP = getModel("UserPermissionModel");
-		let m = new UP(this.req);
-		await m.destroyWhere(
-			{
-				where : {
-					userId : id
+		try {
+			const UP = getModel("UserPermissionModel");
+			let m = new UP(this.req);
+			await m.destroyWhere(
+				{
+					where: {
+						userId: id
+					}
 				}
-			}
-		);
+			);
+		} catch (e) {
 
-		const UR = getModel("UserRoleModel");
-		m = new UR(this.req);
-		await m.destroyWhere(
-			{
-				where : {
-					userId : id
+		}
+		try {
+			const UR = getModel("UserRoleModel");
+			let m = new UR(this.req);
+			await m.destroyWhere(
+				{
+					where : {
+						userId : id
+					}
 				}
-			}
-		);
+			);
+		} catch (e) {
+
+		}
+
 
 		return super.destroy(id);
 	}

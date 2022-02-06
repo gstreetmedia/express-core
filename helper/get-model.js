@@ -10,10 +10,19 @@ module.exports = (ModelName) => {
 		return global.modelCache[ModelName];
 	}
 
-	if (fs.existsSync(global.appRoot + '/src/model/' + ModelName + ".js")) {
-		global.modelCache[ModelName] = require(global.appRoot + '/src/model/' + ModelName);
-	} else if (fs.existsSync(__dirname + "/../model/" + ModelName + ".js")) {
-		global.modelCache[ModelName] = require("../model/" + ModelName);
+	let paths = [
+		global.appRoot + '/src/model/' + ModelName,
+		global.appRoot + '/src/core/model/' + ModelName,
+	];
+
+	while(paths.length > 0) {
+		try {
+			global.modelCache[ModelName] = require(paths[0]);
+			break;
+		} catch (e) {
+		}
+		paths.shift();
 	}
+
 	return global.modelCache[ModelName];
 }

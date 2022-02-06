@@ -39,6 +39,14 @@ exports.route = (tableName) => {
 	return route;
 }
 
+exports.modelName = (tableName) => {
+	return inflector.classify(tableName) + "Model";
+}
+
+exports.controllerName = (tableName) => {
+	return inflector.classify(tableName) + "Controller";
+}
+
 exports.propertyName = (columnName) => {
 	let styles = process.env.CORE_COLUMN_NAME_STYLE || "camelCase";
 	styles = styles.split(",");
@@ -74,6 +82,41 @@ exports.propertyName = (columnName) => {
 		return "id";
 	}
 	return columnName;
+}
+
+exports.columnName = (propertyName) => {
+	let styles = process.env.CORE_DB_NAME_STYLE || "underscore,lowercase";
+	styles = styles.split(",");
+	styles.forEach(
+		(style) => {
+			switch (style.toLowerCase()) {
+				case "singular" :
+					propertyName = inflector.singularize(propertyName);
+					break;
+				case "plural" :
+					propertyName = inflector.pluralize(propertyName);
+					break;
+				case "dashed" :
+					propertyName = inflector.dasherize(propertyName);
+					break;
+				case "underscore" :
+				case "snake_case" :
+					propertyName = inflector.underscore(propertyName);
+					break;
+				case "camelcase" :
+					propertyName = inflector.camelize(propertyName, false);
+					break;
+				case "titlecase" :
+					propertyName = inflector.camelize(route, true);
+					break;
+				case "lowercase" :
+					propertyName = propertyName.toLowerCase();
+					break;
+			}
+		}
+	);
+
+	return propertyName;
 }
 
 exports.styles = {

@@ -6,7 +6,6 @@ const fs = require("fs");
 const path = require("path");
 const exists = require("util").promisify(fs.exists);
 const readFile = require("util").promisify(fs.readFile);
-const inflectFromTable = require("../helper/inflect-from-table");
 const getRelations = require("../helper/get-relations");
 const getForeignKeys = require("../helper/get-foreign-keys");
 
@@ -29,18 +28,15 @@ class SchemaModel extends ModelBase {
 		return "DEFAULT_DB";
 	}
 
-	async update(id, data) {
-		console.log("update");
+	get name() {
+		return 'tableName'
+	}
+
+	async update(id, data, fetch) {
 		let result = await super.update(id, data, true);
 		if (!result.error) {
 			let schema = new JsonSchema(result);
 			global.schemaCache[result.tableName] = schema;
-			if (schema.relations) {
-				global.relationCache[result.tableName] = result.relations;
-			}
-			if (schema.foreignKeys) {
-				global.foreignKeyCache[result.tableName] = result.foreignKeys;
-			}
 			await this.saveFile(result.tableName, result);
 		}
 		return result;
@@ -52,12 +48,6 @@ class SchemaModel extends ModelBase {
 		if (!result.error) {
 			let schema = new JsonSchema(result);
 			global.schemaCache[data.tableName] = schema;
-			if (schema.relations) {
-				global.relationCache[data.tableName] = data.relations;
-			}
-			if (schema.foreignKeys) {
-				global.foreignKeyCache[data.tableName] = data.foreignKeys;
-			}
 			await this.saveFile(data.tableName, result);
 		}
 		return result;
@@ -67,14 +57,12 @@ class SchemaModel extends ModelBase {
 	 * @returns {JsonSchema}
 	 */
 	async getSchema() {
+
 		if (this.schema) {
 			return this.schema;
 		}
-		if (global.schemaCache[SchemaModel.tableName]) {
-			return global.schemaCache[SchemaModel.tableName];
-		}
 
-		this._schema = await this.get(this.tableName);
+		this.schema = await this.get(this.tableName);
 
 		let schema = await this.findOne({
 			where : {
@@ -84,8 +72,9 @@ class SchemaModel extends ModelBase {
 
 		if (!schema.error) {
 			hasSchemaTable = true;
-			this._schema = global.schemaCache[SchemaModel.tableName] = new JsonSchema(schema);
+			this.schema = global.schemaCache[SchemaModel.tableName] = new JsonSchema(schema);
 		} else {
+			console.log(schema);
 			hasSchemaTable = false;
 		}
 
@@ -104,7 +93,7 @@ class SchemaModel extends ModelBase {
 	/**
 	 * @returns {JsonSchema}
 	 */
-	async get(tableName, fromCache) {
+	async get(tableName, dataSource, fromCache) {
 		if (fromCache !== false && global.schemaCache[tableName]) {
 			return global.schemaCache[tableName];
 		}
@@ -122,6 +111,8 @@ class SchemaModel extends ModelBase {
 				global.schemaCache[tableName] = schema;
 				if (schema.relations) {
 					global.relationCache[tableName] = schema.relations;
+				} else {
+					await getRelations(tableName)
 				}
 				if (schema.foreignKeys) {
 					global.foreignKeyCache[tableName] = schema.foreignKeys;
@@ -129,14 +120,14 @@ class SchemaModel extends ModelBase {
 				return schema;
 			}
 		}
+
 		return await this.loadFile(tableName);
 	}
 
 	async set(tableName, data) {
 		if (hasSchemaTable) {
-			console.log("set 1");
 			let table = await this.get(tableName, false);
-			if (table) {
+			if (table && table.id) { //No id means it likely came from the file system
 				return await this.update(table.id, data, true);
 			} else {
 				return await this.create(data);
@@ -147,66 +138,51 @@ class SchemaModel extends ModelBase {
 		}
 	}
 
-	async createTable() {
-		//TODO need to do this for mssql and mysql as well
-		await this.execute(
-			`create table if not exists _schemas
-             (
-                 id          uuid        not null
-                     constraint schemas_pkey
-                         primary key,
-                 data_source varchar(64),
-                 title       varchar(255),
-                 table_name  varchar(64) not null,
-                 primary_key varchar(64)              default 'id'::character varying,
-                 properties  jsonb       not null,
-                 required    varchar(64)[],
-                 read_only   varchar(64)[],
-                 created_at  timestamp with time zone default now(),
-                 updated_at  timestamp with time zone default now()
-             );
-
-            create unique index if not exists schemas_id_uindex
-                on _schemas (id);
-
-            create unique index if not exists schemas_table_name_uindex
-                on _schemas (table_name);
-			`
-		)
-	}
-
 	/**
 	 * @returns {JsonSchema}
 	 */
-	async loadFile(tableName) {
+	async loadFile(tableName, dataSource) {
 		this.log("loadFile", tableName);
 		let schema;
-		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
-		console.log(p);
-		if (await exists(p)) {
-			this.log("loadFile", p);
-			schema = require(p.split(".js").join(""));
-		}
-		if (!schema) {
-			p = path.resolve(__dirname + "/../schema/" + this.getLocalFileName(tableName));
-			if (await exists(p)) {
-				this.log("loadFile", p);
-				schema = require(p.split(".js").join(""));
+
+		let paths = [
+			path.resolve(global.appRoot + "/src/schema/" + dataSource + "/" + this.getLocalFileName(tableName) + ".json"),
+			path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName) + ".js"),
+			path.resolve(__dirname + "/../schema/" + this.getLocalFileName(tableName) + ".js"),
+			path.resolve(__dirname + "/../schema/" + this.getLocalFileName(tableName) + ".json")
+		];
+
+		let extension;
+		while (paths.length > 0) {
+			if (await exists(paths[0])) {
+				extension = paths[0].split('.');
+				extension = extension[extension.length-1];
+				this.log("loadFile", paths[0]);
+				if (extension === "js") {
+					schema = require(paths[0].split(".js").join(""));
+				} else if (extension === "json") {
+					let s = fs.readFileSync(paths[0])
+					schema = JSON.parse(s);
+				}
+
+				break;
 			}
-			if (!schema) {
-				this.log("loadFile", "No schema @ " + p);
-			}
+			paths.shift()
 		}
 
 		if (!schema) {
-			console.error("Could Not Load Schema for " + tableName);
+			this.log("Could Not Load Schema for " + tableName);
 			return null;
 		}
 
-		schema.relations = await getRelations(tableName);
-		schema.foreignKeys = await getForeignKeys(tableName);
+		schema.relations = schema.relations || await getRelations(tableName, dataSource);
+		schema.foreignKeys = schema.foreignKeys || await getForeignKeys(tableName, dataSource);
 		schema = new JsonSchema(schema);
 		global.schemaCache[schema.tableName] = schema;
+		if (hasSchemaTable) {
+			let result = await super.create(schema.toJSON());
+			console.log(result);
+		}
 		return schema;
 	}
 
@@ -220,43 +196,42 @@ class SchemaModel extends ModelBase {
 			schemas.forEach(
 				(schema) => {
 					schema = new JsonSchema(schema);
-					global.schemaCache[schema.tableName] = schema;
-					if (schema.relations) {
-						global.relationCache[schema.tableName] = schema.relations;
-					}
-					if (schema.foreignKeys) {
-						global.foreignKeyCache[schema.tableName] = schema.foreignKeys;
-					}
+					global.schemaCache[schema.dataSource + "_" + schema.tableName] = schema;
 				}
 			)
 		} else {
-			let files = fs.readdirSync(global.appRoot + '/src/schema');
 
-			files.forEach(
-				(file) => {
-					if (file.indexOf(".js") === -1) {
-						return;
+			let load = (path) => {
+				let files = fs.readdirSync(path);
+				files.forEach(
+					(file) => {
+						if (fs.lstatSync(path + "/" + file).isDirectory()) {
+							return load(path + "/" + file)
+						}
+						let schema;
+						if (file.indexOf(".json")) {
+							schema = fs.readFileSync(p);
+							schema = JSON.parse(schema);
+						} else {
+							schema = require(p);
+						}
+
+						schema = new JsonSchema(schema);
+						global.schemaCache[schema.dataSource + "_" + schema.tableName] = schema;
+						schemas.push(schema);
 					}
-					let p = path.resolve(global.appRoot + "/src/schema/" + file);
-					let schema = require(p);
-					schema = new JsonSchema(schema);
-					global.schemaCache[schema.tableName] = schema;
-					if (schema.relations) {
-						global.relationCache[schema.tableName] = schema.relations;
-					}
-					if (schema.foreignKeys) {
-						global.foreignKeyCache[schema.tableName] = schema.foreignKeys;
-					}
-					schemas.push(schema);
-				}
-			)
+				)
+			}
+
+			load(path.resolve(global.appRoot + "/src/schema/"));
+
 		}
 		return schemas;
 	}
 
 	getLocalFileName(tableName, type) {
 		type = type || "schema"
-		let file = inflector.dasherize(tableName.toLowerCase()) + `-${type}.js`;
+		let file = inflector.dasherize(tableName.toLowerCase()) + `-${type}`;
 		if (file.indexOf("-") === 0) {
 			file = "_" + file.substring(1, file.length)
 		}
@@ -264,17 +239,34 @@ class SchemaModel extends ModelBase {
 	}
 
 	saveFile(tableName, data) {
-		let p = path.resolve(global.appRoot + "/src/schema/" + this.getLocalFileName(tableName));
-		let template = require("../task/templates/schema");
-		fs.writeFileSync(p, template(data));
-		if (data.relations || data.foreignKeys) {
-			let template = require("../task/templates/relations");
-			let p = path.resolve(global.appRoot + "/src/schema/relations/" + this.getLocalFileName(tableName, "relations"));
-			fs.writeFileSync(p, template(data));
+		let p = path.resolve(global.appRoot + '/src/schema/' + data.dataSource);
+		if (!fs.existsSync(p)) {
+			fs.mkdirSync(p)
 		}
+		fs.writeFileSync(
+			path.resolve(p + "/" + schema.tableName + ".json"), beautify(data, null, 4, 100))
 		return data;
 	}
 
+	getTables() {
+		let tables = [];
+		Object.key(global.schemaCache).forEach(
+			(key) => {
+				tables.push(global.schemaCache[key].tableName)
+			}
+		)
+		return tables;
+	}
+
+	log(method, message, id, forceLogging) {
+		if (this.debug || forceLogging) {
+			if (message && typeof message === "object") {
+				message = JSON.stringify(message);
+			}
+			//Show as error for stack tracing
+			console.error(this.tableName + (method ? "::" + method : "") + (message ? " -> " + message : ""));
+		}
+	}
 
 }
 

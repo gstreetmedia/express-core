@@ -29,11 +29,13 @@ class AuthenticationModel {
 
 	constructor(req) {
 		this.req = req;
-		req.locals = req.locals || {}
-		if (!req.locals.roleManager) {
-			req.locals.roleManager = new RoleManager(req)
+		if (this.req) {
+			req.locals = req.locals || {}
+			if (!req.locals.roleManager) {
+				req.locals.roleManager = new RoleManager(req)
+			}
+			req.roleManager = req.locals.roleManager;
 		}
-		req.roleManager = req.locals.roleManager;
 	}
 
 	checkLocalRequest (req) {

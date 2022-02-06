@@ -199,7 +199,9 @@ class AdminController extends ViewControllerBase {
 
 		let controller = new Controller();
 		let model = new Model(req);
-		model.debug = true;
+		if (process.env.NODE_ENV !== "production") {
+			model.debug = true;
+		}
 		await model.init();
 
 		const tableName = model.tableName;
@@ -282,6 +284,9 @@ class AdminController extends ViewControllerBase {
 		let controller = new Controller();
 		let model = new Model(req);
 		await model.init();
+		if (process.env.NODE_ENV !== "production") {
+			model.debug = true;
+		}
 
 		const tableName = model.tableName;
 
@@ -414,6 +419,9 @@ class AdminController extends ViewControllerBase {
 		let controller = new Controller();
 		let model = new Model(req);
 		await model.init();
+		if (process.env.NODE_ENV !== "production") {
+			model.debug = true;
+		}
 
 		const tableName = model.tableName;
 

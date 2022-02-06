@@ -1,6 +1,7 @@
 const _ = require("lodash");
 const listEnpoints = require("express-list-endpoints");
 const inflectFromRoute = require("../inflect-from-route");
+const inflectFromTable = require("../inflect-from-table");
 const pathToRegexp = require('path-to-regexp');
 let list = [];
 /**
@@ -30,26 +31,33 @@ module.exports = (app) => {
 
 	endPoints.forEach(
 		function(item) {
-			let path = item.path;
-			let parameters = pathToRegexp.parse(item.path);
-			if (item.path.indexOf("/") === 0) {
-				path = item.path.split("/");
-				path.shift();
-				path = path.join("/");
-				if (path === "") {
-					return;
-				}
+
+			if (item.path.indexOf("/admin") !== -1 || item.path === "*" || item.path === '/') {
+				return;
 			}
 
-			list.push(
-				{
-					name : path + " <span class='text-secondary'>[" + item.methods.join(", ").toLowerCase() + "]</span>",
-					path : path,
-					methods : item.methods,
-					table : inflectFromRoute.table(path),
-					parameters : parameters
-				}
-			)
+
+			item.parameters = pathToRegexp.parse(item.path);
+
+			if (item.path.indexOf("/") === 0) {
+				item.path = item.path.substring(1, item.path.length);
+			}
+			let apiRoot = global.apiRoot;
+			if (global.apiRoot.indexOf("/") === 0) {
+				apiRoot = apiRoot.split("/");
+				apiRoot.shift();
+				apiRoot = apiRoot.join("/");
+			}
+
+			item.baseBath = item.path.replace(apiRoot, "").split("/")[0]
+			item.table = inflectFromRoute.table(item.baseBath);
+			if (item.table !== '') {
+				item.controller = inflectFromTable.controllerName(item.table);
+				item.model = inflectFromTable.modelName(item.table);
+			}
+
+			item.name = item.path + " <span class='text-secondary'>[" + item.methods.join(", ").toLowerCase() + "]</span>";
+			list.push(item);
 		}
 	);
 	return list;

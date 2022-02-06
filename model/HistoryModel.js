@@ -17,12 +17,17 @@ class HistoryModel extends ModelBase {
 			objectType : model.tableName,
 			objectId : before[model.primaryKey]
 		};
-		if (this.req.locals.user) {
-			obj.byObjectId = this.req.locals.user.id;
-			obj.byObjectType = "user";
-		} else if (this.req.locals.token) {
-			obj.byObjectId = this.req.locals.token.id;
-			obj.byObjectType = "token";
+
+		if (this.req && this.req.locals) {
+			if (this.req.locals.user) {
+				obj.byObjectId = this.req.locals.user.id;
+				obj.byObjectType = "user";
+			} else if (this.req.locals.token) {
+				obj.byObjectId = this.req.locals.token.id;
+				obj.byObjectType = "token";
+			}
+		} else {
+			obj.byObjectType = "system";
 		}
 
 		let keys = Object.keys(after);
@@ -79,17 +84,20 @@ class HistoryModel extends ModelBase {
 					switch (model.properties[key].format) {
 						case "date" :
 						case "date-time" :
+							try {
+								if (typeof before[key] === "object") {
+									before[key] = before[key].toDateString();
+								}
+								let a = moment.tz(before[key]);
+								let b = moment.tz(after[key]);
 
-							if(typeof before[key] === "object") {
-								before[key] = before[key].toDateString();
-							}
-							let a = moment.tz(before[key]);
-							let b = moment.tz(after[key]);
-
-							if (a.format() !== b.format()) {
-								d.fromValue = a.format();
-								d.toValue = b.format();
-							} else {
+								if (a.format() !== b.format()) {
+									d.fromValue = a.format();
+									d.toValue = b.format();
+								} else {
+									d = null;
+								}
+							} catch (e) {
 								d = null;
 							}
 							break;

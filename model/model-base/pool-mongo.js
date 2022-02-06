@@ -2,10 +2,12 @@ const mongodb = require("mongodb");
 const util = require('util');
 let md5 = require("md5");
 let pools = {};
+let connectionStringParser = require("../../helper/connection-string-parser")
 
 /**
+ *
  * @param connectionString
- * @returns {Promise<MongoClient|*>}
+ * @returns {Promise<Db|*>}
  */
 module.exports = async (connectionString) => {
 	let key ;
@@ -20,10 +22,11 @@ module.exports = async (connectionString) => {
 	}
 
 	let client = new mongodb.MongoClient(connectionString);
+	let cs = connectionStringParser(connectionString);
 	await client.connect();
 	pools[key] = client;
 
-	return client;
+	return client.db(cs.db);
 }
 
 

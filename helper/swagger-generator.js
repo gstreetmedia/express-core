@@ -5,6 +5,7 @@ const inflectFromRoute = require("./inflect-from-route");
 const pathToRegexp = require('path-to-regexp');
 const _ = require("lodash");
 const ModelBase = require("../model/ModelBase");
+const jsonBeautify = require("json-beautify");
 
 module.exports = async(app, options) => {
 
@@ -41,9 +42,8 @@ module.exports = async(app, options) => {
 					name : "application-secret"
 				},
 				authorizationBearer : {
-					type : "apiKey",
-					in : "header",
-					name : "authorization"
+					type : "http",
+					scheme : "bearer"
 				}
 			}
 		},
@@ -138,14 +138,10 @@ module.exports = async(app, options) => {
 		 */
 	];
 
-	console.log(endPoints);
-
 	while(endPoints.length > 0) {
 		let item = endPoints[0];
-		let parameters = pathToRegexp.parse(item.path);
-		let routeParameters = _.clone(options.parameters);
-		let path = "";// + item.path.split(":id").join("{id}");
-		parameters.forEach(
+		let path = "";
+		item.parameters.forEach(
 			(part) => {
 				if (typeof part === "string") {
 					path += part;
@@ -155,32 +151,15 @@ module.exports = async(app, options) => {
 			}
 		);
 
-		let routeKey = parameters[0];
-		parameters.shift();
-
-		if (routeKey.indexOf("/admin") === 0) {
-			endPoints.shift();
-			continue;
+		let schema = await sm.get(item.table);
+		if (!schema) {
+			schema = await sm.get(item.table.substring(0,item.table.length-1));
+			if (schema) {
+				item.table = item.table.substring(0,item.table.length-1)
+			}
 		}
 
-		let root;
-
-
-		let schema = await sm.get(item.tableName);
-
 		if (schema) {
-
-			delete schema.$schema;
-			delete schema.$id;
-			delete schema.createdAt;
-			delete schema.id;
-			delete schema.dataSource;
-			delete schema.tableName;
-			delete schema.primaryKey;
-			delete schema.updatedAt;
-			delete schema.readOnly;
-			delete schema.additionalProperties;
-
 			let doProps = (sourceProps)=> {
 				let properties = {};
 				Object.keys(sourceProps).forEach(
@@ -190,6 +169,9 @@ module.exports = async(app, options) => {
 						};
 						if (sourceProps[key].format) {
 							properties[key].format = sourceProps[key].format;
+						}
+						if (sourceProps[key].type === "array") {
+							properties[key].items = {};
 						}
 						if (sourceProps[key].properties) {
 							properties[key].properties = doProps(sourceProps[key].properties)
@@ -201,14 +183,15 @@ module.exports = async(app, options) => {
 
 			obj.components.schemas[item.table] = {properties:doProps(schema.properties)};
 		} else {
-			console.log("Cannot find schema");
-			console.log(model);
-			endPoints.shift();
-			continue;
+
 		}
 
-		parameters.forEach(
+		let routeParameters = [];
+		item.parameters.shift();
+
+		item.parameters.forEach(
 			(parameter) => {
+				parameter = _.clone(parameter);
 				if (_.isObject(parameter)) {
 					parameter.in = "path";
 					delete parameter.prefix;
@@ -259,7 +242,7 @@ module.exports = async(app, options) => {
 				}
 
 				if (method === "get") {
-					if (path.indexOf("{id}") !== -1) {
+					if (path.indexOf("{") !== -1) {
 						obj.paths[path][method].parameters = read.concat(routeParameters);
 						if (schema) {
 							obj.paths[path][method].responses['200'].content = {
@@ -268,20 +251,10 @@ module.exports = async(app, options) => {
 								}
 							}
 						}
-					} else if (path.indexOf("/index") !== -1) {
-						obj.paths[path][method].parameters = query.concat(routeParameters);
-						if (schema) {
-							obj.paths[path].get.responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + item.table}
-						}
-					} else if (path.indexOf("search") === -1) {
-						obj.paths[path][method].parameters = query.concat(routeParameters);
-						if (schema) {
-							obj.paths[path][method].responses['200'].content['application/json'].schema = {"$ref": "#/components/schemas/" + item.table}
-						}
 					}
 				} else if (method === "post" || method === "put" || method === "patch") {
 					obj.paths[path][method].parameters = routeParameters;
-					if (schema) {
+					if (schema && typeof item.table !== "undefined" || item.table !== "undefined") {
 						obj.paths[path][method].requestBody =
 							{
 								content: {
@@ -297,11 +270,12 @@ module.exports = async(app, options) => {
 				} else if (method === "delete") {
 					obj.paths[path][method].parameters = routeParameters;
 				}
+				obj.paths[path][method].security = [{"applicationKey": []}, {"applicationSecret": []}, {"authorizationBearer": []} ]
 			}
 		);
 
 		endPoints.shift();
 	}
 
-	fs.writeFileSync(global.appRoot + "/swagger.json", JSON.stringify(obj));
+	fs.writeFileSync(global.appRoot + "/swagger.json", jsonBeautify(obj, null, 2, 100));
 }

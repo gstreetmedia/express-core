@@ -141,7 +141,7 @@ module.exports = {
 	},
 	required: [
 		"id",
-		"tokenId"
+		"userId"
 	],
 	readOnly: [],
 	type: "object",
