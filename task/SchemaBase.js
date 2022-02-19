@@ -293,15 +293,40 @@ class SchemaBase extends ModelBase {
 			return this._properties[tableName];
 		}
 		let columns = await this.getColumns(tableName);
+		let primaryKey = await this.getPrimaryKey(tableName);
 		let properties = {};
 		let context = this;
-		columns.forEach(
-			(column) => {
-				properties[inflectFromTable.propertyName(column[context.map.columnName])] = this.columnToObject(column);
+		let index = 0;
+		while (columns.length > 0) {
+			let column = columns[0];
+			let o = this.columnToObject(column);
+			console.log(o);
+			let show = context.isViewOrUpdate(tableName, o.columnName, primaryKey);
+			if (o.readOnly === true) {
+				show = false;
 			}
-		)
+			o.visibility = {
+				admin: {index: true, create: show, read: true, update: show, order: index},
+				public: {query: true, create: show, read: true, update: show, order: index},
+			}
+			properties[inflectFromTable.propertyName(column[context.map.columnName])] = o;
+			index++;
+			columns.shift();
+		}
+
 		this._properties[tableName] = properties;
 		return properties;
+	}
+
+	isViewOrUpdate(tableName, columnName, primaryKey) {
+
+		if (columnName === primaryKey) {
+			return false;
+		}
+		if (columnName.indexOf("updated") === 0 || columnName.indexOf("created") === 0) {
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -317,9 +342,8 @@ class SchemaBase extends ModelBase {
 		let required = [];
 		let properties = await this.getProperties(tableName);
 		let primaryKey = await this.getPrimaryKey(tableName);
-		if (primaryKey && !properties[primaryKey].autoIncrement) {
-			required.push(primaryKey);
-		}
+
+		required.push(primaryKey);
 
 		Object.keys(properties).forEach(
 			(item) => {
@@ -333,11 +357,15 @@ class SchemaBase extends ModelBase {
 
 	async getReadOnly(tableName) {
 		let properties = await this.getProperties(tableName);
-		let readOnly = [];
+		let primaryKey = await this.getPrimaryKey(tableName);
+		let readOnly = [primaryKey];
+		let context = this;
 		Object.keys(properties).forEach(
 			(item) => {
 				if (properties[item].readOnly) {
-					readOnly.push(item);
+					if (!context.isViewOrUpdate(tableName, properties[item].columnName, primaryKey)) {
+						readOnly.push(item);
+					}
 				}
 			}
 		)
