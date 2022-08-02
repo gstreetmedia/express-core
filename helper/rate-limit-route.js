@@ -13,13 +13,9 @@ let getLimiter = (requestCount, duration, blockDuration) => {
 	if (process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS) {
 		const redis = require('redis');
 		const RateLimiterRedis = require('rate-limiter-flexible').RateLimiterRedis;
-		const connectionStringParser = require("../helper/connection-string-parser");
-
-		let connection = connectionStringParser(process.env.CACHE_REDIS || process.env.CORE_CACHE_REDIS);
 
 		const redisClient = redis.createClient({
-			host: connection.host,
-			port: connection.port,
+			url: process.env.CORE_CACHE_REDIS || 'redis://127.0.0.0.1:6379',
 			enable_offline_queue: false,
 		});
 

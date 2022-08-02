@@ -3,7 +3,7 @@ module.exports = {
 	$id: "token_roles.json",
 	title: "Token Roles",
 	dataSource: "default",
-	tableName: "token_roles",
+	tableName: "_token_roles",
 	description: "Generated: Mon Feb 08 2021 16:50:04 GMT-0800 (Pacific Standard Time)",
 	primaryKey: "id",
 	baseName : "token_role",

@@ -308,6 +308,10 @@ class QueryToPgSql extends QueryBase{
 			case "<=" :
 				queryBuilder[c.where](this.raw(columnName + " <= " + processedValue));
 				break;
+			case "any" :
+				//Intersection length > 0
+				queryBuilder[c.where](this.raw(columnName + " && " + processedValue));
+				break;
 			case "in" :
 			case "rightInLeft" :
 				queryBuilder[c.where](this.raw(columnName + " @> " + processedValue));
@@ -488,8 +492,11 @@ class QueryToPgSql extends QueryBase{
 				if (value === '') {
 					return null;
 				}
-				if (!_.isArray(value)) {
+				if (!Array.isArray(value)) {
 					value = [value];
+				}
+				if (value.length === 0) {
+					return null;
 				}
 				if (isInsertOrUpdate) {
 					switch (property.format) {
@@ -506,7 +513,7 @@ class QueryToPgSql extends QueryBase{
 
 					}
 				}
-				if (!_.isArray(value)) {
+				if (!Array.isArray(value)) {
 					value = [value];
 				}
 				switch (property.format) {
@@ -593,7 +600,7 @@ class QueryToPgSql extends QueryBase{
 	 */
 	processArrayType(list, property) {
 		let context = this;
-		if (!_.isArray(list)) {
+		if (!Array.isArray(list)) {
 			list = list.split(",");
 		}
 		var valueList = [];

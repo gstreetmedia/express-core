@@ -1,7 +1,6 @@
 let router = require('express').Router();
 let getController = require("../helper/get-controller");
-let authentication = require('../middleware/authentication');
-let rateLimitRoute = require("../helper/rate-limit-route")();
+let authentication = require("../helper/get-middleware")("authentication");
 let c;
 
 router.use(authentication);
@@ -16,17 +15,7 @@ router.use(async function (req, res, next) {
 
 router.post('/login', async function (req, res, next) {
 	req.roleManager.allowRole("guest");
-
-	if(req.roleManager.checkRole()){
-		const retryAfter = await rateLimitRoute.check("user/login");
-		if (retryAfter) {
-			await rateLimitRoute.fail("user/login");
-			return res.tooManyRequests(retryAfter)
-		}
-
-		let result = await c.login(req, res);
-		return;
-	}
+	return await c.login(req, res);
 	return next();
 });
 

@@ -6,15 +6,23 @@ class ModelUtils {
 
 	/**
 	 * @param {ModelBase} model
-	 * @param {string | int} id
+	 * @param {string | int | array} id
 	 * @param query
 	 * @returns {{error: {message: string, statusCode: number}}}
 	 */
 	static addPrimaryKeyToQuery(model, id, query) {
 		let primaryKey = model.primaryKey;
 		query.where = query.where || {};
-		if (_.isArray(primaryKey)) {
-			id = id.split("|");
+		if (Array.isArray(primaryKey)) {
+			if (typeof id === "string") {
+				if (id.indexOf(",") !== -1) {
+					id = id.split(",");
+				} else {
+					id = [id];
+				}
+			} else if (typeof id === "number") {
+				id = [id];
+			}
 			if (id.length !== primaryKey.length) {
 				return {
 					error : {
@@ -23,12 +31,11 @@ class ModelUtils {
 					}
 				}
 			}
-			model.primaryKey.forEach(
-				(key) => {
-					query.where[key] = id[0];
-					id.shift();
-				}
-			)
+			while(primaryKey.length > 0) {
+				let key = primaryKey[0];
+				query.where[key] = id[0];
+				id.shift();
+			}
 		} else {
 			query.where[primaryKey] = id;
 		}
@@ -38,26 +45,43 @@ class ModelUtils {
 	 * If the primary key is a UUID and missing, create one
 	 * @param {ModelBase} model
 	 * @param data
-	 * @returns {Promise<void>}
 	 */
 	static checkPrimaryKey(model, data) {
-		if (!data[model.primaryKey]) {
-			switch (model.properties[model.primaryKey].type) {
-				case "string" :
-					switch (model.properties[model.primaryKey].format) {
-						case "uuid" :
-							data[model.primaryKey] = uuid.v4();
+		let primaryKey = model.primaryKey;
+		if (!Array.isArray(primaryKey)) {
+			primaryKey = [primaryKey];
+		}
+		//console.log(primaryKey);
+		let keyLength = 0;
+		primaryKey.forEach(
+			(key) => {
+				//console.log(key + " -> " + data[key]);
+				if (!data[key]) {
+					switch (model.properties[key].type) {
+						case "string" :
+							switch (model.properties[key].format) {
+								case "uuid" :
+									data[key] = uuid.v4();
+									keyLength++;
+									break;
+								default	:
+									console.error("Please define a format for the primaryKey");
+							}
 							break;
-						default	:
-							console.error("Please define a format for the primaryKey");
+						case "number" :
+							if (!model.properties[key].autoIncrement) {
+								//TODO shouldn't we get the next
+								keyLength++;
+							}
 					}
-					break;
-				case "number" :
-					console.log("2");
-					if (!model.properties[model.primaryKey].autoIncrement) {
-						//TODO shouldn't we get the next
-					}
+				} else {
+					keyLength++
+				}
 			}
+		)
+		if (keyLength !== primaryKey.length) {
+			console.error("Primary key missing from data -> " + model.tableName + " -> " + keyLength + " vs " + primaryKey.length);
+			//console.log(data);
 		}
 	}
 
@@ -71,30 +95,30 @@ class ModelUtils {
 		//model.log("ModelUtils::addJoinFromKeys", model.tableName);
 		if (!originalQuery) {
 			//probably a simple read
-			model.log("ModelUtils::addJoinFromKeys", "no query");
+			//model.log("ModelUtils::addJoinFromKeys", "no query");
 			return;
 		}
 		if (originalQuery.join) {
 			//implies the request isn't doing a join
-			model.log("ModelUtils::addJoinFromKeys", "has join");
+			//model.log("ModelUtils::addJoinFromKeys", "has join");
 		} else {
-			model.log("ModelUtils::addJoinFromKeys", "no join");
+			//model.log("ModelUtils::addJoinFromKeys", "no join");
 			return;
 		}
-		if (_.isArray(originalQuery.select)) {
+		if (Array.isArray(originalQuery.select)) {
 			//implies no special select
-			model.log("ModelUtils::addJoinFromKeys", "has select");
+			//model.log("ModelUtils::addJoinFromKeys", "has select");
 		} else {
-			model.log("ModelUtils::addJoinFromKeys", "no select");
+			//model.log("ModelUtils::addJoinFromKeys", "no select");
 			return;
 		}
 		let relations = await model.getRelations();
 		let foreignKeys = await model.getForeignKeys();
 		if (model.relations) {
 			//model doesn't have any relations, not matter the query
-			model.log("ModelUtils::addJoinFromKeys", "has relations");
+			//model.log("ModelUtils::addJoinFromKeys", "has relations");
 		} else {
-			model.log("ModelUtils::addJoinFromKeys", "no relations");
+			//model.log("ModelUtils::addJoinFromKeys", "no relations");
 
 		}
 
@@ -114,14 +138,14 @@ class ModelUtils {
 						return;
 					}
 					if (relations[k].join.hasOwnProperty("from")) {
-						if (_.isArray(relations[k].join.from)) {
+						if (Array.isArray(relations[k].join.from)) {
 							required = required.concat(relations[k].join.from)
 						} else {
 							required.push(relations[k].join.from);
 						}
 					}
 					if (relations[k].join.hasOwnProperty("through")) {
-						if (_.isArray(relations[k].join.through.from)) {
+						if (Array.isArray(relations[k].join.through.from)) {
 							required = required.concat(relations[k].join.through.from)
 						} else {
 							required.push(relations[k].join.through.from);
@@ -156,7 +180,7 @@ class ModelUtils {
 					if (!model.foreignKeys[k]) {
 						return;
 					}
-					if (_.isArray(model.foreignKeys[k].from)) {
+					if (Array.isArray(model.foreignKeys[k].from)) {
 						required = required.concat(foreignKeys[k].from)
 					} else {
 						required.push(model.foreignKeys[k].from);
@@ -165,30 +189,19 @@ class ModelUtils {
 			)
 		}
 
-		model.log("ModelUtils::addJoinFromKeys required", _.uniq(required));
+		//model.log("ModelUtils::addJoinFromKeys required", _.uniq(required));
 		targetQuery.select = _.uniq(select.concat(required));
 
 	}
 
 	/**
+	 * returns a list of visible properties in a fieldset or all properties from the schema
 	 * @param {ModelBase} model
 	 * @param fieldset
 	 * @returns {[]}
 	 */
 	static getSelect(model, fieldset) {
-		let rawfields = model.fields[fieldset];
-
-		let select = [];
-
-		rawfields.forEach(
-			function (item) {
-				if (item.property && item.visible) {
-					select.push(item.property);
-				}
-			}
-		);
-
-		return select;
+		return fieldset ? _.map(_.filter(model.fields[fieldset],{"visible":true}),"property") : model.schema.keys;
 	}
 
 	/**
@@ -199,7 +212,7 @@ class ModelUtils {
 	 * @returns {*}
 	 */
 	static postProcessResponse(model, result) {
-		let isArray = _.isArray(result);
+		let isArray = Array.isArray(result);
 		if (!isArray) {
 			result = [result];
 		}
@@ -248,7 +261,7 @@ class ModelUtils {
 		for (let i = 0; i < results.length; i++) {
 			for (let key in results[i]) {
 				for (let innerKey in model.properties) {
-					if (model.properties[innerKey].column_name === key) {
+					if (model.properties[innerKey].columnName === key) {
 						results[i][innerKey] = results[i][key];
 						delete results[i][key];
 					}
@@ -347,7 +360,7 @@ class ModelUtils {
 	 * @returns {*}
 	 */
 	static convertDotFieldsToObjects(model, results) {
-		if (!results || !_.isArray(results) || results.length === 0) {
+		if (!results || !Array.isArray(results) || results.length === 0) {
 			return results;
 		}
 
@@ -420,7 +433,7 @@ class ModelUtils {
 	static trimObject(obj) {
 		if (_.isString(obj)) {
 			return obj.trim();
-		} else if (_.isArray(obj)) {
+		} else if (Array.isArray(obj)) {
 			for (let i = 0; i < obj.length; i++) {
 				try {
 					obj[i] = trim(obj[i]);

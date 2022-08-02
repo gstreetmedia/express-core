@@ -1,6 +1,6 @@
 exports.relations = {
 	permissions: {
-		type: "HasMany",
+		relation: "HasMany",
 		modelClass: "RolePermissionModel",
 		join: {
 			from: "roleId",

@@ -1,7 +1,7 @@
 const ControllerBase = require('./ControllerBase');
-const Model = require('../model/RoleModel');
+const Model = require("../helper/get-model")("RoleModel");
 
-module.exports = class RoleController extends ControllerBase {
+class RoleController extends ControllerBase {
 	/**
 	 * @param {RoleModel} model
 	 */
@@ -9,3 +9,5 @@ module.exports = class RoleController extends ControllerBase {
 		super(model || Model);
 	}
 }
+
+module.exports = RoleController;

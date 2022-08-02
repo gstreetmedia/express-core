@@ -1,28 +1,29 @@
 let inflector = require("./inflector");
 let fs = require("fs");
-global.modelCache = global.modelCache || {};
+const checkRequire = require("./check-require");
+
 /**
- * @param ModelName
+ * @param modelOrTableName
  * @returns {ModelBase}
  */
-module.exports = (ModelName) => {
-	if (global.modelCache[ModelName]) {
-		return global.modelCache[ModelName];
+module.exports = (modelOrTableName) => {
+	if (modelOrTableName.indexOf("Model") === -1) {
+		modelOrTableName = inflector.classify(modelOrTableName) + "Model";
 	}
-
 	let paths = [
-		global.appRoot + '/src/model/' + ModelName,
-		global.appRoot + '/src/core/model/' + ModelName,
+		global.appRoot + '/src/model/' + modelOrTableName + ".js",
+		__dirname + '/../model/' + modelOrTableName + ".js",
 	];
 
+	let Model;
+
 	while(paths.length > 0) {
-		try {
-			global.modelCache[ModelName] = require(paths[0]);
-			break;
-		} catch (e) {
+		let o = checkRequire(paths[0]);
+		if (o) {
+			return o;
 		}
 		paths.shift();
 	}
 
-	return global.modelCache[ModelName];
+	return Model || null;
 }

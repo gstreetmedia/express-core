@@ -3,7 +3,7 @@ module.exports = {
 	$id: "user_permissions.json",
 	title: "User Permissions",
 	dataSource: "default",
-	tableName: "user_permissions",
+	tableName: "_user_permissions",
 	description: "Generated: Mon Feb 08 2021 16:50:04 GMT-0800 (Pacific Standard Time)",
 	primaryKey: "id",
 	baseName : "user_permission",

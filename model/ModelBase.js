@@ -1,46 +1,36 @@
 const now = require("../helper/now");
-const uuid = require("node-uuid");
 const _ = require("lodash");
 const inflector = require("../helper/inflector");
 const md5 = require("md5");
+const CacheableBase = require("../object/CacheableBase");
 const connectionStringParser = require("../helper/connection-string-parser");
 const getRelations = require("../helper/get-relations");
 const getForeignKeys = require("../helper/get-foreign-keys");
 const getModel = require("../helper/get-model");
-const cacheManager = require("../helper/cache-manager");
 const sleep = require('util').promisify(setTimeout);
 const ModelUtils = require("./model-base/ModelUtils");
 const ModelRelations = require("./model-base/ModelRelations");
 const util = require("util");
-//const AWS = require('aws-sdk');
-//AWS.config.update({region: 'us-west-2'});
+const beautify = require("json-beautify");
+let AWS;
+if (process.env.CORE_AWS_ENABLED) {
+	AWS = require('aws-sdk');
+	AWS.config.update({region: 'us-west-2'});
+}
 
-class ModelBase {
+class ModelBase extends CacheableBase{
 
 	/**
 	 * @param req - the express request (or other object). looking for the request context really. req.role = "api-user"
 	 * or req.account.id etc.
 	 */
 	constructor(req) {
+		super();
 		if (req) {
 			this.req = req;
-			this.req.locals.isConnected = true;
-			if (this.req && !this.req.locals.hasCloseEvent) {
-				this.req.on("close", () => { //Used to abort long queries
-					//console.log("Connection Abort");
-					this.req.locals.isConnected = false;
-				})
-				this.req.locals.hasCloseEvent = true;
-			}
-
-			if (this.req.connectionString) {
-				console.warn("Please move connectionString to req.locals for " + this.tableName);
-				this._connectionStringWrite = req.connectionString;
-				this._connectionStringRead = req.connectionString;
-			}
 			if (this.req.locals.connectionString) {
 				this._connectionStringWrite = req.locals.connectionString;
-				his._connectionStringRead = req.locals.connectionString;
+				this._connectionStringRead = req.locals.connectionString;
 			}
 		}
 	}
@@ -69,6 +59,7 @@ class ModelBase {
 		return this._tableName;
 	}
 
+
 	/**
 	 * @returns {JsonSchema}
 	 */
@@ -77,10 +68,20 @@ class ModelBase {
 			return this._schema;
 		}
 		if (global.schemaCache && global.schemaCache[this.tableName]) {
-			this.log("get schema", "from cache");
 			this._schema = global.schemaCache[this.tableName];
 		}
 		return this._schema;
+	}
+
+	/**
+	 *
+	 * @returns {string}
+	 */
+	get defaultSort() {
+		if (this.primaryKey) {
+			return this.primaryKey + " ASC";
+		}
+		return this.properties[0].columnName + " ASC";
 	}
 
 	/**
@@ -90,9 +91,9 @@ class ModelBase {
 		if (!this.schema) {
 			let M = require("./SchemaModel");
 			let m = new M(this.req);
-			await m.init();
 			m.debug = this.debug;
-			this._schema = await m.get(this.tableName, await this.dataSource());
+			await m.getSchema();
+			this._schema = await m.get(this.tableName);
 		}
 		return this.schema;
 	}
@@ -120,6 +121,7 @@ class ModelBase {
 			this.log("get fields", "from cache");
 			this._fields = global.fieldCache[this.tableName];
 		}
+
 		return this._fields;
 	}
 
@@ -128,12 +130,11 @@ class ModelBase {
 	}
 
 	async getFields() {
-		this.log("getFields");
 		if (!this.fields) {
 			let M = require("./FieldModel");
 			let m = new M(this.req);
-			await m.init();
 			m.debug = this.debug;
+			await m.init();
 			let fields = await m.get(this.tableName);
 			if (!fields) {
 				fields = [];
@@ -180,7 +181,7 @@ class ModelBase {
 	/**
 	 * Generate a unique cache key for this request
 	 * @param query
-	 * @param id
+	 * @param [id]
 	 * @returns {string}
 	 */
 	getCacheKey(query, id) {
@@ -210,7 +211,7 @@ class ModelBase {
 
 	async getPrimaryKey() {
 		if (!this.primaryKey) {
-			this._primaryKey = await this.getSchema(this.tableName).primaryKey;
+			this._primaryKey = this.getSchema(this.tableName).primaryKey;
 		}
 		return this.primaryKey;
 	}
@@ -224,7 +225,7 @@ class ModelBase {
 
 	async getRelations() {
 		if (!this.relations) {
-			this._relations = await getRelations(this.tableName, this);
+			this._relations = await getRelations(this.tableName, this) || {};
 		}
 		return this.relations;
 	}
@@ -238,27 +239,20 @@ class ModelBase {
 
 	async getForeignKeys() {
 		if (!this.foreignKeys) {
-			this._foreignKeys = await getForeignKeys(this.tableName, this);
+			this._foreignKeys = await getForeignKeys(this.tableName, this) || {};
 		}
 		return this.foreignKeys;
 	}
 
-	async dataSource() {
-		let schema = await this.getSchema();
-		if (schema.dataSource) {
-			return schema.dataSource;
-		}
-		return null;
-	}
-
 	/**
-	 * @param {string} - action (read,write)
+	 * @param {string} action (read,write)
 	 * @returns {string}
 	 */
-	async connectionString(action) {
-		let dataSource = util.types.isAsyncFunction(this.dataSource) ? await this.dataSource() : this.dataSource;
+	connectionString(action) {
+		let dataSource = this.dataSource;
 		action = action.toLowerCase() === "read" ? "Read" : "Write";
 		let dataSourceAction = (dataSource + "_" + action).toUpperCase();
+		//console.log(this.tableName + " looking for " + dataSourceAction + " or " + dataSource);
 
 		switch (action) {
 			case "Read" :
@@ -361,8 +355,8 @@ class ModelBase {
 	/**
 	 * @returns {string|*}
 	 */
-	async dbType() {
-		let cs = await this.connectionString("read");
+	dbType() {
+		let cs = this.connectionString("read");
 		if (cs.indexOf("postgresql://") === 0) {
 			this.db = "postgres";
 		} else if (cs.indexOf("mysql://") === 0) {
@@ -393,22 +387,22 @@ class ModelBase {
 
 		if (cs.indexOf("postgresql://") === 0) {
 			this.db = "pg";
-			return await require("./model-base/pool-postgres")(cs);
+			return await require("./model-base/pool-postgres")(cs, this.req);
 		} else if (cs.indexOf("mysql://") === 0) {
 			this.db = "mysql"
-			return await require("./model-base/pool-mysql")(cs);
+			return await require("./model-base/pool-mysql")(cs, this.req);
 		} else if (cs.indexOf("mssql://") === 0) {
 			this.db = "mssql"
-			return await require("./model-base/pool-mssql")(cs);
+			return await require("./model-base/pool-mssql")(cs, this.req);
 		} else if (cs.indexOf("redis://") === 0) {
 			this.db = "redis"
-			return await require("./model-base/pool-redis")(cs);
+			return await require("./model-base/pool-redis")(cs, this.req);
 		} else if (cs.indexOf("elastic://") === 0) {
 			this.db = "elastic"
-			return await require("./model-base/pool-elastic")(cs);
+			return await require("./model-base/pool-elastic")(cs, this.req);
 		} else if (cs.indexOf("mongo://") === 0) {
 			this.db = "mongo"
-			return await require("./model-base/pool-mongo")(cs);
+			return await require("./model-base/pool-mongo")(cs, this.req);
 		}
 
 		//TODO Elastic, Redis
@@ -466,15 +460,16 @@ class ModelBase {
 
 	/**
 	 * Create a query builder in the DB flavor of choice
-	 * @returns {module.QueryToSql|*}
+	 * @returns {QueryToSqlBase}
 	 */
-	get queryBuilder() {
+	get builder() {
 		if (this._builder) {
 			return this._builder;
 		}
 
 		let builder;
 		let cs = this.connectionString("read");
+
 
 		if (cs.indexOf("postgresql://") !== -1) {
 			builder = require("./model-base/QueryToPgSql");
@@ -510,22 +505,32 @@ class ModelBase {
 
 	/**
 	 *
-	 * @param {string | int} id
-	 * @param query - used to pass in select & join
+	 * @param {string|int} id
+	 * @param {object} [query] - used to pass in select & join
+	 * @param {boolean|number} [cache]
 	 * @returns {object|Promise}
 	 */
 	async read(id, query, cache) {
-		await this.getSchema();
 		if (query && query.join) {
-			await this.getRelations();
+			query.include = query.join;
+			delete query.join;
 		}
-
+		if (!id) {
+			return {
+				error : {
+					message : "Calls to read method must contain an id"
+				}
+			}
+		}
 		this.log("read", id);
+		await this.init();
+
 		let cacheKey;
 		if (cache === true) {
 			cacheKey = this.getCacheKey(query, id);
-			let record = await cacheManager.get(cacheKey);
+			let record = await this.cacheManager.get(cacheKey);
 			if (record) {
+				this.req.locals.cached = true;
 				return record;
 			}
 		}
@@ -536,13 +541,11 @@ class ModelBase {
 		};
 
 		ModelUtils.addPrimaryKeyToQuery(this, id, obj);
-
 		await ModelUtils.addJoinFromKeys(this, query, obj);
 
-		let builder = this.queryBuilder;
-		let command = builder.select(obj);
-
-		let result = await this.execute(command);
+		let builder = this.builder;
+		let {statement} = await builder.select(obj);
+		let result = await this.execute(statement);
 
 		if (result.error) {
 			return result;
@@ -551,11 +554,11 @@ class ModelBase {
 		if (result.length === 1) {
 			result = result[0];
 			result = await this.afterRead(result);
-			if (query && query.join) {
-				result = await ModelRelations.join(this, result, query);
+			if (query && query.include) {
+				result = await ModelRelations.include(this, result, query);
 			}
 			if (cacheKey) {
-				await cacheManager.set(cacheKey, result);
+				await this.cacheManager.set(cacheKey, result);
 			}
 			return result;
 		} else if (result.length === 0) {
@@ -570,7 +573,7 @@ class ModelBase {
 	 */
 	async create(data) {
 		this.log("create");
-		await this.getSchema();
+		await this.init();
 		let sleepCount = 0;
 		ModelUtils.checkPrimaryKey(this, data);
 
@@ -606,18 +609,9 @@ class ModelBase {
 
 		await this.beforeCreate(params);
 
-		let command = this.queryBuilder.insert(params);
-
-		if (command.error) {
-			return {
-				error: {
-					message: "Bad SQL Create",
-					e: command.error
-				}
-			};
-		}
-
-		let result = await this.execute(command);
+		let builder = this.builder;
+		let {statement} = await builder.insert(params);
+		let result = await this.execute(statement);
 
 		if (result.error) {
 			return result;
@@ -653,43 +647,274 @@ class ModelBase {
 		}
 
 		return data;
-
-		//This may happen if using a separate reader / writer server.
-		this.log("create", "Could Not Read after create " + this.tableName + " -> " + data[this.primaryKey]);
-
-		return {
-			error: {
-				message: "Could Not Read after create " + this.tableName + " -> " + data[this.primaryKey]
-			}
-		}
 	}
 
 	/**
 	 * Shorthand method for determining if a create or an update is necessary
-	 * @param query
 	 * @param data
 	 * @returns {object|Promise}
 	 */
-	async upsert(query, data) {
+	async upsert(data) {
 		this.log("upsert");
-		let result = this.findOne(query);
+		let result = this.exists(data[this.primaryKey]);
 		if (result) {
-			return await this.update(result.id, data);
+			if (result[this.primaryKey]) {
+				return this.update(result[this.primaryKey], data);
+			} else {
+				return {
+					error : {
+						message : "Found existing record during upsert, but could not determine primary key"
+					}
+				}
+			}
 		} else {
-			return await this.create(data);
+			return this.create(data);
 		}
 	}
 
 	/**
+	 * search for one or more records
+	 * @param {object} query
+	 * @param {boolean} [cache]
+	 * @returns {Promise<*>}
+	 */
+	async query(query, cache) {
+		if (query && query.join) {
+			query.include = query.join;
+			delete query.join;
+		} else if (!query) {
+			return {
+				error : {
+					message : "Cannot call without a query"
+				}
+			}
+		}
+		await this.init();
+
+		let cacheKey;
+		if (cache === true) {
+			cacheKey = this.getCacheKey(query);
+			let record = await this.cacheManager.get(cacheKey);
+			if (record) {
+				return record;
+			}
+		}
+
+		let obj = Object.assign({}, query);
+
+		await ModelUtils.addJoinFromKeys(this, query, obj);
+
+		let context = this;
+		let doQuery = async (offset, results) => {
+			results = results || [];
+			let query = Object.assign({}, obj);
+			let maxLimit = process.env.CORE_REQUEST_LIMIT && !isNaN(parseInt(process.env.CORE_REQUEST_LIMIT)) ? parseInt(process.env.CORE_REQUEST_LIMIT) : 500;
+			let originalLimit = !isNaN(obj.limit) ? obj.limit : maxLimit;
+			if (!isNaN(obj.limit) && obj.limit >= maxLimit) {
+				query.limit = Math.min(obj.limit, maxLimit);
+			}
+			query.offset = offset;
+
+			let builder = this.builder;
+			let {statement} = await builder.select(query);
+			let result = await this.execute(statement);
+
+			if (!result.error && result.length > 0) {
+				results = results.concat(result);
+				if (result.length === query.limit && results.length < originalLimit &&
+					process.env.CORE_ABORT_ON_DISCONNECT === "true") {
+					if (context.req && context.req.destroyed !== true &&
+						process.env.CORE_ABORT_ON_DISCONNECT === "true") {
+						console.log("abort query because connection ended");
+					} else {
+						return doQuery(offset += query.limit, results);
+					}
+				}
+			} else {
+				return result;
+			}
+			return results;
+		}
+
+		let results = await doQuery(obj.offset || 0);
+
+		if (this.req &&
+			this.req.destroyed === true &&
+			process.env.CORE_ABORT_ON_DISCONNECT === "true") {
+			return {
+				error: {
+					message: "Request ended prematurely"
+				}
+			}
+		}
+
+		await this.afterFind(results);
+
+		if (query.include) {
+			if (this.req && !this.req.locals.currentResults) {
+				this.req.locals.currentResults = results;
+			}
+			this.log("query::include", query.include);
+			if (this.debug || query.debug) {
+				Object.keys(query.include).forEach((item) => {
+					if (query.include[item] === true) {
+						query.include[item] = {};
+					}
+					query.include[item].debug = true
+				});
+			}
+			await ModelRelations.include(this, results, query);
+		}
+
+		if (cacheKey) {
+			await this.cacheManager.set(cacheKey, results);
+		}
+
+		return results;
+	}
+
+	/**
+	 *
+	 * @param {object} query
+	 * @param {boolean} [cache]
+	 * @returns {object|Promise}
+	 */
+	async count(query, cache) {
+		await this.init();
+		let cacheKey;
+		let result;
+		let q = query ? {where: Object.assign({}, query.where)} : {where: {}};
+
+		if (Object.keys(q.where).length === 0 && this.primaryKey) {
+			q.where[this.primaryKey] = {"!=": null}
+		}
+
+		if (cache === true) {
+			cacheKey = this.getCacheKey(q, "count");
+			result = await this.cacheManager.get(cacheKey);
+			if (result) {
+				return result;
+			}
+		}
+
+		/*
+		//TODO Do this in query-to-pgsql
+		if (this.dbType === "postgres") {
+			let command = `SELECT reltuples as rows FROM pg_class WHERE relname = '${this.tableName}';`
+			let result = await this.execute(command);
+			if (result.length > 0) {
+				return result[0].rows
+			}
+			return 0;
+		}
+		 */
+
+		let builder = this.builder;
+		let {statement} = await builder.count(q);
+		result = await this.execute(statement);
+
+		if (result && result.error) {
+			return result;
+		} else if (!result) {
+			return {
+				error: {
+					"message": "Count Failure"
+				}
+			}
+		}
+
+		if (result) {
+			if (this.db === "pg" && result[0].count) {
+				result = result[0].count;
+			} else {
+				let key = Object.keys(result[0]);
+				result = result[0][key];
+			}
+			if (cacheKey) {
+				await this.cacheManager.set(cacheKey, result, result > 10000 ? 120 : 60);
+			}
+			this.log("count", result);
+			return result;
+		} else {
+			return 0;
+		}
+	}
+
+	/**
+	 * Psuedo for query
+	 * @param {object} query
+	 * @param {boolean} [cache]
+	 * @returns {Promise<object>}}
+	 */
+	async find(query, cache) {
+		let cacheKey;
+		let results;
+		if (cache === true) {
+			cacheKey = this.getCacheKey(query, "find");
+			results = await this.cacheManager.get(cacheKey);
+			if (results) {
+				return results;
+			}
+		}
+		results = await this.query(query);
+
+		if (results.error) {
+			return results;
+		}
+
+		if (cacheKey) {
+			await this.cacheManager.set(cacheKey, results);
+		}
+
+		return results;
+	}
+
+	/**
+	 * Query to find one record
+	 * @param {object} query
+	 * @param {boolean} [cache] - cache the result?
+	 * @returns {Promise<*>}
+	 */
+	async findOne(query, cache) {
+		query.limit = 1;
+		let cacheKey;
+		let result;
+
+		if (cache === true) {
+			cacheKey = this.getCacheKey(query, "findone");
+			result = await this.cacheManager.get(cacheKey);
+			if (result) {
+				return result;
+			}
+		}
+
+		result = await this.query(query);
+
+		if (result.error) {
+			return result;
+		}
+
+		if (result && result.length > 0) {
+			if (cacheKey) {
+				let r = await this.cacheManager.set(cacheKey, result[0]);
+			}
+
+			return this.afterRead(result[0]);
+		}
+
+		return null;
+	}
+
+	/**
 	 * Update one record
-	 * @param id
-	 * @param data
-	 * @param fetch
+	 * @param {string|integer} id
+	 * @param {object} data
+	 * @param {boolean} [fetch]
 	 * @returns {object|Promise}
 	 */
 	async update(id, data, fetch) {
 		this.log("update");
-		await this.getSchema();
+		await this.init();
 
 		if (!id) {
 			return {
@@ -753,9 +978,9 @@ class ModelBase {
 		let proceed = await this.beforeUpdate(id, params);
 
 		if (proceed) {
-			let command = this.queryBuilder.update(query, params);
-
-			let result = await this.execute(command);
+			let builder = this.builder;
+			let {statement} = await builder.update(query, params);
+			let result = await this.execute(statement);
 
 			if (result.error) {
 				return result;
@@ -764,9 +989,9 @@ class ModelBase {
 			await this.afterUpdate(id, params);
 
 			if (this.historyEnabled) {
-				let HM = this.loadModel("HistoryModel");
-				let hm = new HM(this.req);
-				await hm.create(
+				let HistoryModel = this.loadModel("HistoryModel");
+				let historyModel = new HM(this.req);
+				await historyModel.create(
 					{
 						before: currentRecord,
 						after: params,
@@ -778,6 +1003,8 @@ class ModelBase {
 			if (fetch) {
 				return _.extend(currentRecord, params);
 			}
+
+			//TODO update attached relations
 
 			return {
 				id: id,
@@ -826,8 +1053,20 @@ class ModelBase {
 			};
 		}
 
-		let command = this.queryBuilder.update(query, params);
-		let result = await this.execute(command);
+		if (query.debug) {
+			let count = await this.count(query);
+			return {
+				result : {
+					message : `${count} Records would be affected by this update`,
+					query : query,
+					statement : this.lastCommand
+				}
+			}
+		}
+
+		let builder = this.builder;
+		let {statement} = await builder.update(query, params);
+		let result = await this.execute(statement);
 
 		if (result.error) {
 			return result;
@@ -836,222 +1075,22 @@ class ModelBase {
 	}
 
 	/**
-	 * search for one or more records
-	 * @param {object} query
-	 * @returns {Promise<*>}
-	 */
-	async query(query, cache) {
-
-		await this.getSchema();
-		if (query.join) {
-			await this.getRelations();
-		}
-
-		let cacheKey;
-		if (cache === true) {
-			cacheKey = this.getCacheKey(query);
-			let record = await cacheManager.get(cacheKey);
-			if (record) {
-				return record;
-			}
-		}
-
-		let obj = Object.assign({}, query);
-
-		await ModelUtils.addJoinFromKeys(this, query, obj);
-
-		let context = this;
-		let doQuery = async (offset, results) => {
-			results = results || [];
-			let query = Object.assign({}, obj);
-			;
-			let maxLimit = process.env.CORE_REQUEST_LIMIT && !isNaN(parseInt(process.env.CORE_REQUEST_LIMIT)) ? parseInt(process.env.CORE_REQUEST_LIMIT) : 500;
-			let originalLimit = !isNaN(obj.limit) ? obj.limit : maxLimit;
-			if (!isNaN(obj.limit) && obj.limit >= maxLimit) {
-				query.limit = Math.min(obj.limit, maxLimit);
-			}
-			query.offset = offset;
-
-			let command = this.queryBuilder.select(query);
-			let result = await this.execute(command, this.queryBuilder.postProcess);
-
-			if (!result.error && result.length > 0) {
-				results = results.concat(result);
-				if (result.length === query.limit && results.length < originalLimit) {
-					if (!context.req || !context.req.locals.isConnected === false) {
-						return doQuery(offset += query.limit, results);
-					}
-				}
-			} else {
-				return result;
-			}
-			return results;
-		}
-
-		let results = await doQuery(obj.offset || 0);
-
-
-		if (this.req && this.req.locals.isConnected === false) {
-			return {
-				error: {
-					message: "Request ended prematurely"
-				}
-			}
-		}
-
-		await this.afterFind(results);
-
-		if (query.join) {
-			if (this.req && !this.req.locals.currentResults) {
-				this.req.locals.currentResults = results;
-			}
-			results = await ModelRelations.join(this, results, query);
-		} else {
-			this.log("query", "no join");
-		}
-
-		if (cacheKey) {
-			await cacheManager.set(cacheKey, results);
-		}
-
-		return results;
-	}
-
-	/**
-	 *
-	 * @param query
-	 * @returns {object|Promise}
-	 */
-	async count(query, cache) {
-		await this.getSchema();
-		let cacheKey;
-		let result;
-		let q = query ? {where: Object.assign({}, query.where)} : {where: {}};
-
-		if (cache === true) {
-			cacheKey = this.getCacheKey(q, "count");
-			result = await cacheManager.get(cacheKey);
-			if (result) {
-				return result;
-			}
-		}
-
-		/*
-		//TODO Do this in query-to-pgsql
-		if (this.dbType === "postgres") {
-			let command = `SELECT reltuples as rows FROM pg_class WHERE relname = '${this.tableName}';`
-			let result = await this.execute(command);
-			if (result.length > 0) {
-				return result[0].rows
-			}
-			return 0;
-		}
-		 */
-
-		let command = this.queryBuilder.count(q);
-		result = await this.execute(command);
-
-		if (result && result.error) {
-			return result;
-		} else if (!result) {
-			return {
-				error: {
-					"message": "Count Failure"
-				}
-			}
-		}
-
-		if (result) {
-			if (this.db === "pg" && result[0].count) {
-				result = result[0].count;
-			} else {
-				let key = Object.keys(result[0]);
-				result = result[0][key];
-			}
-			if (cacheKey) {
-				await cacheManager.set(cacheKey, result, result > 10000 ? 120 : 60);
-			}
-			this.log("count", result);
-			return result;
-		} else {
-			return 0;
-		}
-	}
-
-	/**
-	 * Psuedo for query
-	 * @param {object} query
-	 * @returns {{object|Promise}}
-	 */
-	async find(query, cache) {
-		await this.getSchema();
-		let cacheKey;
-		let results;
-		if (cache === true) {
-			cacheKey = this.getCacheKey(query, "find");
-			results = await cacheManager.get(cacheKey);
-			if (results) {
-				return results;
-			}
-		}
-		results = await this.query(query);
-
-		if (results.error) {
-			return results;
-		}
-
-		if (cacheKey) {
-			await cacheManager.set(cacheKey, results);
-		}
-
-		return results;
-	}
-
-	/**
-	 * Query to find one record
-	 * @param {object} query
-	 * @param {boolean} cache - cache the result?
-	 * @returns {Promise<*>}
-	 */
-	async findOne(query, cache) {
-		await this.getSchema();
-		query.limit = 1;
-		let cacheKey;
-		let result;
-
-		if (cache === true) {
-			cacheKey = this.getCacheKey(query, "findone");
-			result = await cacheManager.get(cacheKey);
-			if (result) {
-				return result;
-			}
-		}
-
-		result = await this.query(query);
-
-		if (result.error) {
-			return result;
-		}
-
-		if (result && result.length > 0) {
-			if (cacheKey) {
-				await cacheManager.set(cacheKey, result[0]);
-			}
-
-			return this.afterRead(result[0]);
-		}
-
-		return null;
-	}
-
-	/**
 	 * destroy one record
 	 * @param id
+	 * @param [isDebug]
 	 * @returns {Promise<*>}
 	 */
 	async destroy(id, isDebug) {
+		if (!id) {
+			return {
+				error : {
+					message : "Cannot call destroy without a specific id"
+				}
+
+			}
+		}
 		this.log("destroy", id);
-		await this.getSchema();
+		await this.init();
 		let record = await this.read(id);
 
 		if (record) {
@@ -1060,7 +1099,7 @@ class ModelBase {
 
 			if (proceed !== false) {
 				let query = {};
-				if (this.schema.validateProperty(this.primaryKey, id) === true) {
+				if (this.schema.validateProperty(this.primaryKey, id, "destroy") === true) {
 					this.addPrimaryKeyToQuery(id, query);
 				} else {
 					return {
@@ -1070,18 +1109,21 @@ class ModelBase {
 					}
 				}
 
-				let command = this.queryBuilder.delete(query);
+				let builder = this.builder;
+				let {statement} = await builder.delete(query);
 
-				if (isDebug) {
+				if (query.debug || isDebug) {
 					return {
 						error: {
-							sql: command.toString()
+							sql: statement
 						}
 					}
 				}
 
-				let result = await this.execute(command);
+				let result = await this.execute(statement);
 				await this.afterDestroy(id, record);
+
+				//TODO delete attached relations
 
 				return result;
 			} else {
@@ -1105,32 +1147,41 @@ class ModelBase {
 	/**
 	 * Delete one or more matching records
 	 * @param query
+	 * @param {boolean} [isDebug] - test a query before running it
 	 * @returns {Promise<*>}
 	 */
 	async destroyWhere(query, isDebug) {
-		await this.getSchema();
-		let command = this.queryBuilder.delete(query);
-		if (isDebug) {
+		await this.init();
+		let affectedRows = await this.find({where:query.where}, select[this.primaryKey]);
+		if (affectedRows.error) {
+			return affectedRows;
+		}
+		if (isDebug || query.debug || (query.limit && affectedRows.length > query.limit)) {
 			return {
-				error: {
-					query: command.toString()
+				result : {
+					message : `${affectedRows.length} Records would be affected by this update`,
+					statement : this.lastCommand
 				}
 			}
 		}
-		let result = await this.execute(command);
-		return result;
+		let {statement} = await this.builder.delete({where:query.where});
+		let result = this.execute(statement);
+
+		//TODO delete attached relations
 	}
 
 
 	/**
 	 * Does a record with the id exist
-	 * @param id
+	 * @param {string|integer} id
+	 * @param {boolean} [cache]
 	 * @returns {Promise<boolean>}
 	 */
 	async exists(id, cache) {
-		await this.getSchema();
+		await this.init();
 		let query = {
 			where: {},
+			limit : 1
 		};
 		ModelUtils.addPrimaryKeyToQuery(this, id, query);
 		let result = await this.count(query, cache);
@@ -1145,7 +1196,7 @@ class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async setKey(id, key, value) {
-		await this.getSchema();
+		await this.init();
 		let obj = {}
 		obj[key] = value;
 
@@ -1153,26 +1204,12 @@ class ModelBase {
 			return null;
 		}
 
-		let query = {
-			where: {}
-		};
-		ModelUtils.addPrimaryKeyToQuery(this, id, query);
-
-		let command = this.queryBuilder.update(
-			query,
+		return this.update(
+			id,
 			{
-				[key]: value
+				[key] : value
 			}
 		);
-
-		try {
-			let result = await this.execute(command, this.queryBuilder.postProcess);
-			return result;
-		} catch (e) {
-			//console.log(command.toString());
-			console.log(e);
-			return null;
-		}
 	}
 
 	/**
@@ -1182,25 +1219,11 @@ class ModelBase {
 	 * @returns {Promise<*>}
 	 */
 	async getKey(id, key) {
-		await this.getSchema();
+		await this.init();
 		let query = {
 			where: {}
 		};
-		ModelUtils.addPrimaryKeyToQuery(id, query);
-		let command = this.queryBuilder.select(
-			{
-				query,
-				select: [key]
-			}
-		);
-
-		try {
-			let result = await this.execute(command, this.queryBuilder.postProcess);
-			return result;
-		} catch (e) {
-			console.log(e);
-			return null;
-		}
+		return this.read(id, {select:[key]})
 	}
 
 
@@ -1212,7 +1235,7 @@ class ModelBase {
 	 * @deprecated
 	 */
 	async join(results, query) {
-		return await ModelRelations.join(this, results, query)
+		await ModelRelations.include(this, results, query)
 	}
 
 	async logExecuteError(client, sql) {
@@ -1224,25 +1247,29 @@ class ModelBase {
 			this.log("execute error", e.message, null, true);
 			this.log("execute error", sql, null, true);
 			this.log("execute pool counts", "totalCount->" + client.totalCount + " idleCount->" + client.idleCount + " waitingCount->" + client.waitingCount, null, true);
-			let payload = JSON.stringify(
-				{
-					endpoint: "operation",
-					payload:
-						{
-							executeError: e.message,
-							sql: e.sql,
-							counts: "totalCount->" + client.totalCount + " idleCount->" + client.idleCount + " waitingCount->" + client.waitingCount
-						}
-				}
-			);
 
-			let params = {
-				Message: payload,
-				TopicArn: process.env.SNS_NOTIFICATION_ARN
-			};
+			if (process.env.CORE_AWS_ENABLED) {
 
-			//let result = new AWS.SNS({apiVersion: '2010-03-31'}).publish(params).promise().then(() => {
-			//});
+				let payload = JSON.stringify(
+					{
+						endpoint: "operation",
+						payload:
+							{
+								executeError: e.message,
+								sql: e.sql,
+								counts: "totalCount->" + client.totalCount + " idleCount->" + client.idleCount + " waitingCount->" + client.waitingCount
+							}
+					}
+				);
+
+				let params = {
+					Message: payload,
+					TopicArn: process.env.SNS_NOTIFICATION_ARN
+				};
+
+				let result = new AWS.SNS({apiVersion: '2010-03-31'}).publish(params).promise().then(() => {
+				});
+			}
 
 		} catch (e) {
 
@@ -1252,8 +1279,8 @@ class ModelBase {
 
 	/**
 	 * Call the DB with query!!!
-	 * @param {queryBuilder | string }command
-	 * @param {boolean} postProcess
+	 * @param {builder | string } command
+	 * @param {object} [client]
 	 * @returns {Promise<*>}
 	 */
 	async execute(command, client) {
@@ -1286,6 +1313,13 @@ class ModelBase {
 				await this.logExecuteError(client, sql);
 				this.lastError = e;
 
+				this.addError(
+					{
+						message: e.message,
+						sql: sql
+					}
+				);
+
 				return {
 					error: {
 						message: e.message,
@@ -1310,12 +1344,13 @@ class ModelBase {
 			}
 
 			this.log("execute", "query time " + (new Date().getTime() - startTime));
+			this.addMetric(sql, new Date().getTime() - startTime)
 
 			return results;
 
 		} else {
 			if (process.env.CORE_READ_ONLY === "true") {
-				console.log("Updating disabled by env CORE_READ_ONLYs")
+				this.log("execute", "Updating disabled by env CORE_READ_ONLY")
 				return {}
 			}
 			client = client || await this.getClient("write");
@@ -1334,6 +1369,13 @@ class ModelBase {
 
 				e.sql = sql;
 
+				this.addError(
+					{
+						message: e.message,
+						sql: sql
+					}
+				);
+
 				return {
 					error: {
 						message: e.message,
@@ -1343,6 +1385,7 @@ class ModelBase {
 			}
 
 			await this.releaseClient(client);
+			this.addMetric(sql, new Date().getTime() - startTime)
 
 			switch (this.db) {
 				case "mssql" :
@@ -1413,7 +1456,7 @@ class ModelBase {
 	}
 
 	/**
-	 * Before updating a record, you may wish to modify the data, or check pmerissions
+	 * Before updating a record, you may wish to modify the data, or check permissions
 	 * @param id
 	 * @param data
 	 * @returns {Promise<boolean>}
@@ -1444,7 +1487,6 @@ class ModelBase {
 		return data;
 	}
 
-
 	/**
 	 * Now that record is gone, maybe you want to move it to some log file, or history table
 	 * @param id
@@ -1468,31 +1510,41 @@ class ModelBase {
 
 	/**
 	 * Override as needed to set the updatedAt column (if this table even has one). If this is complex, consider using beforeUpdate
-	 * @returns {string}
+	 * @returns {string | null}
 	 */
 	get updatedAt() {
-		return "updatedAt";
+		if (this.properties.hasOwnProperty("updatedAt")) {
+			return "updatedAt";
+		}
+		return null;
 	}
 
 	/**
 	 * Override as needed to set the createdAt column (if this table even has one). If this is complex, consider using beforeCreate
-	 * @returns {string}
+	 * @returns {string | null}
 	 */
 	get createdAt() {
-		return "createdAt";
+		if (this.properties.hasOwnProperty("createdAt")) {
+			return "createdAt";
+		}
+		return null;
 	}
 
+	/**
+	 * Use when foreign keys are show in the datatable, so instead of an id, you can show the name in the other table
+	 * @returns {string | null}
+	 */
 	get name() {
 		if (this.properties.hasOwnProperty("name")) {
 			return "name";
 		}
-
+		return null;
 	}
 
 	/**
 	 * Helper method to load a model by name
 	 * @param modelName
-	 * @returns {Class}
+	 * @returns {ModelBase}
 	 */
 	loadModel(modelName) {
 		if (typeof modelName !== "string") {
@@ -1501,13 +1553,14 @@ class ModelBase {
 		return getModel(modelName);
 	}
 
-	log(method, message, id, forceLogging) {
-		if (this.debug || forceLogging) {
+	log(method, message, id, level, force) {
+		if (this.debug || force) {
+			level = level || "warn";
 			if (message && typeof message === "object") {
-				message = JSON.stringify(message);
+				message = beautify(message);
 			}
 			//Show as error for stack tracing
-			console.error(this.tableName + (method ? "::" + method : "") + (message ? " -> " + message : ""));
+			console[level](this.tableName + (method ? "::" + method : "") + (message ? " -> " + message : ""));
 
 			if (process.env.CORE_LOGGING === "true") {
 				if (this.req && this.req.locals.isAdmin) {
@@ -1532,6 +1585,30 @@ class ModelBase {
 
 				});
 			}
+		}
+	}
+
+	addMetric(request, time) {
+		if (this.req && this.req.locals.metrics) {
+			this.req.locals.metrics[this.tableName] = this.req.locals.metrics[this.tableName] || [];
+			this.req.locals.metrics[this.tableName].push(
+				{
+					request: request,
+					time: time
+				}
+			)
+		}
+	}
+
+	addError(error) {
+		let e = {
+			model: this.tableName,
+			sql: this.lastCommand.toString(),
+			error: error
+		};
+		if (this.req) {
+			this.req.locals.errors = this.req.locals.error || [];
+			this.req.locals.errors.push(e)
 		}
 	}
 

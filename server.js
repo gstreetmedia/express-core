@@ -21,7 +21,7 @@ let coreRoleManger = require("./middleware/role-manager");
 let roleManager = require("./middleware/role-manager");
 let roleFailure = require("./middleware/role-failure");
 
-let appRouter = require("./router/app-router");
+let appRouter = require("./router/_app-router");
 let viewRouter = require("./router/view-router");
 let adminRouter = require("./router/admin-router");
 let cache = require("./helper/cache-manager");

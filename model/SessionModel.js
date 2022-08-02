@@ -90,12 +90,12 @@ class SessionModel extends ModelBase {
 
 	/**
 	 * Get a session token for this user record
+	 * @param userId
 	 * @param data - can be anything, but should include at least the user.id as either data.id or data.user.id or data.userId
-	 * @param req
-	 * @param maxAge
+	 * @param [maxAge]
 	 * @returns {Promise<*>}
 	 */
-	async getToken(userId, data, req, maxAge) {
+	async getToken(userId, data, maxAge) {
 
 		data = _.cloneDeep(data);
 
@@ -105,8 +105,8 @@ class SessionModel extends ModelBase {
 			)
 		}
 
-		let ipAddress = getIpAddress(req);
-		let userAgent = req.headers['user-agent'];
+		let ipAddress = getIpAddress(this.req);
+		let userAgent = this.req.headers['user-agent'];
 
 		await this.houseKeeping(userId);
 

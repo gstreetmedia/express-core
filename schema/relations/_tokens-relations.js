@@ -1,4 +1,4 @@
-exports.types = {
+exports.relations = {
 	config: {
 		type: "HasOne",
 		model: "ConfigModel",
@@ -10,7 +10,7 @@ exports.types = {
 	roles: {
 		type: "HasMany",
 		model: "RoleModel",
-		throughClass: "TokenRoleModel",
+		throughModel: "TokenRoleModel",
 		join: {
 			from: "id",
 			through: {
@@ -26,8 +26,7 @@ exports.types = {
 		join: {
 			from: "id",
 			to: "tokenId"
-		},
-		debug : true
+		}
 	},
 	tokenPermissions: {
 		type: "HasMany",

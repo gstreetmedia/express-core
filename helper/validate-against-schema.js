@@ -12,14 +12,12 @@ let moment = require("moment-timezone");
  */
 let validate = (key, value, schema, action) => {
 
-	if (!schema.properties.hasOwnProperty(key)) {
-		return {
-			message : "Key not in Properties",
-			key : key
-		};
+	let property = schema.properties[key]; //ToDO key a.b.c
+
+	if (!property) {
+		return false;
 	}
 
-	let property = schema.properties[key]; //ToDO key a.b.c
 	let type = schema.properties[key].type;
 	let format = schema.properties[key].format;
 	let valid = false;
@@ -33,17 +31,20 @@ let validate = (key, value, schema, action) => {
 	};
 
 	let error = (message) => {
+		console.warn(key + "->" + message);
 		e.error.message.push(message);
 	}
 
-	if (value === null && property.allowNull === true) {
+	if (value === null && property.allowNull !== false) {
 		return true;
 	} else if (value === null) {
 		error(`cannot be null`);
+		return e;
 	}
 
 	if (required(key, value, schema) === false) {
 		error(`is required and cannot be null`);
+		return e;
 	}
 
 	switch (type) {
@@ -106,7 +107,7 @@ let validate = (key, value, schema, action) => {
 
 			return !valid ? e : true;
 		case "array" :
-			valid = _.isArray(value);
+			valid = Array.isArray(value);
 			if (!valid) {
 				error(`not a valid array`);
 			}
@@ -149,15 +150,15 @@ let validate = (key, value, schema, action) => {
 					}
 				}
 			}
-			return !valid ? e : true;
+			break;
 		case "object" :
 			switch (format) {
 				case "array" :
-					valid = _.isArray(value);
+					valid = Array.isArray(value);
 					if (!valid) {
 						error(`not a valid array`);
 					}
-					return !valid ? e : true;
+					break;
 				case "geometry" :
 					return true;
 					//return !valid ? e : true;
@@ -170,12 +171,8 @@ let validate = (key, value, schema, action) => {
 						let keys = Object.keys(property.properties);
 						for (const key in keys) {
 							valid = validate(key, value[key], property, action);
-							if (valid === false) {
-								return false;
-							}
 						}
 					}
-					return !valid ? e : true;
 			}
 			break;
 		case "boolean" :
@@ -183,15 +180,14 @@ let validate = (key, value, schema, action) => {
 			if (!valid) {
 				error(`not a valid boolean`);
 			}
-			return !valid ? e : true;
+			break;
 		default : //Assumed to be string
-			if (_.isArray(property.enum) && property.enum.includes(value)) {
+			if (Array.isArray(property.enum) && property.enum.includes(value)) {
 				return true;
-			} else if (_.isArray(property.enum)) {
+			} else if (Array.isArray(property.enum)) {
 				if (!valid) {
-					error(`not an enumarated value`);
+					error(`not an enumarated value ${value}. Valid values are ${property.enum}`);
 				}
-				return !valid ? e : true;
 			}
 
 			switch (format) {
@@ -290,8 +286,12 @@ let validate = (key, value, schema, action) => {
 						}
 					}
 			}
-			return !valid ? e : true;
 	}
+
+	if (e.error.message.length > 0) {
+		return false;
+	}
+	return true;
 }
 
 let required = (key, value, schema) => {
@@ -330,6 +330,11 @@ let validateObject = (data, schema, action) => {
 			)
 		}
 	}
+	if (errors.length > 0) {
+		console.log(schema);
+		console.warn(" error count -> " + errors.length);
+	}
+
 	return errors.length > 0 ? {errors:errors,warnings:warnings} : true;
 }
 

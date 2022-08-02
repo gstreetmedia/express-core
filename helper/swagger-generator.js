@@ -1,4 +1,4 @@
-const listEndpoints = require('./view/endpoints-lookup');
+const listEndpoints = require('./get-endpoints');
 const fs = require("fs");
 const inflectFromTable = require("./inflect-from-table");
 const inflectFromRoute = require("./inflect-from-route");
@@ -6,6 +6,8 @@ const pathToRegexp = require('path-to-regexp');
 const _ = require("lodash");
 const ModelBase = require("../model/ModelBase");
 const jsonBeautify = require("json-beautify");
+const {getDescription} = require("graphql");
+const inflector = require("./inflector");
 
 module.exports = async(app, options) => {
 
@@ -19,6 +21,7 @@ module.exports = async(app, options) => {
 	let SchemaModel = new ModelBase().loadModel("SchemaModel");
 	let sm = new SchemaModel();
 	await sm.init();
+	sm.debug = false;
 
 	let obj = {
 		openapi: "3.0.0",
@@ -127,7 +130,7 @@ module.exports = async(app, options) => {
 			}
 		},
 		{
-			name: "join",
+			name: "include",
 			in: "query",
 			description: "A json encoded object of relations to join",
 			required: false,
@@ -150,12 +153,14 @@ module.exports = async(app, options) => {
 				}
 			}
 		);
-
-		let schema = await sm.get(item.table);
-		if (!schema) {
-			schema = await sm.get(item.table.substring(0,item.table.length-1));
-			if (schema) {
-				item.table = item.table.substring(0,item.table.length-1)
+		let schema;
+		if (item.table) {
+			schema = await sm.get(item.table);
+			if (!schema) {
+				schema = await sm.get(item.table.substring(0, item.table.length - 1));
+				if (schema) {
+					item.table = item.table.substring(0, item.table.length - 1)
+				}
 			}
 		}
 
@@ -196,9 +201,7 @@ module.exports = async(app, options) => {
 					parameter.in = "path";
 					delete parameter.prefix;
 					delete parameter.delimiter;
-					if (parameter.optional === false) {
-						parameter.required = true;
-					}
+					parameter.required = true;
 					delete parameter.optional;
 					delete parameter.repeat;
 					delete parameter.pattern;
@@ -217,6 +220,33 @@ module.exports = async(app, options) => {
 
 		if (!obj.paths[path]) {
 			obj.paths[path] = {};
+		}
+
+		const getSummary = (path, method)=>{
+
+			if (!schema) {
+				return "";
+			}
+			switch (method) {
+				case "get" :
+					if (path.indexOf("{id}")===-1) {
+						return `Query for ${schema.title}`
+					}
+					return `Read a single ${inflector.singularize(schema.title)}`
+				case "post" :
+					`Create a ${schema.title}`
+				case "put" :
+					if (path.indexOf("{id}")===-1) {
+						return `Update a group of ${schema.title} by query`
+					}
+					return `Update a single ${inflector.singularize(schema.title)}`
+
+				case "delete" :
+					if (path.indexOf("{id}")===-1) {
+						return `Delete a group of ${schema.title} by query`
+					}
+					return `Delete a single ${inflector.singularize(schema.title)}`
+			}
 		}
 
 		item.methods.forEach(
@@ -270,6 +300,7 @@ module.exports = async(app, options) => {
 				} else if (method === "delete") {
 					obj.paths[path][method].parameters = routeParameters;
 				}
+				obj.paths[path][method].summary = getSummary(path, method);
 				obj.paths[path][method].security = [{"applicationKey": []}, {"applicationSecret": []}, {"authorizationBearer": []} ]
 			}
 		);

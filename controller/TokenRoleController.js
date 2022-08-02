@@ -1,5 +1,5 @@
 const ControllerBase = require('./ControllerBase');
-const Model = require('../model/TokenRoleModel');
+const Model = require("../helper/get-model")("TokenRoleModel");
 
 class TokenRoleController extends ControllerBase {
 	/**

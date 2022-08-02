@@ -1,7 +1,7 @@
 exports.foreignKeys = {}
 exports.relations = {
 	userPermissions : {
-		type: "HasMany",
+		relation: "HasMany",
 		model: "UserPermissionModel",
 		join: {
 			from: "id",
@@ -9,7 +9,7 @@ exports.relations = {
 		}
 	},
 	roles : {
-		type: "HasMany",
+		relation: "HasMany",
 		model: "RoleModel",
 		throughModel: "UserRoleModel",
 		join: {

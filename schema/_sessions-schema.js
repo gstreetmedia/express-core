@@ -3,7 +3,7 @@ module.exports = {
     $id: "sessions.json",
     title: "Sessions",
     dataSource: "membio_mls",
-    tableName: "sessions",
+    tableName: "_sessions",
     description: "Generated: Wed Mar 18 2020 11:06:45 GMT-0700 (Pacific Daylight Time)",
     primaryKey: "id",
     baseName : "session",

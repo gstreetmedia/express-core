@@ -103,7 +103,7 @@ class QueryToMssql extends QueryBase {
 							}
 							return null;
 						default :
-							return QueryToSql.decodeQuery(value).trim();
+							return this.decodeQuery(value).trim();
 					}
 				} else {
 					return _.isString(value) ? value.trim() : value;

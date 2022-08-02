@@ -34,7 +34,7 @@ class QueryToMysql extends QueryBase{
 	 * @param {Object} property - a single json schema property
 	 * @returns {*}
 	 */
-	processType(value, property, isInsertOrUpdate) {
+	processType(value, property) {
 		let context  = this;
 
 		switch (property.type) {
@@ -49,7 +49,7 @@ class QueryToMysql extends QueryBase{
 				}
 				break;
 			case "array" :
-				if (_.isArray(value)) {
+				if (Array.isArray(value)) {
 					if (property.format === "string") {
 						return '["' + value.join('","') + '"]';
 					} else {
@@ -79,14 +79,14 @@ class QueryToMysql extends QueryBase{
 					return null;
 				}
 				return value;
-				break;
+
 			case "boolean" :
 				if (typeof value === "string") {
 					return value === "1" || value === "true";
 				} else {
 					return value;
 				}
-				break;
+
 			case "string" :
 				if (property.format) {
 					switch (property.format) {
@@ -106,7 +106,7 @@ class QueryToMysql extends QueryBase{
 				} else {
 					return _.isString(value) ? value.trim() : value;
 				}
-				break;
+
 		}
 		return value;
 	}

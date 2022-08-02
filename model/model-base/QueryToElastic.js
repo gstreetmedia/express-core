@@ -163,6 +163,10 @@ class QueryBuilder {
 		}
 	}
 
+	toString() {
+		return this;
+	}
+
 }
 
 class QueryToElastic extends QueryBase {
@@ -177,10 +181,10 @@ class QueryToElastic extends QueryBase {
 	 * @param {string} compare - the comparitor, gt, >, < lt, !, != etc
 	 * @param {string|array|number} value - the string, array, number, etc
 	 * @param {QueryBuilder} qb
-	 * @param {{filter: [], must_not: [], should: [], range: {}, must: [], wildcard: [], toString: toString, sort: [], nested: []}} qb - the current knex queryBuilder
+	 * @param {{filter: [], must_not: [], should: [], range: {}, must: [], wildcard: [], toString: toString, sort: [], nested: []}} qb - the current knex builder
 	 * @param {string} orAnd
 	 */
-	processCompare(key, compare, value, qb, group) {
+	async processCompare(key, compare, value, qb, group) {
 
 
 		let property;
@@ -248,7 +252,7 @@ class QueryToElastic extends QueryBase {
 			case "ne" :
 				if (value === null) {
 					qb.mustNot({term : {[columnName]: null}}, property);
-				} else if (_.isArray(value)) {
+				} else if (Array.isArray(value)) {
 					qb.mustNot({terms : {[columnName]: value}}, property);
 				} else {
 					qb.mustNot({term : {[columnName]: value}}, property);
@@ -288,7 +292,7 @@ class QueryToElastic extends QueryBase {
 				if (group === "or") {
 					if (value === null) {
 						qb.should({term : {[columnName] : null}}, property);
-					} else if (_.isArray(value)) {
+					} else if (Array.isArray(value)) {
 						qb.should({terms : {[columnName] : null}}, property);
 					} else {
 						qb.should({terms : {[columnName] : null}}, property);
@@ -296,7 +300,7 @@ class QueryToElastic extends QueryBase {
 				} else {
 					if (value === null) {
 						qb.filter({term : {[columnName]: null}}, property);
-					} else if (_.isArray(value)) {
+					} else if (Array.isArray(value)) {
 						qb.filter({terms : {[columnName]: value}}, property);
 					} else {
 						qb.filter({term : {[columnName]: value}}, property);
@@ -506,7 +510,6 @@ class QueryToElastic extends QueryBase {
 	}
 
 	processType(value, property) {
-		let v;
 		switch (property.type) {
 			case "number" :
 				if (property.format === "decimal") {
@@ -529,6 +532,13 @@ class QueryToElastic extends QueryBase {
 		if (this.properties.hasOwnProperty(item)) {
 			return item;
 		}
+	}
+
+	returnObject(queryBuilder) {
+		return {
+			queryBuilder : queryBuilder,
+			statement : queryBuilder
+		};
 	}
 
 }

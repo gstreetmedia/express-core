@@ -3,7 +3,7 @@ module.exports = {
 	$id: "users.json",
 	title: "Users",
 	dataSource: "default",
-	tableName: "users",
+	tableName: "_users",
 	description: "Generated: Mon Feb 08 2021 16:50:04 GMT-0800 (Pacific Standard Time)",
 	primaryKey: "id",
 	baseName : "user",
@@ -144,6 +144,23 @@ module.exports = {
 			allowNull: true,
 			description: "",
 			columnName: "phone_status"
+		},
+		twoFactorCode: {
+			type: "number",
+			format : "integer",
+			maxLength: 8,
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "otp"
+		},
+		twoFactorCodeExpiresAt: {
+			type: "string",
+			format: "date-time",
+			default: null,
+			allowNull: true,
+			description: "",
+			columnName: "otp_expires_at"
 		},
 		role: {
 			type: "string",

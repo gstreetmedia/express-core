@@ -2,8 +2,9 @@ const _ = require("lodash");
 const moment = require("moment-timezone");
 const uuid = require("node-uuid");
 const inflector = require("../../helper/inflector");
-const knex = require("knex");
+const knex = require("knex")
 const sqlString = require("sqlstring");
+const getModel = require("../../helper/get-model");
 
 class QueryToSqlBase {
 
@@ -12,10 +13,13 @@ class QueryToSqlBase {
 	 */
 	constructor(model) {
 		this.model = model;
-		//console.log("New Builder for " + this.model.schema.tableName);
 		if (!this.model.properties) {
-			console.log(model);
-			throw new Error("Please pass in properties to builder -> " + this.model.schema.tableName);
+			console.log(this.model);
+			throw new Error("Please pass in properties to builder -> " + this.model.constructor.name);
+		}
+		if (!this.model.tableName) {
+			console.log(this.model);
+			throw new Error("Please pass in tableName to builder -> " + this.model.constructor.name);
 		}
 	}
 
@@ -31,12 +35,32 @@ class QueryToSqlBase {
 		return this.model.primaryKey;
 	}
 
+	/**
+	 * @returns {JsonSchema}
+	 */
 	get schema() {
 		return this.model.schema;
 	}
 
+	get defaultSort() {
+		if (this.model.defaultSort) {
+			return this.model.defaultSort;
+		}
+		return this.model.primaryKey + " ASC";
+	}
+
+	get relations() {
+		return this.model.relations;
+	}
+
+	loadModel(model) {
+		if (typeof model !== "string") {
+			return model;
+		}
+		return getModel(model);
+	}
+
 	/**
-	 *
 	 * @returns {string[]}
 	 */
 	get keywords() {
@@ -44,7 +68,6 @@ class QueryToSqlBase {
 	}
 
 	/**
-	 *
 	 * @returns {string}
 	 */
 	get like() {
@@ -52,7 +75,6 @@ class QueryToSqlBase {
 	}
 
 	/**
-	 *
 	 * @returns {string}
 	 */
 	get client() {
@@ -60,14 +82,9 @@ class QueryToSqlBase {
 	}
 
 	/**
-	 *
-	 * @returns {Knex.Client}
+	 * @returns {QueryBuilder}
 	 */
 	get qb() {
-		if (this._queryBuilder) {
-			return this._queryBuilder(this.tableName);
-		}
-
 		this._queryBuilder = knex(
 			{
 				client: this.client,
@@ -77,7 +94,7 @@ class QueryToSqlBase {
 				 * @param origImpl
 				 * @param queryContext
 				 * @returns {*}
-				 */
+
 				wrapIdentifier: (value, origImpl, queryContext) => {
 					if (value.indexOf("_") === -1) {
 						//console.log(value + " => " + inflector.underscore(value));
@@ -90,16 +107,24 @@ class QueryToSqlBase {
 					}
 					return origImpl(value);
 				}
+				 */
 			}
-		);
-		let q = this._queryBuilder(this.tableName);
-		return q;
+		)(this.tableName);
+		return this._queryBuilder;
 	}
 
+	/**
+	 * @param value
+	 * @returns {*|Knex.Raw<any>}
+	 */
 	knexRaw(value) {
 		return this.raw(value);
 	}
 
+	/**
+	 * @param value
+	 * @returns {Knex.Raw<any>}
+	 */
 	raw(value) {
 		return knex(
 			{
@@ -114,7 +139,7 @@ class QueryToSqlBase {
 	 * @param query
 	 * @returns {*}
 	 */
-	select(query) {
+	async select(query) {
 
 		let q = _.clone(query);
 
@@ -128,7 +153,7 @@ class QueryToSqlBase {
 				let key = q.select[i];
 				if (this.properties.hasOwnProperty(key)) {
 					selects.push(this.buildSelect(key));
-				} else if (key.indexOf(".") !== -1) {
+				} else if (key && key.indexOf(".") !== -1) {
 					key = key.split(".");
 					let column = key[0];
 					key.shift();
@@ -160,6 +185,10 @@ class QueryToSqlBase {
 		let hasSkip = false;
 		let hasSort = false;
 
+		if (!q.sort) {
+			q.sort = this.defaultSort;
+		}
+
 		for (let key in q) {
 
 			if (q[key] === "") {
@@ -181,7 +210,7 @@ class QueryToSqlBase {
 					break;
 				case "sort" :
 					//TODO support array sort
-					let terms = _.isArray(q.sort) ? q.sort : q[key].split(",");
+					let terms = Array.isArray(q.sort) ? q.sort : q[key].split(",");
 					let context = this;
 					terms.forEach(
 						function (term) {
@@ -215,9 +244,11 @@ class QueryToSqlBase {
 			}
 		}
 
-		this.parseQuery(query, queryBuilder);
-
-		return queryBuilder;
+		await this.parseQuery(query, queryBuilder);
+		return {
+			queryBuilder : queryBuilder,
+			statement : queryBuilder.toString()
+		};
 	}
 
 	addSelect(item) {
@@ -225,30 +256,40 @@ class QueryToSqlBase {
 	}
 
 	buildSelect(key, subKey) {
-		console.log(key);
 		let query = `"${this.tableName}"."${this.properties[key].columnName}" as "${key}"`;
+		if (this.client === "mysql") {
+			query = query.split('"').join('`')
+		}
 		return this.knexRaw(query);
 	}
 
 	buildSort(propertyName) {
 		if (this.properties[propertyName]) {
-			return this.knexRaw('"' + this.tableName + '"."' + this.properties[propertyName].columnName + '"');
+			let query = '"' + this.tableName + '"."' + this.properties[propertyName].columnName + '"';
+			if (this.client === "mysql") {
+				query = query.split('"').join('`')
+			}
+			return this.knexRaw(query);
 		}
 		return null;
 	}
 
 	/**
-	 * @param key
 	 * @param query
 	 * @returns {*}
 	 */
-	count(query) {
+	async count(query) {
+		let queryBuilder = this.qb;
 		query = _.clone(query);
-		let queryBuilder = this.parseQuery(query);
-		//return queryBuilder.count("*");
+		await this.parseQuery(query, queryBuilder);
+		//return builder.count("*");
 		//TODO support count by composite key
 		let columnName = this.properties[this.getPrimaryKey()].columnName;
-		return queryBuilder.count(this.column(columnName));
+		queryBuilder.count(this.column(columnName));
+		return {
+			queryBuilder : queryBuilder,
+			statement : queryBuilder.toString()
+		};
 	}
 
 	/**
@@ -259,45 +300,48 @@ class QueryToSqlBase {
 	 */
 
 	//this.this.tableName, query, data, this.properties
-	update(query, data) {
+	async update(query, data) {
 
 		query = _.clone(query);
-
-		let queryBuilder = this.parseQuery(query);
+		let queryBuilder = this.qb;
+		await this.parseQuery(query, queryBuilder);
 		let transform = {};
 
 		//TODO should data have been validated before this? Seems like it
-		for (var key in data) {
-			if (this.properties[key]) {
-				transform[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
-			} else {
-				console.log("Not adding " + key);
+		Object.keys(data).forEach(
+			(key) => {
+				if (this.properties[key]) {
+					transform[this.properties[key].columnName] = this.processType(data[key], this.properties[key], true);
+				} else {
+					console.log("Not adding " + key);
+				}
 			}
-		}
+		);
 
 		queryBuilder.update(transform);
-		return queryBuilder;
+		return {
+			queryBuilder : queryBuilder,
+			statement : queryBuilder.toString()
+		};
 	}
 
 	//this.tableName, query, data, this.properties
-	delete(query) {
-
+	async delete(query) {
+		let queryBuilder = this.qb;
 		query = _.clone(query);
-
-		let queryBuilder = this.parseQuery(query);
+		await this.parseQuery(query, queryBuilder);
 		queryBuilder.delete();
-		return queryBuilder;
+		return {
+			queryBuilder : queryBuilder,
+			statement : queryBuilder.toString()
+		};
 	}
 
 	/**
-	 *
-	 * @param table
-	 * @param primaryKey
 	 * @param data
-	 * @param schema
 	 * @returns {*}
 	 */
-	insert(data) {
+	async insert(data) {
 		let queryBuilder = this.qb;
 		let translation = {};
 		let required = _.clone(this.schema.required);
@@ -332,25 +376,26 @@ class QueryToSqlBase {
 
 		queryBuilder.insert(translation);
 
-		return queryBuilder;
+		return {
+			queryBuilder : queryBuilder,
+			statement : queryBuilder.toString()
+		};
 	}
 
 	/**
 	 * A query to sqlBuilder conversion manager
 	 * @param {Object} query
+	 * @param [queryBuilder]
 	 * @returns {*}
 	 */
-	parseQuery(query, queryBuilder) {
+	async parseQuery(query, queryBuilder) {
 		//TODO support complex or conditions
-		queryBuilder = queryBuilder || this.qb;
 
 		if (!query) {
 			return queryBuilder;
 		}
 
 		let queryParams;
-
-		//console.log(JSON.stringify(query));
 
 		if (query.where) {
 			queryParams = _.isString(query.where) ? JSON.parse(query.where) : query.where;
@@ -359,8 +404,7 @@ class QueryToSqlBase {
 		}
 
 		for (let key in queryParams) {
-			if (_.indexOf(this.keywords, key) !== -1) {
-				//console.log("parseQuery => keyword error " + key);
+			if (this.keywords.includes(key)) {
 				continue;
 			}
 
@@ -374,7 +418,6 @@ class QueryToSqlBase {
 			if (typeof queryParams[key] === "object") {
 				if (key === "and" || key === "or") {
 					compare = key;
-					//console.log(JSON.stringify(queryParams[key]))
 				} else {
 					if (queryParams[key] && typeof queryParams[key] === "object") {
 						compare = Object.keys(queryParams[key])[0]; //formed as {param:{"compare":"value"}
@@ -390,22 +433,23 @@ class QueryToSqlBase {
 				value = queryParams[key];
 			}
 
-			this.processCompare(key, compare, value, queryBuilder);
+			await this.processCompare(key, compare, value, queryBuilder);
 
 		}
 
 
-		return queryBuilder;
+		//return builder;
 	}
 
 	/**
 	 *
 	 * @param {string} key - the field key
 	 * @param {string} compare - the comparitor, gt, >, < lt, !, != etc
-	 * @param {varies} value - the string, array, number, etc
-	 * @param {Object} queryBuilder - the current knex queryBuilder
+	 * @param {*} value - the string, array, number, etc
+	 * @param {Object} queryBuilder - the current knex builder
+	 * @param {boolean} [isOr]
 	 */
-	processCompare(key, compare, value, queryBuilder, isOr) {
+	async processCompare(key, compare, value, queryBuilder, isOr) {
 
 		let columnName;
 		let columnFormat = null;
@@ -421,6 +465,9 @@ class QueryToSqlBase {
 			if (columnType === "array") {
 				return this.processArrayColumn(key, compare, value, queryBuilder, isOr)
 			}
+		} else if (this.relations[key]) {
+			//exists true|false
+			return await this.processRelation(key, compare, value, queryBuilder, isOr);
 		} else if (key !== "or" && key !== "and") {
 			return;
 		}
@@ -431,7 +478,9 @@ class QueryToSqlBase {
 			whereNotIn: "whereNotIn",
 			whereNull: "whereNull",
 			whereNot: "whereNot",
-			whereNotNull: "whereNotNull"
+			whereNotNull: "whereNotNull",
+			whereNotExists : "whereNotExists",
+			whereExists : "whereExists"
 		}
 
 		if (isOr) {
@@ -491,7 +540,7 @@ class QueryToSqlBase {
 			case "eq" :
 				if (value === null) {
 					queryBuilder[c.whereNull](this.column(columnName));
-				} else if (_.isArray(value)) {
+				} else if (Array.isArray(value)) {
 					queryBuilder[c.whereIn](this.column(columnName), this.processArrayType(value, this.properties[key]));
 				} else {
 					queryBuilder[c.where](this.column(columnName), this.processType(value, this.properties[key]));
@@ -503,7 +552,7 @@ class QueryToSqlBase {
 			case "ne" :
 				if (value === null) {
 					queryBuilder[c.whereNotNull](this.column(columnName));
-				} else if (_.isArray(value)) {
+				} else if (Array.isArray(value)) {
 					queryBuilder[c.whereNotIn](this.column(columnName), this.processArrayType(value, this.properties[key]));
 				} else {
 					queryBuilder[c.whereNot](this.column(columnName), this.processType(value, this.properties[key]));
@@ -524,9 +573,9 @@ class QueryToSqlBase {
 					(builder) => {
 						for (let i = 0; i < value.length; i++) {
 
-							if (_.isArray(value[i])) {
+							if (Array.isArray(value[i])) {
 								/*
-								or : [
+								or / and : [
 									[
 										{field1: "value"},
 										{field2: null},
@@ -576,27 +625,67 @@ class QueryToSqlBase {
 	}
 
 	/**
-	 * Process a json column.
-	 * @param key
-	 * @param compare
-	 * @param value
-	 * @param queryBuilder
+	 * Allows for
+	 * @param {string} key - the field key
+	 * @param {string} compare - the comparitor, gt, >, < lt, !, != etc
+	 * @param {*} value - the string, array, number, etc
+	 * @param {Object} queryBuilder - the current knex builder
+	 * @param {boolean} [isOr]
+	 */
+	async processRelation(key, compare, value, queryBuilder, isOr) {
+
+		let relation = this.model.relations[key];
+		let RelationModel = this.loadModel(relation.model);
+		if (!RelationModel) {
+			return ;
+		}
+		let relationModel = new RelationModel(this.model.req);
+
+		switch (compare) {
+			case "exists" :
+				let from = this.properties[relation.join.from].columnName;
+				let to = relationModel.properties[relation.join.to].columnName;
+				let context = this;
+				queryBuilder[value === true ? "whereExists" : "whereNotExists"](
+					() => {
+						let condition = `"${context.model.tableName}"."${from}" = "${relationModel.tableName}"."${to}"`;
+						if (context.client === "mysql") {
+							condition = condition.split('"').join("`");
+						}
+						console.log(condition);
+						this.select("*").from(relationModel.tableName).whereRaw(condition)
+					}
+				);
+				break;
+		}
+	}
+	/**
+	 * Process a json column. pretty much just postgres right now
+	 * @param {string} key
+	 * @param {string} compare
+	 * @param {*} value
+	 * @param {knex} queryBuilder
+	 * @param {boolean} [isOr]
 	 */
 	processObjectColumn(key, compare, value, queryBuilder, isOr) {
-
+		//TODO Figure this out for MYSQL
 	}
 
 	/**
-	 * Append tableName to column to stop ambiguity
+	 * Append tableName to column to stop ambiguity. For MySQL
 	 * @param column
 	 * @returns {*|Knex.Raw<any>}
 	 */
 	column(column) {
-		return this.raw('"' + this.tableName + '"."' + column + '"');
+		if (this.client === "mysql") {
+			return this.raw('`' + this.tableName + '`.`' + column + '`');
+		} else {
+			return this.raw('"' + this.tableName + '"."' + column + '"');
+		}
 	}
 
 	/**
-	 * Return primaryKey if set (really should have one, but legacy DB's don't always)
+	 * Return primaryKey if set (really should have one, but legacy DB's don't always, and neither do views)
 	 * @returns {string|*}
 	 */
 	getPrimaryKey() {
@@ -629,6 +718,7 @@ class QueryToSqlBase {
 			if (parts[parts.length - 1] === "id" || parts[parts.length - 1] === "number") {
 				return key;
 			}
+
 			if (parts[parts.length - 1] === "date") {
 				return key;
 			}
@@ -645,7 +735,8 @@ class QueryToSqlBase {
 	 * @param queryBuilder
 	 */
 	processArrayColumn(key, compare, value, queryBuilder) {
-
+		//TODO Mysql should split the do
+		//and / or / matches one
 	}
 
 	/**
@@ -678,7 +769,7 @@ class QueryToSqlBase {
 	 */
 	processArrayType(list, property) {
 		let context = this;
-		if (!_.isArray(list)) {
+		if (!Array.isArray(list)) {
 			list = list.split(",");
 		}
 		var valueList = [];

@@ -1,30 +1,14 @@
-
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
-const Model = require('../model/LogModel');
+const Model = require("../helper/get-model")("LogModel");
 
-module.exports = class LogController extends ControllerBase {
-	constructor() {
-		super(Model);
-	}
+class LogController extends ControllerBase {
 
-	async create(req, res) {
-		return await super.create(req, res);
-	}
-
-	async read(req, res) {
-		return await super.read(req, res);
-	}
-
-	async update(req, res) {
-		return await super.update(req, res);
-	}
-
-	async query(req, res) {
-		return await super.query(req, res);
-	}
-
-	async destroy(req, res) {
-		return await super.destroy(req, res);
+	/**
+	 * @param {LogModel} model
+	 */
+	constructor(model) {
+		super(model || Model);
 	}
 }
+module.exports = LogController;

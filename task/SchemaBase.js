@@ -39,50 +39,89 @@ class SchemaBase extends ModelBase {
 		}
 	}
 
+	/**
+	 * Get an array of the tables in this db
+	 * @returns {Promise<void>}
+	 */
 	async getTables() {
 		//Override in Sub Class
 	}
 
+	/**
+	 * Does the db have this table
+	 * @param tableName
+	 * @returns {Promise<*>}
+	 */
 	async hasTable(tableName) {
 		return await this.builder.schema.hasTable(tableName);
 	}
 
-	async getNewProperties(tableName) {
-		let properties = await this.getSchema(tableName).properties;
-		let sm = new SchemaModel();
-		let schema = await sm.get(tableName, false);
-		let dbKeys = Object.keys(schema.properties);
-		let difference = {};
-		Object.keys(properties).forEach(
-			(key) => {
-				if (!dbKeys.includes(key)) {
-					difference[key] = properties[key];
-				}
-			}
-		)
-		return difference;
+	/**
+	 * Does the table have this column
+	 * @param tableName
+	 * @param columnName
+	 * @returns {Promise<*>}
+	 */
+	async hasColumn(tableName, columnName) {
+		return await this.builder.hasColumn(tableName, columnName);
 	}
 
-	async getRemovedProperties(tableName) {
+	/**
+	 * Returns the new columns in a table
+	 * @param tableName
+	 * @returns {Promise<unknown[]>}
+	 */
+	async getNewColumns(tableName) {
 		let properties = await this.getSchema(tableName).properties;
-		let sm = new SchemaModel();
-		let schema = await sm.get(tableName, false);
-		let schemaKeys = Object.keys(properties);
-		let dbKeys = Object.keys(schema.properties);
-		let difference = {};
+		let tableColumns = [];
 		Object.keys(properties).forEach(
 			(key) => {
-				if (dbKeys.includes(key)) {
-					difference[key] = properties[key];
-				}
+				tableColumns.push(properties[key].colummName);
 			}
 		)
-		return difference;
+		let sm = new SchemaModel();
+		let schema = await sm.get(tableName, this.cs.db);
+		let schemaColumns = [];
+		Object.keys(schema.properties).forEach(
+			(key) => {
+				schemaColumns.push(schema.properties[key].columnName);
+			}
+		)
+		return _.difference(tableColumns, schemaColumns);
 	}
 
+	/**
+	 * Gets the removed columns in a table
+	 * @param tableName
+	 * @returns {Promise<unknown[]>}
+	 */
+	async getRemovedColumns(tableName) {
+		let properties = await this.getSchema(tableName).properties;
+		let tableColumns = [];
+		Object.keys(properties).forEach(
+			(key) => {
+				tableColumns.push(properties[key].colummName);
+			}
+		)
+		let sm = new SchemaModel();
+		let schema = await sm.get(tableName, this.cs.db);
+		let schemaColumns = [];
+		Object.keys(schema.properties).forEach(
+			(key) => {
+				schemaColumns.push(schema.properties[key].columnName);
+			}
+		)
+		return _.difference(schemaColumns, tableColumns);
+	}
+
+	/**
+	 * Add / Remove / Alter columns in a table
+	 * @param tableName
+	 * @returns {Promise<{success: boolean}|{error: boolean, statusCode: number}|undefined>}
+	 */
 	async updateTable(tableName) {
-		let removeList = await this.getRemovedProperties(tableName);
-		let addList = await this.getNewProperties(tableName);
+		let removeList = await this.getRemovedColumns(tableName);
+		let addList = await this.getNewColumns(tableName);
 		let hasTable = await this.hasTable(tableName);
 		if (!hasTable) {
 			return await this.createTable(tableName);
@@ -259,7 +298,7 @@ class SchemaBase extends ModelBase {
 	 */
 	async getColumns(tableName) {
 		if (this._columns[tableName]) {
-			return this._columns.tableName;
+			return this._columns[tableName];
 		}
 		return null;
 	}
@@ -298,9 +337,10 @@ class SchemaBase extends ModelBase {
 		let context = this;
 		let index = 0;
 		while (columns.length > 0) {
+
 			let column = columns[0];
 			let o = this.columnToObject(column);
-			console.log(o);
+
 			let show = context.isViewOrUpdate(tableName, o.columnName, primaryKey);
 			if (o.readOnly === true) {
 				show = false;
@@ -343,6 +383,7 @@ class SchemaBase extends ModelBase {
 		let properties = await this.getProperties(tableName);
 		let primaryKey = await this.getPrimaryKey(tableName);
 
+		primaryKey = this.getPrimaryKeyPropertyName(properties, primaryKey);
 		required.push(primaryKey);
 
 		Object.keys(properties).forEach(
@@ -358,6 +399,7 @@ class SchemaBase extends ModelBase {
 	async getReadOnly(tableName) {
 		let properties = await this.getProperties(tableName);
 		let primaryKey = await this.getPrimaryKey(tableName);
+		primaryKey = this.getPrimaryKeyPropertyName(properties, primaryKey);
 		let readOnly = [primaryKey];
 		let context = this;
 		Object.keys(properties).forEach(
@@ -372,12 +414,30 @@ class SchemaBase extends ModelBase {
 		return _.uniq(readOnly);
 	}
 
+	getPrimaryKeyPropertyName(properties, primaryKey) {
+		Object.keys(properties).forEach(
+			(key) => {
+				if (properties[key].columnName === primaryKey) {
+					primaryKey = key;
+				}
+			}
+		)
+		return primaryKey;
+	}
+
+	/**
+	 * @param tableName
+	 * @returns {Promise<{foreignKeys: {}, $schema: string, methods: {post: [{"/": string}], get: [{"/": string},{"/:id": string}], delete: [{"/:id": string},{"/": string}], put: [{"/:id": string},{"/": string}]}, description: string, readOnly: unknown[], title, type: string, required: unknown[], tableName, route: string, additionalProperties: boolean, relations: {}, dataSource: string, properties: {}, $id: string, primaryKey: string}|*>}
+	 */
 	async getSchema(tableName) {
 		if (this._schemas[tableName]) {
 			return this._schemas[tableName];
 		}
 		let o = await this.getRelationsAndForeignKeys(tableName);
 		let primaryKey = await this.getPrimaryKey(tableName);
+		let properties = await this.getProperties(tableName);
+		primaryKey = this.getPrimaryKeyPropertyName(properties, primaryKey);
+
 		let schema = {
 			$schema: 'http://json-schema.org/draft-06/schema#',
 			$id: (this.options.baseUrl || "") + tableName + '.json',
@@ -389,18 +449,18 @@ class SchemaBase extends ModelBase {
 			methods:
 				{
 					get: [
-						{"/": "query"},
-						{['/:' + primaryKey]: "read"}
+						{"/": "find"},
+						{'/:id': "read"}
 					],
 					post: [
-						{"/": "post"}
+						{"/": "create"}
 					],
 					put: [
-						{['/:' + primaryKey]: "read"},
+						{'/:id': "read"},
 						{'/': "updateWhere"}
 					],
 					delete: [
-						{['/:' + primaryKey]: "destroy"},
+						{'/:id': "destroy"},
 						{'/': "destroyWhere"}
 					]
 				},
@@ -431,16 +491,19 @@ class SchemaBase extends ModelBase {
 		if (!fs.existsSync(p)) {
 			fs.mkdirSync(p)
 		}
-		fs.writeFileSync(
-			path.resolve(p + "/" + schema.tableName + ".json"), beautify(schema, null, 4, 100))
+		let file = path.resolve(p + "/" + schema.tableName + ".json");
+		console.log(file)
+		fs.writeFileSync(file, beautify(schema, null, 4, 100))
 	}
 
 	sanitizeTableName(tableName, sigularize) {
-		this.tablePrefix.forEach(
-			(prefix) => {
-				tableName = tableName.indexOf(prefix) === 0 ? tableName.substring(prefix.length, tableName.length) : tableName;
-			}
-		)
+		if (Array.isArray(this.tablePrefix)) {
+			this.tablePrefix.forEach(
+				(prefix) => {
+					tableName = tableName.indexOf(prefix) === 0 ? tableName.substring(prefix.length, tableName.length) : tableName;
+				}
+			)
+		}
 		if (tableName.indexOf("_") === 0) {
 			tableName = tableName.substring(1, tableName.length);
 		}
@@ -503,9 +566,9 @@ class SchemaBase extends ModelBase {
 			return sourceProperties[key].columnName
 		});
 
-		console.log("sourceTableName -> " + sourceTableName);
-		console.log("normalizedSourceTable -> " + normalizedSourceTable);
-		console.log("sourceColumns -> " + sourceColumns);
+		//console.log("sourceTableName -> " + sourceTableName);
+		//console.log("normalizedSourceTable -> " + normalizedSourceTable);
+		//console.log("sourceColumns -> " + sourceColumns);
 
 		let sourceMapRelations = [];
 

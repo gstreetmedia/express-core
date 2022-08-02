@@ -4,9 +4,10 @@ const fs = require('fs');
 const inflector = require("../helper/inflector");
 const FieldModel = require("../model/FieldModel");
 const SchemaModel = require("../model/SchemaModel");
-const ViewObject = require("../model/objects/ViewObject");
+const ViewObject = require("../object/ViewObject");
 const getModel = require("../helper/get-model");
 const getController = require("../helper/get-controller");
+const ControllerBase = require("./ControllerBase");
 
 class AdminController extends ViewControllerBase {
 
@@ -15,6 +16,7 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async home(req, res) {
+
 		req.locals.isAdmin = true;
 		let schemas = await this.getSchemaList();
 
@@ -44,26 +46,25 @@ class AdminController extends ViewControllerBase {
 	 */
 	async index(req, res) {
 		req.locals.isAdmin = true;
-		/**
-		 * @type {ControllerBase}
-		 */
-		let Controller = await AdminController.getController(req);
-		/**
-		 * @type {ModeBase}
-		 */
-		let Model = await AdminController.getModel(req);
 
-		if (!Controller || !Model) {
-			return res.status(404).send("Unknown Controller");
+		let Controller = AdminController.getController(req);
+		const Model = AdminController.getModel(req);
+
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
-		let controller = new Controller();
+		let controller = new Controller(Model);
 		let model = new Model(req);
 		await model.init();
+		await model.getFields();
 		const tableName = model.tableName;
-
 		let properties = model.properties;
-		let rawFields = model.fields ? model.fields.adminIndex : null;
+		let rawFields = model.fields.adminIndex;
 
 		if (req.query.query) {
 			try {
@@ -105,7 +106,7 @@ class AdminController extends ViewControllerBase {
 				req.query.sort = model.defaultSort;
 			} else if (model.schema.properties.name) {
 				req.query.sort = "name ASC";
-			} else if (model.schema[model.primaryKey].type === "number") {
+			} else if (model.schema.properties[model.primaryKey].type === "number") {
 				req.query.sort = `${model.primaryKey} DESC`;
 			} else if (model.schema.properties.createdAt) {
 				req.query.sort = `${model.schema.properties[model.createdAt]} DESC`;
@@ -125,7 +126,7 @@ class AdminController extends ViewControllerBase {
 			data = await controller.query(req);
 		}
 
-		let slug = inflector.dasherize(inflector.singularize(req.params.model));
+		let slug = inflector.dasherize(inflector.singularize(req.params.tableName));
 
 		return await this.render(
 			['page-admin-list-' + inflector.dasherize(model.tableName), 'page-admin-list'],
@@ -152,11 +153,11 @@ class AdminController extends ViewControllerBase {
 		let Controller = await AdminController.getController(req);
 		let Model = await AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return res.status(404).send("Unknown Model");
 		}
 
-		let controller = new Controller();
+		let controller = new Controller(Model);
 		let model = new Model(req);
 		await model.init();
 
@@ -190,11 +191,15 @@ class AdminController extends ViewControllerBase {
 	 */
 	async view(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
-		let Model = await AdminController.getModel(req);
+		let Controller = AdminController.getController(req);
+		let Model = AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
 		let controller = new Controller();
@@ -274,14 +279,18 @@ class AdminController extends ViewControllerBase {
 	 */
 	async edit(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
-		let Model = await AdminController.getModel(req);
+		let Controller = AdminController.getController(req);
+		let Model = AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
-		let controller = new Controller();
+		let controller = new Controller(Model);
 		let model = new Model(req);
 		await model.init();
 		if (process.env.NODE_ENV !== "production") {
@@ -334,11 +343,15 @@ class AdminController extends ViewControllerBase {
 
 	async fields(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
-		let Model = await AdminController.getModel(req);
+		let Controller = AdminController.getController(req);
+		let Model = AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
 		let controller = new Controller();
@@ -347,7 +360,7 @@ class AdminController extends ViewControllerBase {
 
 		const tableName = model.tableName;
 
-		if (req.params.model) {
+		if (req.params.tableName) {
 			return await this.render(
 				'page-admin-field-editor',
 				new ViewObject({
@@ -368,7 +381,7 @@ class AdminController extends ViewControllerBase {
 					model : model,
 					data : result,
 					query : req.query,
-					action : req.params.model,
+					action : req.params.tableName,
 					req : req
 				}),
 				req,
@@ -379,11 +392,15 @@ class AdminController extends ViewControllerBase {
 
 	async fieldsUpdate(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
-		let Model = await AdminController.getModel(req);
+		let Controller = AdminController.getController(req);
+		let Model = AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
 		let controller = new Controller();
@@ -409,14 +426,18 @@ class AdminController extends ViewControllerBase {
 	 */
 	async query(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
-		let Model = await AdminController.getModel(req);
+		let Controller = AdminController.getController(req);
+		let Model = AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
-		let controller = new Controller();
+		let controller = new Controller(Model);
 		let model = new Model(req);
 		await model.init();
 		if (process.env.NODE_ENV !== "production") {
@@ -429,7 +450,7 @@ class AdminController extends ViewControllerBase {
 			'page-admin-search',
 			new ViewObject({
 				req : req,
-				name : inflector.titleize(inflector.dasherize(req.params.model)),
+				name : inflector.titleize(inflector.dasherize(req.params.tableName)),
 				schemaList : await this.getSchemaList(),
 				model : model,
 				action : "query"
@@ -439,11 +460,15 @@ class AdminController extends ViewControllerBase {
 
 	async search(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
-		let Model = await AdminController.getModel(req);
+		let Controller = AdminController.getController(req);
+		let Model = AdminController.getModel(req);
 
-		if (!Controller) {
-			return res.status(404).send("Unknown Controller");
+		if (!Model) {
+			return {
+				error : {
+					message : "Unknown Model"
+				}
+			}
 		}
 
 		let controller = new Controller();
@@ -454,6 +479,8 @@ class AdminController extends ViewControllerBase {
 		const tableName = model.tableName;
 
 		let fields = model.fields.adminIndex;
+
+		console.log(fields);
 
 		req.query.properties = [];
 
@@ -481,7 +508,6 @@ class AdminController extends ViewControllerBase {
 	 */
 	async destroy(req, res) {
 		req.locals.isAdmin = true;
-		let Controller = await AdminController.getController(req);
 		return await res.render(
 			'page-admin-delete',
 			{
@@ -491,7 +517,6 @@ class AdminController extends ViewControllerBase {
 	}
 
 	async getSchemaList() {
-		//TODO convert over to what's in memory
 		if (!this.schemasLoaded) {
 			let m = new SchemaModel();
 			await m.init();
@@ -501,42 +526,30 @@ class AdminController extends ViewControllerBase {
 		return global.schemaCache;
 	}
 
-	static async getModel(req) {
-		let m = new SchemaModel();
-		await m.init();
-		/**
-		 * @type {JSONSchema}
-		 */
-		let schema = await m.get(req.params.model);
-		if (schema) {
-			let m = getModel(schema.className + "Model");
-			if (m) {
-				return m;
-			}
+	/**
+	 * @param req
+	 * @returns {ModelBase|null}
+	 */
+	static getModel(req) {
+		let m = getModel(req.params.tableName);
+		if (m) {
+			return m;
 		}
-		console.error("Could not find " + schema.className + "Model");
-
+		console.error("Could not find model for " + req.params.tableName);
 		return null;
 	}
 
-	static async getController(req) {
-		let m = new SchemaModel();
-		await m.init();
-		/**
-		 * @type {JSONSchema}
-		 */
-		console.log("Get Controller for " + req.params.model);
-		let schema = await m.get(req.params.model);
-		if (schema) {
-			let c = getController(schema.className + "Controller");
-			if (c) {
-				return c;
-			}
+	/**
+	 * @param req
+	 * @returns {ControllerBase}
+	 */
+	static getController(req) {
+		let c = getController(req.params.tableName);
+		if (c) {
+			return c;
 		}
-
-		console.error("Could not find " + schema.className + "Controller");
-
-		return null;
+		console.error("Could not find Controller for " + req.params.tableName);
+		return ControllerBase;
 	}
 
 }

@@ -2,7 +2,7 @@ const _ = require("lodash");
 function trim(obj) {
 	if (_.isString(obj)) {
 		return obj.trim();
-	} else if (_.isArray(obj)) {
+	} else if (Array.isArray(obj)) {
 		for (let i = 0; i < obj.length; i++) {
 			try {
 				obj[i] = trim(obj[i]);

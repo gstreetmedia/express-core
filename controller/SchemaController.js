@@ -1,5 +1,5 @@
 const ControllerBase = require('./ControllerBase');
-const Model = require('../model/SchemaModel');
+const Model = require("../helper/get-model")("SchemaModel");
 
 class SchemaController extends ControllerBase {
 	/**

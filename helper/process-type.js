@@ -37,7 +37,7 @@ module.exports = (value, property) =>{
 					value = JSON.parse(value);
 				}
 			}
-			if (_.isObject(value) || _.isArray(value)) {
+			if (_.isObject(value) || Array.isArray(value)) {
 				return value;
 			}
 			return null;

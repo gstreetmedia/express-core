@@ -1,11 +1,9 @@
-
 class MySqlTextToObject {
 	/**
-	 * Converts the text in a response to either an object or an array based on the property[name].format field
-	 * MYSQL recent versions, support JSON, but not varchar[], char[], uuid[], etc
-	 * @param model
-	 * @param results
-	 * @returns {array|object}
+	 * Converts TEXT to JSON or Array depending on the format of the property
+	 * @param {ModelBase} model
+	 * @param {array} results
+	 * @returns {*}
 	 */
 	static convert(model, results) {
 		let modelKeys = model.keys;

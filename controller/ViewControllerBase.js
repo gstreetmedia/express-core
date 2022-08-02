@@ -2,8 +2,8 @@ const inflector = require("inflected");
 const _ = require("lodash");
 const moment = require("moment-timezone");
 const fs = require("fs");
-const getView = require("../helper/view/get-view");
-const renderView = require("../helper/view/render-view");
+const getView = require("../helper/get-view");
+const renderView = require("../helper/render-view");
 
 class ViewControllerBase {
 	constructor() {
@@ -89,7 +89,7 @@ class ViewControllerBase {
 	/**
 	 *
 	 * @param {string|array} viewName
-	 * @param {ViewObject} obj
+	 * @param {ViewObject} o
 	 * @param {Request} req
 	 * @param {Response} res
 	 * @returns {Promise<void>}
@@ -99,8 +99,8 @@ class ViewControllerBase {
 		if (!o.req) {
 			o.req = req;
 		}
+		let html = await renderView(view, o);
 		if (o.req.xhr) {
-			let html = await renderView(view, o);
 			Object.keys(o.data).forEach(
 				(key) => {
 					JSON.stringify(o.data[key]);
@@ -110,11 +110,12 @@ class ViewControllerBase {
 				{
 					data : o.data,
 					html : html,
-					model : o.model.schema.object
+					model : o.model.schema.object,
+					metric : req.locals.metrics
 				}
 			);
 		}
-		return res.send(await renderView(view, o));
+		return res.html(html);
 	}
 
 

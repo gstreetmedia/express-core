@@ -1,6 +1,6 @@
 let router = require('express').Router();
 let getController = require("../helper/get-controller");
-let authentication = require('../middleware/authentication');
+let authentication = require('../helper/get-middleware')('authentication');
 let c;
 
 router.use(authentication);

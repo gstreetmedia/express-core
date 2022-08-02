@@ -1,8 +1,7 @@
 const ControllerBase = require('./ControllerBase');
 const _ = require('lodash');
 const hashPassword = require("../helper/hash-password");
-const moment = require("moment-timezone");
-const Model = require('../model/UserModel');
+const Model = require("../helper/get-model")("UserModel");
 
 class UserController extends ControllerBase {
 	/**
@@ -28,27 +27,29 @@ class UserController extends ControllerBase {
 
 		let m = new this.Model(req);
 
-		let result = await m.login(
+		let session = await m.login(
 			username,
 			password
 		);
 
-		if (result.error) {
-			return res.invalid(result.error);
+		if (session.error) {
+			return res.invalid(session.error);
 		}
 
-		if (req.isLocal) {
-			let args = {
-				path: '/',
-				domain: req.headers['host'].split(":")[0]
-			};
-
-			args.expires = moment().add(1, 'year').toDate();
-			res.cookie('token', result.token, args);
-			res.cookie('application-key', hashPassword(result.token), args);
+		if (req.locals.isLocal) {
+			session.cookies = {
+				token : {
+					value : session.token,
+					expires : req.body.rememberMe === "yes" ? session.expiresAt : null
+				},
+				"application-key" : {
+					value : hashPassword(session.token),
+					expires : req.body.rememberMe === "yes" ? session.expiresAt : null
+				}
+			}
 		}
 
-		res.success(result);
+		res.success(session);
 	}
 
 	async logout(req, res) {
@@ -59,11 +60,24 @@ class UserController extends ControllerBase {
 
 		let m = new this.Model(req);
 		let result = await m.logout(req.locals.jwt ? req.locals.jwt : req.locals.token);
+		let response = {
+			message : "Logged out"
+		};
+		if (req.locals.isLocal) {
+			response.cookies = {
+				token : {
+					value : null,
+					expires : null
+				},
+				"application-key" : {
+					value : null,
+					expires : null
+				}
+			}
+			response.redirect = "/";
+		}
 
-		res.clearCookie('token');
-		res.clearCookie('application-key');
-
-		return res.success("Logged Out");
+		return res.success(response);
 	}
 
 	async register(req, res) {

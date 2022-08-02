@@ -1,7 +1,7 @@
 /**
  *
  * @param value
- * @returns {{password: string, protocol: (*|string), port: string, host: string, database: string, username: string}}
+ * @returns {{password: string, protocol: (*|string), port: string, host: string, db: string, username: string}}
  */
 module.exports = function (value) {
 	try {

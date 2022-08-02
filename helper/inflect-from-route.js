@@ -5,17 +5,6 @@ exports.table = (route) => {
 	let tableName = route;
 	let styles = process.env.CORE_TABLE_NAME_STYLE || "snake_case,plural";
 	styles = styles.split(",");
-	if (route.indexOf("/") === 0) {
-		tableName = tableName.split("/")[1];
-	} else if (route.indexOf("/") > 0) {
-		tableName = tableName.split("/")[0];
-	}
-
-	tableName = tableName.split("configs").join("config");
-	tableName = tableName.split("syncs").join("sync");
-	tableName = tableName.split("metum").join("meta");
-	tableName = tableName.split("datasets").join("dataset");
-
 	styles.forEach(
 		(style) => {
 			switch (style) {
@@ -47,12 +36,13 @@ exports.table = (route) => {
 	let intrinsic = ['config', 'fields', 'key_store', 'role', 'role_permissions', 'schema', 'sessions', 'tokens', 'token_permissions', 'users', 'user_permissions', 'user_roles'];
 	let _intrinsic = ['_config', '_fields', '_key_store', '_role', '_role_permissions', '_schema', '_sessions', '_tokens', '_token_permissions', '_users', '_user_permissions', '_user_roles'];
 	if (intrinsic.includes(tableName) || _intrinsic.includes(tableName)) {
-		let M = getModel(tableName);
+		let M = getModel(inflector.classify(tableName) + "Model");
 		if (M) {
-			let m = new Model();
+			let m = new M();
 			tableName = m.tableName;
 		}
 	}
+
 	return tableName;
 }
 

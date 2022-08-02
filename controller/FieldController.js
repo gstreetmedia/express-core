@@ -1,13 +1,10 @@
 const ControllerBase = require('./ControllerBase');
-const Model = require("../model/FieldModel");
+const _ = require('lodash');
+const Model = require("../helper/get-model")("FieldModel");
 
 class FieldController extends ControllerBase {
-	/**
-	 * @param {FieldModel} model
-	 */
-	constructor(model) {
-		super(model || Model);
+	constructor() {
+		super(Model);
 	}
 }
-
-module.exports = FieldController;
+module.exports = FieldController

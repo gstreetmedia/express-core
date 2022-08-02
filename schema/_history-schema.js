@@ -8,9 +8,7 @@ module.exports = {
 	baseName: "undefined",
 	route: null,
 	properties: {
-
 		id: {
-
 			type: "string",
 			format: "uuid",
 			allowNull: false,
@@ -18,7 +16,6 @@ module.exports = {
 			description: ""
 		},
 		field: {
-
 			type: "string",
 			allowNull: true,
 			maxLength: 64,
@@ -26,7 +23,6 @@ module.exports = {
 			description: ""
 		},
 		status: {
-
 			enum: ["active", "inactive", "pending", "system-pending", "system-purge", "pending-elastic", "system-inactive"],
 			type: "string",
 			allowNull: true,
@@ -35,7 +31,6 @@ module.exports = {
 			description: ""
 		},
 		toValue: {
-
 			type: "string",
 			allowNull: true,
 			maxLength: 1000000,
@@ -43,7 +38,6 @@ module.exports = {
 			description: ""
 		},
 		objectId: {
-
 			type: "string",
 			format: "uuid",
 			allowNull: false,
@@ -51,7 +45,6 @@ module.exports = {
 			description: ""
 		},
 		createdAt: {
-
 			type: "string",
 			format: "date-time",
 			allowNull: false,
@@ -59,7 +52,6 @@ module.exports = {
 			description: ""
 		},
 		fromValue: {
-
 			type: "string",
 			allowNull: true,
 			maxLength: 1000000,
@@ -67,7 +59,6 @@ module.exports = {
 			description: ""
 		},
 		updatedAt: {
-
 			type: "string",
 			format: "date-time",
 			allowNull: true,
@@ -75,7 +66,6 @@ module.exports = {
 			description: ""
 		},
 		byObjectId: {
-
 			type: "string",
 			format: "uuid",
 			allowNull: false,
@@ -83,7 +73,6 @@ module.exports = {
 			description: ""
 		},
 		objectType: {
-
 			type: "string",
 			allowNull: false,
 			maxLength: 64,
@@ -91,7 +80,6 @@ module.exports = {
 			description: ""
 		},
 		byObjectType: {
-
 			type: "string",
 			allowNull: true,
 			maxLength: 64,

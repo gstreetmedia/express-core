@@ -1,5 +1,5 @@
 const ControllerBase = require('./ControllerBase');
-const Model = require('../model/SessionModel');
+const Model = require("../helper/get-model")("SessionModel");
 
 class SessionController extends ControllerBase {
 	/**

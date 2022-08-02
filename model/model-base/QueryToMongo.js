@@ -92,10 +92,10 @@ class QueryToElastic extends QueryBase {
 	 * @param {string} compare - the comparitor, gt, >, < lt, !, != etc
 	 * @param {string|array|number} value - the string, array, number, etc
 	 * @param {QueryBuilder} qb
-	 * @param {{filter: [], must_not: [], should: [], range: {}, must: [], wildcard: [], toString: toString, sort: [], nested: []}} qb - the current knex queryBuilder
+	 * @param {{filter: [], must_not: [], should: [], range: {}, must: [], wildcard: [], toString: toString, sort: [], nested: []}} qb - the current knex builder
 	 * @param {string} orAnd
 	 */
-	processCompare(key, compare, value, qb, group) {
+	async processCompare(key, compare, value, qb, group) {
 
 		let property;
 		let columnName;
@@ -181,7 +181,7 @@ class QueryToElastic extends QueryBase {
 			case "ne" :
 				if (value === null) {
 					target({[columnName]: {$ne : null}}, property);
-				} else if (_.isArray(value)) {
+				} else if (Array.isArray(value)) {
 					target({[columnName]: {$ne : value}}, property);
 				} else {
 					target({[columnName]: {$ne : value}}, property);
@@ -220,7 +220,7 @@ class QueryToElastic extends QueryBase {
 				if (group === "or") {
 					if (value === null) {
 						qb.should({term : {[columnName] : null}}, property);
-					} else if (_.isArray(value)) {
+					} else if (Array.isArray(value)) {
 						qb.should({terms : {[columnName] : null}}, property);
 					} else {
 						qb.should({terms : {[columnName] : null}}, property);
@@ -228,7 +228,7 @@ class QueryToElastic extends QueryBase {
 				} else {
 					if (value === null) {
 						qb.filter({term : {[columnName]: null}}, property);
-					} else if (_.isArray(value)) {
+					} else if (Array.isArray(value)) {
 						qb.filter({terms : {[columnName]: value}}, property);
 					} else {
 						qb.filter({term : {[columnName]: value}}, property);

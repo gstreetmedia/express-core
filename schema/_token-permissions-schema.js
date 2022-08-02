@@ -3,7 +3,7 @@ module.exports = {
 	$id: "token_permissions.json",
 	title: "Token Permissions",
 	dataSource: "default",
-	tableName: "token_permissions",
+	tableName: "_token_permissions",
 	description: "Generated: Mon Feb 08 2021 16:50:04 GMT-0800 (Pacific Standard Time)",
 	primaryKey: "id",
 	baseName : "token_permission",

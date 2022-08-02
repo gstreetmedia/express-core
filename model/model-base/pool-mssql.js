@@ -1,4 +1,4 @@
-let es = require('elasticsearch');
+let mssql = require('mssql');
 let util = require('util');
 let connectionStringParser = require("../../helper/connection-string-parser")
 let md5 = require("md5");
@@ -17,7 +17,7 @@ module.exports = async (connectionString) => {
 
 	let cs = connectionStringParser(connectionString);
 
-	let pool = new es.Client({
+	let pool = new mssql.ConnectionPool({
 		connectionLimit: 10,
 		user: cs.username,
 		password: cs.password,
@@ -26,7 +26,7 @@ module.exports = async (connectionString) => {
 		port : cs.port,
 		options: {
 			encrypt: true, // Use this if you're on Windows Azure,
-			//camelCaseColumns : false
+			trustServerCertificate: true
 		},
 		pool: {
 			max: 10,
@@ -35,23 +35,7 @@ module.exports = async (connectionString) => {
 		}
 	});
 
-	pool.connect(
-		err => {
-			if (err !== null) {
-				console.log("removing connection " + key);
-				delete pools[key];
-			}
-		}
-	);
-
-	pool.on('error', err => {
-		console.log("pool " + key + " error");
-		delete pools[key];
-	});
-
-	if (pool._connecting) {
-		await sleep(1000);
-	}
+	await pool.connect();
 
 	pools[key] = pool;
 

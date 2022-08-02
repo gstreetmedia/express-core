@@ -2,7 +2,7 @@ const ModelBase = require("../model/ModelBase");
 const getController = require("../helper/get-controller");
 const getModel = require("../helper/get-model");
 const inflectFromTable = require("../helper/inflect-from-table");
-
+const authentication = require("../helper/get-middleware")("authentication");
 /**
  * @param {string} tableName
  * @param {Router} [router]
@@ -10,14 +10,14 @@ const inflectFromTable = require("../helper/inflect-from-table");
  */
 module.exports = (tableName, router) => {
 
-
 	router = router || require('express').Router();
-	let authentication = require('../middleware/authentication');
+
 	let Controller = getController(inflectFromTable.controllerName(tableName));
 	let ActualModel = getModel(inflectFromTable.modelName(tableName));
 	if (!Controller) {
 		Controller = require("../controller/ControllerBase");
 	}
+	//If no model is defined, we'll use the base model
 	class Model extends ModelBase {
 		get tableName() {
 			return tableName;
@@ -25,9 +25,10 @@ module.exports = (tableName, router) => {
 	}
 
 	router.use(authentication);
+	let c;
 
 	router.use(async function(req, res, next){
-		req.roleManager.allowRole('super-api');
+		req.roleManager.allowRole(process.env.CORE_SUPER_USER_ROLE || ['super-api','super-admin']);
 		if (!c) {
 			c = new Controller(ActualModel || Model);
 		}
@@ -63,16 +64,16 @@ module.exports = (tableName, router) => {
 		return next();
 	});
 
-	router.patch('/:id', async function (req, res, next) {
+	router.delete('/:id', async function (req, res, next) {
 		if(req.roleManager.checkRole()){
-			return await c.update(req, res);
+			return await c.destroy(req, res);
 		}
 		return next();
 	});
 
-	router.delete('/:id', async function (req, res, next) {
+	router.delete('/', async function (req, res, next) {
 		if(req.roleManager.checkRole()){
-			return await c.destroy(req, res);
+			return await c.destroyWhere(req, res);
 		}
 		return next();
 	});

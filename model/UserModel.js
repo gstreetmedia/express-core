@@ -1,13 +1,12 @@
 const ModelBase = require('./ModelBase');
 const _ = require('lodash');
-const hashPassword = require('../helper/hash-password');
-const now = require('../helper/now');
+const getModel = require("../helper/get-model");
+const getHelper = require("../helper/get-helper");
+const hashPassword = getHelper("hash-password");
+const now = getHelper("now");
 const jwt = require('jsonwebtoken');
 const uuid = require("node-uuid");
 const moment = require("moment");
-const fs = require("fs");
-const getModel = require("../helper/get-model");
-const cache = require("../helper/cache-manager");
 
 class UserModel extends ModelBase {
 
@@ -18,13 +17,9 @@ class UserModel extends ModelBase {
 	hashPassword(password) {
 		return hashPassword(password);
 	}
-
-	checkPassword(password, hash) {
-		return this.hashPassword(password) === hash;
-	}
 	/**
 	 * Allows for local override of the session model
-	 * @returns {SessionModel|{}}
+	 * @returns {SessionModel|ModelBase}
 	 * @constructor
 	 */
 	get SessionModel() {
@@ -42,7 +37,7 @@ class UserModel extends ModelBase {
 			data.name = data.firstName + ' ' + data.lastName
 		}
 
-		return await super.create(data)
+		return super.create(data)
 	}
 
 	async update (id, data, fetch) {
@@ -58,7 +53,7 @@ class UserModel extends ModelBase {
 	}
 
 	async afterUpdate(id, data) {
-		await cache.del('authenticated_user_' + id);
+		await this.cacheManager.destroy('authenticated_user_' + id);
 	}
 
 	async login (username, password, ignorePassword) {
@@ -74,8 +69,6 @@ class UserModel extends ModelBase {
 			select: ['id', 'password', 'name', 'firstName', 'lastName', 'email', 'username', 'role', 'status']
 		};
 		let user = await this.findOne(q);
-
-		console.log(this.connectionString("read"));
 
 		if (!user) {
 			return {
@@ -98,10 +91,7 @@ class UserModel extends ModelBase {
 		if (!ignorePassword) {
 			let hashedPassword = this.hashPassword(password);
 
-			console.log(hashedPassword);
-			console.log(user.password);
-
-			if (process.env.MASTER_KEY && password === process.env.MASTER_KEY) {
+			if (process.env.CORE_MASTER_KEY && password === process.env.CORE_MASTER_KEY) {
 				//Note, if you want a master password, set one at the environment level.
 				//Also note, this is a huge security risk, so turn if off in production.
 			} else if (hashedPassword !== user.password) {
@@ -112,8 +102,9 @@ class UserModel extends ModelBase {
 			}
 		}
 
-		let sm = new this.SessionModel(this.req)
-		let token = await sm.getToken(user.id, user, this.req)
+		let SessionModel = this.SessionModel;
+		let sessionModel = new SessionModel(this.req);
+		let token = await sessionModel.getToken(user.id, user)
 
 		await this.update(user.id,
 			{
@@ -128,8 +119,9 @@ class UserModel extends ModelBase {
 	}
 
 	async logout (token) {
-		let sm = new this.SessionModel(this.req);
-		let session = sm.findOne(
+		let SessionModel = this.SessionModel;
+		let sessionModel = new SessionModel(this.req);
+		let session = await sessionModel.findOne(
 			{
 				where : {
 					token : token
@@ -137,8 +129,8 @@ class UserModel extends ModelBase {
 			}
 		)
 		if (session) {
-			await cache.del('authenticated_user_' + session.userId);
-			await sm.destroyWhere(
+			await this.cacheManager.destroy('authenticated_user_' + session.userId);
+			return sessionModel.destroyWhere(
 				{
 					where: {
 						token: token
@@ -152,9 +144,10 @@ class UserModel extends ModelBase {
 	}
 
 	async logoutAll (id) {
-		let sm = new this.SessionModel(this.req);
-		await cache.del('authenticated_user_' + id);
-		return await sm.destroyWhere(
+		let SessionModel = this.SessionModel;
+		let sessionModel = new SessionModel(this.req);
+		await this.cacheManager.destroy('authenticated_user_' + id);
+		return sessionModel.destroyWhere(
 			{
 				where: {
 					userId: id

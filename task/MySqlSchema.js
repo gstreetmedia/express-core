@@ -31,7 +31,6 @@ class MySqlSchema extends SchemaBase{
 		let pool = await poolMySql(this.options.connectionString);
 
 		let q = `SELECT DISTINCT(TABLE_NAME) as \`tableName\` FROM information_schema.columns WHERE TABLE_SCHEMA = '${this.cs.database}'`;
-		console.log(q);
 		let data =  await pool.query(q);
 		let tables = [];
 		data.forEach(
@@ -80,14 +79,17 @@ class MySqlSchema extends SchemaBase{
 	 */
 	async getPrimaryKey(tableName) {
 		let columns = await this.getColumns(tableName);
-		let primaryKey = "id";
+		let primaryKey;
 		columns.forEach(
 			(column) => {
-				if (column.columnKey === "PRI") {
+				if (column.columnKey === "PRI" || column.extra === "auto_increment") {
 					primaryKey = inflectFromTable.propertyName(column.columnName);
 				}
 			}
 		)
+		if (!primaryKey) {
+			console.error("Could not determine primary key for table -> " + tableName + ". Maybe a composite key?")
+		}
 		return primaryKey;
 	}
 
@@ -293,8 +295,6 @@ class MySqlSchema extends SchemaBase{
 					}
 			}
 		}
-
-
 
 		return schemaProperty;
 	}

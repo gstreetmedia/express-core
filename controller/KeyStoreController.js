@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const ControllerBase = require('./ControllerBase');
-const Model = require("../model/KeyStoreModel");
+const Model = require("../helper/get-model")("KeyStoreModel");
 
 module.exports = class KeyStoreController extends ControllerBase {
 

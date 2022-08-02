@@ -1,5 +1,5 @@
 const ModelBase = require('./ModelBase');
-const JsonSchema = require("./objects/JsonSchema");
+const JsonSchema = require("../object/JsonSchema");
 const _ = require('lodash');
 const inflector = require("../helper/inflector");
 const fs = require("fs");
@@ -43,7 +43,6 @@ class SchemaModel extends ModelBase {
 	}
 
 	async create(data) {
-		console.log("create");
 		let result = await super.create(data, true);
 		if (!result.error) {
 			let schema = new JsonSchema(result);

@@ -1,27 +1,25 @@
 let inflector = require("./inflector");
-let fs = require("fs");
-let path = require("path")
-global.controllerCache = global.controllerCache || {};
+const fs = require("fs");
+let path = require("path");
+const checkRequire = require("./check-require");
 
-module.exports = (ControllerName) => {
-
-	if (global.controllerCache[ControllerName]) {
-		return global.controllerCache[ControllerName];
+module.exports = (controllerOrTableName) => {
+	if (controllerOrTableName.indexOf("Controller") === -1) {
+		controllerOrTableName = inflector.classify(controllerOrTableName) + "Controller";
 	}
 
 	let paths = [
-		global.appRoot + '/src/controller/' + ControllerName,
-		global.appRoot + '/src/core/controller/' + ControllerName,
+		path.resolve(global.appRoot + '/src/controller/' + controllerOrTableName + ".js"),
+		path.resolve(__dirname + '/../controller/' + controllerOrTableName + ".js"),
 	];
 
 	while(paths.length > 0) {
-		try {
-			global.controllerCache[ControllerName] = require(paths[0]);
-			break;
-		} catch (e) {
+		let o = checkRequire(paths[0]);
+		if (o) {
+			return o;
 		}
 		paths.shift();
 	}
 
-	return global.controllerCache[ControllerName];
+	return null;
 }

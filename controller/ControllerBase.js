@@ -1,8 +1,9 @@
 let _ = require("lodash");
-let cache = require("../helper/cache-manager");
+const CacheableBase = require("../object/CacheableBase");
 
-class ControllerBase {
+class ControllerBase extends CacheableBase{
 	constructor(Model) {
+		super();
 		this._Model = Model;
 	}
 
@@ -22,58 +23,6 @@ class ControllerBase {
 		this._Model = value;
 	}
 
-	get cache() {
-		return cache;
-	}
-
-	/**
-	 * Get a list of a model, typically of id's
-	 * @param req
-	 * @param res
-	 * @returns {Promise<*>}
-	 */
-	async index(req, res) {
-		//console.log("ControllerBase::index");
-
-		let queryTest = this.testQuery(req, res);
-		if (queryTest.error) {
-			if (res) {
-				return res.invalid(queryTest);
-			} else {
-				return queryTest
-			}
-		}
-
-		try {
-			let m = new this.Model(req);
-			let count = await m.count(req.query);
-			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
-			if (isNaN(req.query.limit)) {
-				req.query.limit = 500;
-			}
-			req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
-			if (isNaN(req.query.offset)) {
-				req.query.offset = 0;
-			}
-			req.limit = req.query.limit;
-			req.offset = req.query.offset || 0;
-			req.count = parseInt(count);
-			let result = await m.index(req.query);
-			if (res) {
-				return res.success(result);
-			} else {
-				return result;
-			}
-		} catch (e) {
-			console.log(e);
-			if (res) {
-				return res.invalid(e);
-			} else {
-				return null;
-			}
-		}
-	}
-
 	/**
 	 * Create a new row in a model
 	 * @param req
@@ -81,33 +30,23 @@ class ControllerBase {
 	 * @returns {Promise<*>}
 	 */
 	async create(req, res) {
-		try {
-			let m = new this.Model(req);
-			let result = await m.create(req.body);
-			if (res) {
-				if (result && result.error) {
-					return res.invalid(result);
-				} else if (!result) {
-					console.log(m.lastCommand);
-					return res.error(
-						{
-							message : "Error on create",
-							data : req.body,
-							statusCode : 500
-						}
-					)
-				}
-				return res.created(result);
-			} else {
-				return result;
+		let m = new this.Model(req);
+		let result = await m.create(req.body);
+		if (res) {
+			if (result && result.error) {
+				return res.invalid(result);
+			} else if (!result) {
+				return res.error(
+					{
+						message : "Error on create",
+						data : req.body,
+						statusCode : 500
+					}
+				)
 			}
-		} catch (e) {
-			console.log(e);
-			if (res) {
-				return res.invalid(e);
-			} else {
-				return false;
-			}
+			return res.created(result);
+		} else {
+			return result;
 		}
 	}
 
@@ -131,7 +70,9 @@ class ControllerBase {
 		}
 
 		try {
-			let result = await new this.Model(req).read(req.params.id, req.query);
+			let m = new this.Model(req);
+			m.debug = req.query.debug === true;
+			let result = await m.read(req.params.id, req.query, req.query.cache);
 			if (res) {
 				return res.success(result);
 			} else {
@@ -157,13 +98,13 @@ class ControllerBase {
 
 		try {
 			let result;
+			let m = new this.Model(req);
+			m.debug = req.query.debug === true;
 			if (req.query && req.query.where) {
-				//console.log("CB::update -> updateWhere");
-				//console.log(JSON.stringify(req.query));
-				result = await new this.Model(req).updateWhere(req.body, req.query);
+				result = await m.updateWhere(req.body, req.query);
 			} else {
 				//console.log("CB::update -> update");
-				result = await new this.Model(req).update(req.params.id, req.body);
+				result = await m.update(req.params.id, req.body);
 			}
 			if (res) {
 				if (result && result.error) {
@@ -207,20 +148,16 @@ class ControllerBase {
 			}
 		}
 
-		try {
-			let result = await new this.Model(req).updateWhere(req.params.query, req.body);
-			if (res) {
-				return res.success(result);
-			} else {
-				return result;
+		let m = new this.Model(req);
+		m.debug = req.query.debug || false;
+		let result = await m.updateWhere(req.query, req.body);
+		if (res) {
+			if (result.error) {
+				return res.error(result.error);
 			}
-		} catch (e) {
-			if (res) {
-				return res.invalid(e);
-			} else {
-				return false;
-			}
+			return res.success(result);
 		}
+		return result;
 	}
 
 	/**
@@ -244,11 +181,12 @@ class ControllerBase {
 		m.debug = req.query.debug === true;
 
 		if (!process.env.CORE_MAX_QUERY_LIMIT || !req.roleManager.hasRole(process.env.CORE_MAX_QUERY_LIMIT.split(","))) {
-			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : 500);
+			//If the user role (defined in CORE_MAX_QUERY_LIMIT) isn't allowed to request more than CORE_REQUEST_LIMIT
+			req.query.limit = Math.min(req.query.limit ? parseInt(req.query.limit) : process.env.CORE_REQUEST_LIMIT || 500);
 		}
 
 		if (isNaN(req.query.limit)) {
-			req.query.limit = 500;
+			req.query.limit = process.env.CORE_REQUEST_LIMIT || 500;
 		}
 
 		req.query.offset = Math.min(req.query.offset ? parseInt(req.query.offset) : 0);
@@ -259,9 +197,9 @@ class ControllerBase {
 		req.limit = req.query.limit;
 		req.offset = req.query.offset;
 
-		let result = await m.query(req.query);
+		let result = await m.query(req.query, req.query.cache);
 
-		if (_.isArray(result) && (result.length === req.query.limit || req.query.offset > 0)) {
+		if (Array.isArray(result) && (result.length === req.query.limit || req.query.offset > 0)) {
 			req.count = await m.count(req.query, true);
 		} else {
 			req.count = result.length;
@@ -299,7 +237,7 @@ class ControllerBase {
 		let search = req.query.query.toString().toLowerCase();
 		let queryNumber = parseFloat(search);
 
-		if (search.length < 4) {
+		if (search.length < 3) {
 			return res.success(
 				{
 					data : [],
@@ -312,7 +250,7 @@ class ControllerBase {
 
 		let properties = req.query.properties || Object.keys(m.properties);
 
-		if (!_.isArray(properties)) {
+		if (!Array.isArray(properties)) {
 			properties = properties.split(",");
 		}
 
@@ -416,8 +354,6 @@ class ControllerBase {
 			{
 				data : list,
 				hash : hash,
-				query : query,
-				sql : m.lastCommand.toString(),
 				results : results
 			}
 		);
@@ -426,33 +362,46 @@ class ControllerBase {
 	}
 
 	/**
-	 * Remove and existing row
+	 * Remove an existing row
 	 * @param req
 	 * @param res
 	 * @returns {Promise<*>}
 	 */
 	async destroy(req, res) {
-		try {
-			let result = await new this.Model(req).destroy(req.params.id);
-			if (res) {
-				return res.success(result);
-			} else {
-				return result;
+		let m = new this.Model(req);
+		m.debug = req.query.debug || false;
+		let result = await m.destroy(req.params.id);
+		if (res) {
+			if (result.error) {
+				return res.error(result.error);
 			}
-		} catch (e) {
-			console.log(e);
-			if (res) {
-				return res.invalid(e);
-			} else {
-				return false;
-			}
+			return res.success(result);
 		}
+		return result;
+	}
+
+	/**
+	 * Remove rows, based on a query
+	 * @param req
+	 * @param res
+	 * @returns {Promise<*>}
+	 */
+	async destroyWhere(req, res) {
+		let m = new this.Model(req);
+		m.debug = req.query.debug || false;
+		let result = await m.destroyWhere(req.params.id);
+		if (res) {
+			if (result.error) {
+				return res.error(result.error);
+			}
+			return res.success(result);
+		}
+		return result;
 	}
 
 	async adminIndex(req) {
 
 		let m = new this.Model(req);
-		m.debug = true;
 		await m.init();
 
 		let foreignKeys = m.foreignKeys || {};
@@ -487,7 +436,7 @@ class ControllerBase {
 		let result = await m.find(req.query);
 
 		//Logic? Don't count unless we are paging through results
-		if (_.isArray(result) && (result.length === req.query.limit || req.query.offset > 0)) {
+		if (Array.isArray(result) && (result.length === req.query.limit || req.query.offset > 0)) {
 			req.count = await m.count(req.query, true);
 		} else {
 			req.count = result.length;
@@ -619,30 +568,52 @@ class ControllerBase {
 
 
 	testQuery(req, res) {
+		let query = {};
+		let data = {};
+
+		if (req.body.query) {
+			query = req.body.query;
+		}
+
+		if (req.body.data) {
+			data = req.body.data;
+		}
 
 		if (req.body) {
 			if (req.body.where) {
-				req.query.where = req.body.where;
+				query.where = req.body.where;
 			}
 			if (req.body.select) {
-				req.query.select = req.body.select;
+				query.select = req.body.select;
 			}
 			if (req.body.limit) {
-				req.query.limit = req.body.limit;
+				query.limit = req.body.limit;
 			}
 			if (req.body.offset) {
-				req.query.offset = req.body.offset;
+				query.offset = req.body.offset;
 			}
 			if (req.body.join) {
-				req.query.join = req.body.join;
+				query.join = req.body.join;
 			}
 			if (req.body.sort) {
-				req.query.sort = req.body.sort;
+				query.sort = req.body.sort;
 			}
 			if (req.body.debug) {
-				req.query.debug = req.body.debug;
+				query.debug = req.body.debug;
+			}
+			if (req.body.cache) {
+				query.cache = req.body.cache;
 			}
 		}
+
+		let queryParameters = [
+			{"where":"object"},
+			"join",
+			"include",
+			"select",
+			"offset",
+			"limit",
+			"sort"]
 
 		if (req.query && req.query.where && typeof req.query.where === "string") {
 			try {
@@ -655,7 +626,7 @@ class ControllerBase {
 					reason : "Malformed JSON Where"
 				}
 			}
-			req.query.where = JSON.parse(req.query.where);
+			query.where = JSON.parse(req.query.where);
 		}
 
 		if (req.query && req.query.join && typeof req.query.join === "string") {
@@ -696,8 +667,34 @@ class ControllerBase {
 			}
 		}
 
+		if (req.query && req.query.offset && typeof req.query.offset === "string") {
+			if (!isNaN(parseInt(req.query.offset))) {
+				req.query.offset = parseInt(req.query.offset);
+			}
+		}
+
+		if (req.query && req.query.limit && typeof req.query.limit === "string") {
+			if (!isNaN(parseInt(req.query.limit))) {
+				req.query.limit = parseInt(req.query.limit);
+			}
+		}
+
+		if (req.query.query && typeof req.query.limit === "string") {
+			try {
+				req.query = JSON.parse(unescape(req.query.query));
+			} catch (e) {
+				return {
+					error : true,
+					message : e.toString(),
+					reason : "Malformed ?query="
+				}
+			}
+		}
+
 		return req.query;
 	}
+
+
 
 }
 

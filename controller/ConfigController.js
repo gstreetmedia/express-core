@@ -1,13 +1,10 @@
 const ControllerBase = require('./ControllerBase');
-const Model = require("../model/ConfigModel");
+const _ = require('lodash');
+const Model = require("../helper/get-model")("ConfigModel");
 
 class ConfigController extends ControllerBase {
-	/**
-	 * @param {ConfigModel} model
-	 */
-	constructor(model) {
-		super(model || Model);
+	constructor() {
+		super(Model);
 	}
 }
-
-module.exports = ConfigController;
+module.exports = ConfigController

@@ -47,12 +47,53 @@ exports.controllerName = (tableName) => {
 	return inflector.classify(tableName) + "Controller";
 }
 
-exports.propertyName = (columnName) => {
-	let styles = process.env.CORE_COLUMN_NAME_STYLE || "camelCase";
+exports.tableFromModel = (modelName) => {
+	let table = modelName.replace("Model", "");
+	let styles = process.env.CORE_TABLE_STYLE || "plural,dashed,lowercase";
 	styles = styles.split(",");
 	styles.forEach(
 		(style) => {
-			switch (style.toLowerCase()) {
+			switch (style) {
+				case "singular" :
+					table = inflector.singularize(modelName);
+					break;
+				case "plural" :
+					table = inflector.pluralize(modelName);
+					break;
+				case "dashed" :
+					table = inflector.dasherize(modelName);
+					break;
+				case "underscore" :
+				case "snake_case" :
+					table = inflector.underscore(modelName);
+					break;
+				case "camelCase" :
+					table = inflector.camelize(modelName);
+					break
+				case "TitleCase" :
+					table = inflector.camelize(modelName, true);
+					break
+				case "lowercase" :
+					table = modelName.toLowerCase();
+					break;
+			}
+		}
+	);
+	return modelName;
+}
+
+exports.propertyName = (columnName) => {
+	let styles = process.env.CORE_COLUMN_NAME_STYLE || "camelCase";
+	styles = styles.split(",");
+	if (columnName.indexOf("_") !== -1) {
+		columnName = columnName.toLowerCase();
+	}
+	if (!hasLowerCase(columnName) && hasUpperCase(columnName)) {
+		columnName = columnName.toLowerCase();
+	}
+	styles.forEach(
+		(style) => {
+			switch (style) {
 				case "singular" :
 					columnName = inflector.singularize(columnName);
 					break;
@@ -66,10 +107,10 @@ exports.propertyName = (columnName) => {
 				case "snake_case" :
 					columnName = inflector.underscore(columnName);
 					break;
-				case "camelcase" :
+				case "camelCase" :
 					columnName = inflector.camelize(columnName, false);
 					break;
-				case "titlecase" :
+				case "TitleCase" :
 					columnName = inflector.camelize(route, true);
 					break;
 				case "lowercase" :
@@ -78,45 +119,7 @@ exports.propertyName = (columnName) => {
 			}
 		}
 	);
-	if (columnName === "iD") {
-		return "id";
-	}
 	return columnName;
-}
-
-exports.columnName = (propertyName) => {
-	let styles = process.env.CORE_DB_NAME_STYLE || "underscore,lowercase";
-	styles = styles.split(",");
-	styles.forEach(
-		(style) => {
-			switch (style.toLowerCase()) {
-				case "singular" :
-					propertyName = inflector.singularize(propertyName);
-					break;
-				case "plural" :
-					propertyName = inflector.pluralize(propertyName);
-					break;
-				case "dashed" :
-					propertyName = inflector.dasherize(propertyName);
-					break;
-				case "underscore" :
-				case "snake_case" :
-					propertyName = inflector.underscore(propertyName);
-					break;
-				case "camelcase" :
-					propertyName = inflector.camelize(propertyName, false);
-					break;
-				case "titlecase" :
-					propertyName = inflector.camelize(route, true);
-					break;
-				case "lowercase" :
-					propertyName = propertyName.toLowerCase();
-					break;
-			}
-		}
-	);
-
-	return propertyName;
 }
 
 exports.styles = {
@@ -128,4 +131,11 @@ exports.styles = {
 	SNAKE_CASE: "snake_case",
 	TITLE_CASE: "TitleCase",
 	LOWERCASE: "lowercase"
+}
+
+let hasLowerCase = (str) => {
+	return (/[a-z]/.test(str));
+}
+let hasUpperCase = (str) => {
+	return (/[A-Z]/.test(str));
 }
